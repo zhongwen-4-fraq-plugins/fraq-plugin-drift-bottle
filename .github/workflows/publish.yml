@@ -1,0 +1,118 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  actions: read
+  contents: write
+  id-token: write
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.12.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check tag and package version
+        id: package
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          expected_tag="v${version}"
+
+          if [[ "$GITHUB_REF_NAME" != "$expected_tag" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match package version $expected_tag."
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to npm
+        run: npm publish --access public --provenance
+
+      - name: Find previous successful run
+        id: previous
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const current = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.runId,
+            });
+            const runs = await github.paginate(
+              github.rest.actions.listWorkflowRuns,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: current.data.workflow_id,
+                status: "success",
+                per_page: 100,
+              },
+            );
+            const currentStartedAt = new Date(current.data.created_at);
+            const previous = runs.find(
+              (run) => new Date(run.created_at) < currentStartedAt,
+            );
+            core.setOutput("base_sha", previous?.head_sha ?? "");
+
+      - name: Create release notes
+        env:
+          BASE_SHA: ${{ steps.previous.outputs.base_sha }}
+          VERSION: ${{ steps.package.outputs.version }}
+        shell: bash
+        run: |
+          head_sha=$(git rev-list -n 1 "$GITHUB_REF_NAME")
+
+          if [[ -n "$BASE_SHA" ]] && git merge-base --is-ancestor "$BASE_SHA" "$head_sha"; then
+            range="$BASE_SHA..$head_sha"
+          else
+            range="$head_sha"
+          fi
+
+          mapfile -t commits < <(
+            git log "$range" --reverse --format='%s' -- . ':(exclude)flightdeck/**'
+          )
+
+          {
+            printf '**v%s更新日志：**\n\n' "$VERSION"
+
+            if [[ ${#commits[@]} -eq 0 ]]; then
+              printf '1. 无非 flightdeck 相关更新\n'
+            else
+              for index in "${!commits[@]}"; do
+                printf '%d. %s\n' "$((index + 1))" "${commits[$index]}"
+              done
+            fi
+          } > RELEASE_NOTES.md
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.package.outputs.version }}
+        run: gh release create "$GITHUB_REF_NAME" --title "v$VERSION" --notes-file RELEASE_NOTES.md
