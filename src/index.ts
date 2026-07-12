@@ -8,9 +8,11 @@ export type { DriftBottle, DriftBottleOptions } from './types.js';
 
 export default definePlugin({
   name: 'drift-bottle',
+  provides: [BottleStore],
   async apply(ctx, options: DriftBottleOptions = {}) {
-    const store = new BottleStore(options.storagePath ?? 'data/drift-bottles.json');
+    const store = new BottleStore(options.storagePath ?? './data/drift-bottles.db');
     await store.load();
+    ctx.provide(BottleStore, store);
     registerDriftBottleCommands(ctx, store);
   },
 });

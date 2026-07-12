@@ -2,6 +2,8 @@
 
 Fraq 的匿名漂流瓶插件，提供“扔漂流瓶”和“捡漂流瓶”两个指令。
 
+需要 Node.js 22.13.0 或更高版本。
+
 ## 安装
 
 ```bash
@@ -14,11 +16,11 @@ pnpm add fraq-plugin-drift-bottle
 import DriftBottlePlugin from 'fraq-plugin-drift-bottle';
 
 ctx.install(DriftBottlePlugin, {
-  storagePath: 'data/drift-bottles.json',
+  storagePath: './data/drift-bottles.db',
 });
 ```
 
 - `扔漂流瓶 <内容>`：匿名保存一条漂流瓶消息。
 - `捡漂流瓶`：随机捡取并移除一条漂流瓶消息。
 
-`storagePath` 可选，默认使用运行目录下的 `data/drift-bottles.json`。
+漂流瓶使用 SQLite 存储。`storagePath` 可选，默认使用运行目录下的 `./data/drift-bottles.db`。

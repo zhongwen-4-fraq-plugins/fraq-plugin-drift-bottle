@@ -1,35 +1,39 @@
+import type { Disposable } from '@fraqjs/fraq';
+
 import type { DriftBottle, NewDriftBottle } from './types.js';
 
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 
-interface BottleFile {
-  version: 1;
-  bottles: DriftBottle[];
+interface BottleRow {
+  id: string;
+  sender_id: number;
+  created_at: number;
+  source_scene: DriftBottle['source']['scene'];
+  source_peer_id: number;
+  segments: string;
 }
 
-export class BottleStore {
-  private bottles: DriftBottle[] = [];
-  private saveQueue = Promise.resolve();
+export class BottleStore implements Disposable {
+  private database?: DatabaseSync;
 
   constructor(private readonly filePath: string) {}
 
   async load(): Promise<void> {
-    try {
-      const content = await readFile(this.filePath, 'utf8');
-      const data = JSON.parse(content) as BottleFile;
-
-      if (data.version !== 1 || !Array.isArray(data.bottles)) {
-        throw new Error('漂流瓶数据文件格式不正确');
-      }
-
-      this.bottles = data.bottles;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        throw error;
-      }
-    }
+    await mkdir(dirname(this.filePath), { recursive: true });
+    this.database = new DatabaseSync(this.filePath);
+    this.database.exec(`
+      CREATE TABLE IF NOT EXISTS bottles (
+        id TEXT PRIMARY KEY,
+        sender_id INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        source_scene TEXT NOT NULL,
+        source_peer_id INTEGER NOT NULL,
+        segments TEXT NOT NULL
+      )
+    `);
   }
 
   async add(input: NewDriftBottle): Promise<DriftBottle> {
@@ -39,37 +43,80 @@ export class BottleStore {
       ...input,
     };
 
-    this.bottles.push(bottle);
-    await this.save();
+    this.getDatabase()
+      .prepare(`
+        INSERT INTO bottles (id, sender_id, created_at, source_scene, source_peer_id, segments)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `)
+      .run(
+        bottle.id,
+        bottle.senderId,
+        bottle.createdAt,
+        bottle.source.scene,
+        bottle.source.peerId,
+        JSON.stringify(bottle.segments),
+      );
     return bottle;
   }
 
   async take(randomValue = Math.random()): Promise<DriftBottle | undefined> {
-    if (this.bottles.length === 0) {
-      return undefined;
-    }
+    const database = this.getDatabase();
+    database.exec('BEGIN IMMEDIATE');
 
-    const index = Math.floor(randomValue * this.bottles.length);
-    const [bottle] = this.bottles.splice(index, 1);
-    await this.save();
-    return bottle;
+    try {
+      const count = this.count();
+      if (count === 0) {
+        database.exec('COMMIT');
+        return undefined;
+      }
+
+      const offset = Math.floor(randomValue * count);
+      const row = database.prepare('SELECT * FROM bottles ORDER BY created_at, id LIMIT 1 OFFSET ?').get(offset) as
+        | BottleRow
+        | undefined;
+
+      if (!row) {
+        database.exec('COMMIT');
+        return undefined;
+      }
+
+      database.prepare('DELETE FROM bottles WHERE id = ?').run(row.id);
+      database.exec('COMMIT');
+      return this.toBottle(row);
+    } catch (error) {
+      database.exec('ROLLBACK');
+      throw error;
+    }
   }
 
   count(): number {
-    return this.bottles.length;
+    const row = this.getDatabase().prepare('SELECT COUNT(*) AS count FROM bottles').get() as { count: number };
+    return row.count;
   }
 
-  private save(): Promise<void> {
-    const content = `${JSON.stringify({ version: 1, bottles: this.bottles }, null, 2)}\n`;
-    const pendingSave = this.saveQueue
-      .catch(() => undefined)
-      .then(async () => {
-        await mkdir(dirname(this.filePath), { recursive: true });
-        await writeFile(`${this.filePath}.tmp`, content, 'utf8');
-        await rename(`${this.filePath}.tmp`, this.filePath);
-      });
+  dispose(): void {
+    this.database?.close();
+    this.database = undefined;
+  }
 
-    this.saveQueue = pendingSave;
-    return pendingSave;
+  private getDatabase(): DatabaseSync {
+    if (!this.database) {
+      throw new Error('漂流瓶数据库尚未加载');
+    }
+
+    return this.database;
+  }
+
+  private toBottle(row: BottleRow): DriftBottle {
+    return {
+      id: row.id,
+      senderId: row.sender_id,
+      createdAt: row.created_at,
+      source: {
+        scene: row.source_scene,
+        peerId: row.source_peer_id,
+      },
+      segments: JSON.parse(row.segments) as DriftBottle['segments'],
+    };
   }
 }
