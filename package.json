@@ -1,0 +1,22 @@
+{
+  "name": "fraq-starter-template",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "A starter template for creating Fraq applications",
+  "scripts": {
+    "start": "tsx src/index.ts"
+  },
+  "packageManager": "pnpm@11.9.0",
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.1",
+    "@fraqjs/mock": "^0.1.0",
+    "@types/node": "^24.13.2",
+    "tsdown": "^0.22.2",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@fraqjs/fraq": "^0.13.0",
+    "@fraqjs/color-log": "^0.2.0"
+  }
+}
