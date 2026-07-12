@@ -1,10 +1,24 @@
 {
-  "name": "fraq-starter-template",
+  "name": "fraq-plugin-drift-bottle",
   "type": "module",
   "version": "0.1.0",
-  "description": "A starter template for creating Fraq applications",
+  "description": "Fraq 漂流瓶插件",
+  "files": [
+    "dist"
+  ],
+  "main": "dist/index.mjs",
+  "typings": "dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
   "scripts": {
-    "start": "tsx src/index.ts"
+    "build": "tsdown",
+    "check": "biome check . && tsc --noEmit",
+    "test": "tsx --test test/*.test.ts",
+    "prepack": "pnpm build"
   },
   "packageManager": "pnpm@11.12.0+sha512.820a6fbd0d9f04c226638002aead1e45340a9139dd5dc077c1d83ef44aa2481c8eb6637b4c9aa696a3c7e35ba818e49cf27213e5f2b91138d09b7a3e26e898ba",
   "devDependencies": {
@@ -15,8 +29,19 @@
     "tsx": "^4.22.4",
     "typescript": "^6.0.3"
   },
-  "dependencies": {
-    "@fraqjs/fraq": "^0.13.0",
-    "@fraqjs/color-log": "^0.2.0"
+  "peerDependencies": {
+    "@fraqjs/fraq": "^0.13.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zhongwen-4-fraq-plugins/fraq-plugin-drift-bottle.git"
+  },
+  "keywords": [
+    "fraq",
+    "milky",
+    "drift-bottle"
+  ],
+  "engines": {
+    "node": ">=22"
   }
 }

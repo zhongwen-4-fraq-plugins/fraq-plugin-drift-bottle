@@ -1,7 +1,24 @@
-# fraq-starter-template
+# fraq-plugin-drift-bottle
 
-用于开发 Fraq 应用的模板仓库。包含了：
+Fraq 的匿名漂流瓶插件，提供“扔漂流瓶”和“捡漂流瓶”两个指令。
 
-- TypeScript 配置（`tsconfig.json`）
-- Biome 配置（`biome.json`），用于代码格式化和 linting
-- 简单的 `echo` 命令示例
+## 安装
+
+```bash
+pnpm add fraq-plugin-drift-bottle
+```
+
+## 使用
+
+```ts
+import DriftBottlePlugin from 'fraq-plugin-drift-bottle';
+
+ctx.install(DriftBottlePlugin, {
+  storagePath: 'data/drift-bottles.json',
+});
+```
+
+- `扔漂流瓶 <内容>`：匿名保存一条漂流瓶消息。
+- `捡漂流瓶`：随机捡取并移除一条漂流瓶消息。
+
+`storagePath` 可选，默认使用运行目录下的 `data/drift-bottles.json`。

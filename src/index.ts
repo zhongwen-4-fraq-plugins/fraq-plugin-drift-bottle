@@ -1,17 +1,16 @@
-import { createColoredLogHandler } from '@fraqjs/color-log';
-import { Context, param } from '@fraqjs/fraq';
+import { definePlugin } from '@fraqjs/fraq';
 
-const ctx = Context.fromUrl('http://127.0.0.1:30001/', {
-  logHandler: createColoredLogHandler({
-    minLevel: 'debug',
-  }),
+import { registerDriftBottleCommands } from './commands.js';
+import { BottleStore } from './storage.js';
+import type { DriftBottleOptions } from './types.js';
+
+export type { DriftBottle, DriftBottleOptions } from './types.js';
+
+export default definePlugin({
+  name: 'drift-bottle',
+  async apply(ctx, options: DriftBottleOptions = {}) {
+    const store = new BottleStore(options.storagePath ?? 'data/drift-bottles.json');
+    await store.load();
+    registerDriftBottleCommands(ctx, store);
+  },
 });
-
-ctx.router
-  .command('echo')
-  .arg('content', param.str())
-  .execute((session, { content }) => {
-    session.reply(`You said: ${content}`);
-  });
-
-ctx.start();
