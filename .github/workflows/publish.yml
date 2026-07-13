@@ -51,7 +51,16 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Publish to npm
-        run: npm publish --access public --provenance
+        shell: bash
+        run: |
+          name=$(node -p "require('./package.json').name")
+          version=${{ steps.package.outputs.version }}
+
+          if npm view "$name@$version" version --json >/dev/null 2>&1; then
+            echo "$name@$version is already published; skipping npm publish."
+          else
+            npm publish --access public --provenance
+          fi
 
       - name: Find previous successful run
         id: previous
