@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-test('漂流瓶会持久化并在捡取后移除', async (t) => {
+test('漂流瓶会持久化，并可选择捡取后是否删除', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-'));
   const storagePath = join(directory, 'bottles.db');
   t.after(() => rm(directory, { recursive: true, force: true }));
@@ -25,13 +25,17 @@ test('漂流瓶会持久化并在捡取后移除', async (t) => {
   });
 
   assert.equal(store.count(), 2);
-  assert.equal((await store.take(0.99))?.senderId, 10002);
+  assert.equal((await store.pick(false, 0.99))?.senderId, 10002);
+  assert.equal(store.count(), 2);
+  assert.equal((await store.pick(true, 0.99))?.senderId, 10002);
   store.dispose();
 
   const reloadedStore = new BottleStore(storagePath);
   await reloadedStore.load();
   assert.equal(reloadedStore.count(), 1);
-  assert.equal((await reloadedStore.take(0))?.senderId, 10001);
+  assert.equal((await reloadedStore.pick(false, 0))?.senderId, 10001);
+  assert.equal(reloadedStore.count(), 1);
+  assert.equal((await reloadedStore.pick(true, 0))?.senderId, 10001);
   assert.equal(reloadedStore.count(), 0);
   reloadedStore.dispose();
 });

@@ -3,7 +3,7 @@ import { type Context, param } from '@fraqjs/fraq';
 import { hasBottleContent, toOutgoingSegments } from './message.js';
 import type { BottleStore } from './storage.js';
 
-export function registerDriftBottleCommands(ctx: Context, store: BottleStore): void {
+export function registerDriftBottleCommands(ctx: Context, store: BottleStore, deleteAfterPick: boolean): void {
   ctx.router
     .command('扔漂流瓶')
     .describe('将一条匿名消息放入漂流瓶')
@@ -36,7 +36,7 @@ export function registerDriftBottleCommands(ctx: Context, store: BottleStore): v
     .command('捡漂流瓶')
     .describe('随机捡取一个漂流瓶')
     .execute(async (session) => {
-      const bottle = await store.take();
+      const bottle = await store.pick(deleteAfterPick);
 
       if (!bottle) {
         await session.reply('海里暂时没有漂流瓶。');

@@ -2,6 +2,7 @@ import type { milky } from '@fraqjs/fraq';
 
 export interface DriftBottleOptions {
   storagePath?: string;
+  deleteAfterPick?: boolean;
 }
 
 export interface DriftBottle {

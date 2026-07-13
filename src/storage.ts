@@ -59,7 +59,7 @@ export class BottleStore implements Disposable {
     return bottle;
   }
 
-  async take(randomValue = Math.random()): Promise<DriftBottle | undefined> {
+  async pick(deleteAfterPick: boolean, randomValue = Math.random()): Promise<DriftBottle | undefined> {
     const database = this.getDatabase();
     database.exec('BEGIN IMMEDIATE');
 
@@ -80,7 +80,9 @@ export class BottleStore implements Disposable {
         return undefined;
       }
 
-      database.prepare('DELETE FROM bottles WHERE id = ?').run(row.id);
+      if (deleteAfterPick) {
+        database.prepare('DELETE FROM bottles WHERE id = ?').run(row.id);
+      }
       database.exec('COMMIT');
       return this.toBottle(row);
     } catch (error) {

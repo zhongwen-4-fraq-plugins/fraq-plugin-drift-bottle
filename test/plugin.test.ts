@@ -22,7 +22,10 @@ test('可以扔出、捡取漂流瓶，并在瓶池为空时提示', async (t) =
 
   let messageSeq = 1;
   client.stubApi('send_group_message', () => ({ message_seq: messageSeq++, time: 1_700_000_000 }));
-  ctx.install(DriftBottlePlugin, { storagePath: join(directory, 'bottles.db') });
+  ctx.install(DriftBottlePlugin, {
+    storagePath: join(directory, 'bottles.db'),
+    deleteAfterPick: true,
+  });
   await ctx.start();
 
   await dispatchGroupMessage(ctx, client, 10001, inmsg`扔漂流瓶 来自海上的问候`);
