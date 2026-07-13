@@ -7,7 +7,14 @@ export function hasBottleContent(segments: milky.IncomingSegment[]): boolean {
 }
 
 export function hasOnlySupportedBottleSegments(segments: milky.IncomingSegment[]): segments is BottleSegment[] {
-  return segments.every((segment) => segment.type === 'text' || segment.type === 'image' || segment.type === 'video');
+  return segments.every(
+    (segment) =>
+      segment.type === 'text' ||
+      segment.type === 'image' ||
+      segment.type === 'video' ||
+      segment.type === 'face' ||
+      segment.type === 'forward',
+  );
 }
 
 export function resolveBottleContent(
@@ -18,22 +25,40 @@ export function resolveBottleContent(
     ...segments.filter((segment) => segment.type !== 'reply' && (segment.type !== 'text' || segment.data.text.trim())),
     ...sourceSegments.flatMap((segment) =>
       segment.type === 'reply'
-        ? segment.data.segments.filter((quoted) => quoted.type === 'image' || quoted.type === 'video')
+        ? segment.data.segments.filter(
+            (quoted) =>
+              quoted.type === 'image' || quoted.type === 'video' || quoted.type === 'face' || quoted.type === 'forward',
+          )
         : [],
     ),
   ];
 }
 
+export async function loadForwardMessages(client: MilkyClient, segments: BottleSegment[]): Promise<BottleSegment[]> {
+  return Promise.all(
+    segments.map(async (segment) => {
+      if (segment.type !== 'forward' || segment.data.messages) {
+        return segment;
+      }
+
+      const result = await client.get_forwarded_messages({ forward_id: segment.data.forward_id });
+      return { ...segment, data: { ...segment.data, messages: result.messages } };
+    }),
+  );
+}
+
 export async function toOutgoingSegments(
   client: MilkyClient,
   segments: milky.IncomingSegment[],
+  userId = 0,
 ): Promise<milky.OutgoingSegment_ZodInput[]> {
-  return Promise.all(segments.map((segment) => toOutgoingSegment(client, segment)));
+  return Promise.all(segments.map((segment) => toOutgoingSegment(client, segment, userId)));
 }
 
 async function toOutgoingSegment(
   client: MilkyClient,
   segment: milky.IncomingSegment,
+  userId: number,
 ): Promise<milky.OutgoingSegment_ZodInput> {
   switch (segment.type) {
     case 'text':
@@ -68,7 +93,7 @@ async function toOutgoingSegment(
     case 'file':
       return textSegment(`[文件：${segment.data.file_name}]`);
     case 'forward':
-      return textSegment(`[合并转发消息：${segment.data.title}]`);
+      return forwardSegment(client, segment, userId);
     case 'market_face':
       return {
         type: 'image',
@@ -83,6 +108,32 @@ async function toOutgoingSegment(
     default:
       return textSegment('[暂不支持的消息]');
   }
+}
+
+async function forwardSegment(
+  client: MilkyClient,
+  segment: Extract<BottleSegment, { type: 'forward' }>,
+  userId: number,
+): Promise<milky.OutgoingForwardSegment_ZodInput> {
+  const messages =
+    segment.data.messages ?? (await client.get_forwarded_messages({ forward_id: segment.data.forward_id })).messages;
+
+  return {
+    type: 'forward',
+    data: {
+      messages: await Promise.all(
+        messages.map(async (message) => ({
+          user_id: userId,
+          sender_name: message.sender_name,
+          time: message.time,
+          segments: await toOutgoingSegments(client, message.segments, userId),
+        })),
+      ),
+      title: segment.data.title,
+      preview: segment.data.preview,
+      summary: segment.data.summary,
+    },
+  };
 }
 
 async function getResourceUrl(client: MilkyClient, resourceId: string, fallbackUrl: string): Promise<string> {

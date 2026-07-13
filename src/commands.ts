@@ -3,11 +3,13 @@ import { type Context, type milky, param, type Session } from '@fraqjs/fraq';
 import {
   hasBottleContent,
   hasOnlySupportedBottleSegments,
+  loadForwardMessages,
   resolveBottleContent,
   toOutgoingSegments,
 } from './message.js';
 import type { BottleModerator, ModerationResult } from './moderation.js';
 import type { BottleStore } from './storage.js';
+import type { BottleSegment } from './types.js';
 
 export function registerDriftBottleCommands(
   ctx: Context,
@@ -24,13 +26,22 @@ export function registerDriftBottleCommands(
     }
 
     if (!hasOnlySupportedBottleSegments(bottleContent)) {
-      await session.reply('漂流瓶只支持文字、图片和视频。');
+      await session.reply('漂流瓶只支持文字、图片、视频、表情和合并转发消息。');
+      return;
+    }
+
+    let storedContent: BottleSegment[];
+    try {
+      storedContent = await loadForwardMessages(ctx.client, bottleContent);
+    } catch (error) {
+      ctx.logger.error('读取合并转发消息失败', error);
+      await session.reply('无法读取合并转发消息，请稍后再试。');
       return;
     }
 
     let moderation: ModerationResult;
     try {
-      moderation = await moderator(bottleContent);
+      moderation = await moderator(storedContent);
     } catch (error) {
       ctx.logger.error('漂流瓶 AI 审核失败', error);
       await session.reply('AI 审核暂时不可用，请稍后再试。');
@@ -49,7 +60,7 @@ export function registerDriftBottleCommands(
         scene: session.raw.message_scene,
         peerId: session.raw.peer_id,
       },
-      segments: bottleContent,
+      segments: storedContent,
     });
     await session.reply('漂流瓶已经扔进海里了。');
   }
@@ -104,7 +115,7 @@ export function registerDriftBottleCommands(
             text: bottle.displayName ? `捡到一个来自“${bottle.displayName}”的漂流瓶：\n` : '捡到一个匿名漂流瓶：\n',
           },
         },
-        ...(await toOutgoingSegments(ctx.client, bottle.segments)),
+        ...(await toOutgoingSegments(ctx.client, bottle.segments, session.selfId)),
       ]);
     });
 }

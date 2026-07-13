@@ -25,6 +25,17 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
 
   let messageSeq = 1;
   client.stubApi('send_group_message', () => ({ message_seq: messageSeq++, time: 1_700_000_000 }));
+  client.stubApi('get_forwarded_messages', () => ({
+    messages: [
+      {
+        message_seq: 1,
+        sender_name: '测试用户',
+        avatar_url: 'https://example.com/avatar',
+        time: 1_700_000_000,
+        segments: [inseg.text('转发正文')],
+      },
+    ],
+  }));
   const store = new BottleStore(join(directory, 'bottles.db'));
   await store.load();
   ctx.provide(BottleStore, store);
@@ -49,7 +60,7 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
   await dispatchGroupMessage(ctx, client, 10001, inmsg`漂流瓶署名 海风`);
   await dispatchGroupMessage(ctx, client, 10001, inmsg`漂流瓶署名 违规别名`);
   await dispatchGroupMessage(ctx, client, 10001, inmsg`扔漂流瓶 来自海上的问候`);
-  await dispatchGroupMessage(ctx, client, 10001, inmsg`扔漂流瓶 ${inseg.face(14)}`);
+  await dispatchGroupMessage(ctx, client, 10001, inmsg`扔漂流瓶 ${inseg.record()}`);
   await dispatchGroupMessage(ctx, client, 10001, inmsg`扔漂流瓶 违规内容`);
   await dispatchGroupMessage(ctx, client, 10001, inmsg`扔漂流瓶 审核故障`);
   await dispatchGroupMessage(ctx, client, 10002, inmsg`捡漂流瓶`);
@@ -61,10 +72,12 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
     inseg.text('不会被带入的文字'),
     inseg.image({ tempUrl: 'https://example.com/image' }),
     inseg.video({ tempUrl: 'https://example.com/video' }),
+    inseg.face(14),
+    inseg.forward({ title: '聊天记录' }),
   ]);
   await dispatchGroupMessage(ctx, client, 10001, inmsg`${inseg.reply(quoted)}扔漂流瓶`);
 
-  assert.deepEqual(moderatedSegmentTypes, ['image', 'video']);
+  assert.deepEqual(moderatedSegmentTypes, ['image', 'video', 'face', 'forward']);
 
   const replies = client.apiCalls
     .filter((call) => call.endpoint === 'send_group_message')
@@ -85,7 +98,7 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
     },
     {
       group_id: 20001,
-      message: [{ type: 'text', data: { text: '漂流瓶只支持文字、图片和视频。' } }],
+      message: [{ type: 'text', data: { text: '漂流瓶只支持文字、图片、视频、表情和合并转发消息。' } }],
     },
     {
       group_id: 20001,

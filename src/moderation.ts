@@ -1,3 +1,4 @@
+import type { milky } from '@fraqjs/fraq';
 import type { AiService } from '@fraqjs/plugin-ai';
 import { generateText, Output, type UserContent } from 'ai';
 import { z } from 'zod';
@@ -45,42 +46,53 @@ export function createModerationInstructions(): string {
   ].join('\n');
 }
 
-export function createModerationContent(segments: BottleSegment[]): UserContent {
-  const content: UserContent = [{ type: 'text', text: '以下是待审核的漂流瓶内容：' }];
+export function createModerationContent(segments: BottleSegment[]): Exclude<UserContent, string> {
+  const content: Exclude<UserContent, string> = [{ type: 'text', text: '以下是待审核的漂流瓶内容：' }];
 
   for (const segment of segments) {
-    const text = segmentText(segment);
-    if (text) {
-      content.push({ type: 'text', text });
-    }
-
-    const media = segmentMedia(segment);
-    if (media) {
-      content.push({ type: 'file', mediaType: media.type, data: new URL(media.url) });
-    }
+    appendModerationSegment(content, segment);
   }
 
   return content;
 }
 
-function segmentText(segment: BottleSegment): string {
+function appendModerationSegment(content: Exclude<UserContent, string>, segment: milky.IncomingSegment): void {
   switch (segment.type) {
     case 'text':
-      return segment.data.text;
+      content.push({ type: 'text', text: segment.data.text });
+      break;
     case 'image':
-      return segment.data.summary;
+      if (segment.data.summary) {
+        content.push({ type: 'text', text: segment.data.summary });
+      }
+      content.push({ type: 'file', mediaType: 'image', data: new URL(segment.data.temp_url) });
+      break;
     case 'video':
-      return '[视频消息]';
+      content.push({ type: 'text', text: '[视频消息]' });
+      content.push({ type: 'file', mediaType: 'video', data: new URL(segment.data.temp_url) });
+      break;
+    case 'face':
+      content.push({ type: 'text', text: `[QQ 表情：${segment.data.face_id}]` });
+      break;
+    case 'forward':
+      content.push({
+        type: 'text',
+        text: [`[合并转发：${segment.data.title}]`, ...segment.data.preview, segment.data.summary].join('\n'),
+      });
+      if (hasForwardMessages(segment)) {
+        for (const message of segment.data.messages) {
+          content.push({ type: 'text', text: `[${message.sender_name}]` });
+          for (const nested of message.segments) {
+            appendModerationSegment(content, nested);
+          }
+        }
+      }
+      break;
   }
 }
 
-function segmentMedia(segment: BottleSegment): { type: 'image' | 'video'; url: string } | undefined {
-  switch (segment.type) {
-    case 'image':
-      return { type: 'image', url: segment.data.temp_url };
-    case 'video':
-      return { type: 'video', url: segment.data.temp_url };
-    default:
-      return undefined;
-  }
+function hasForwardMessages(
+  segment: Extract<milky.IncomingSegment, { type: 'forward' }>,
+): segment is Extract<BottleSegment, { type: 'forward' }> & { data: { messages: milky.IncomingForwardedMessage[] } } {
+  return 'messages' in segment.data && Array.isArray(segment.data.messages);
 }

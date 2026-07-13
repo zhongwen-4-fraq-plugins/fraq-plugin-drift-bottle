@@ -1,6 +1,7 @@
 import { inseg } from '@fraqjs/mock';
 
 import { createModerationContent, createModerationInstructions } from '../src/moderation.js';
+import type { BottleSegment } from '../src/types.js';
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -29,4 +30,32 @@ test('AI 审核输入包含文字、图片和视频', () => {
 
 test('AI 审核指令明确要求返回 json', () => {
   assert.match(createModerationInstructions(), /json/i);
+});
+
+test('AI 审核会读取表情和合并转发正文', () => {
+  const forward: Extract<BottleSegment, { type: 'forward' }> = {
+    type: 'forward',
+    data: {
+      forward_id: 'forward-id',
+      title: '聊天记录',
+      preview: ['预览内容'],
+      summary: '共 1 条消息',
+      messages: [
+        {
+          message_seq: 1,
+          sender_name: '测试用户',
+          avatar_url: 'https://example.com/avatar',
+          time: 1_700_000_000,
+          segments: [inseg.text('转发正文')],
+        },
+      ],
+    },
+  };
+
+  const content = createModerationContent([inseg.face(14), forward]);
+  const texts = content.filter((part) => part.type === 'text').map((part) => part.text);
+
+  assert.ok(texts.includes('[QQ 表情：14]'));
+  assert.ok(texts.includes('[测试用户]'));
+  assert.ok(texts.includes('转发正文'));
 });

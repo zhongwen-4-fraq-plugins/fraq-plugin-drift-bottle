@@ -1,6 +1,10 @@
 import type { milky } from '@fraqjs/fraq';
 
-export type BottleSegment = Extract<milky.IncomingSegment, { type: 'text' | 'image' | 'video' }>;
+export type BottleSegment =
+  | Extract<milky.IncomingSegment, { type: 'text' | 'image' | 'video' | 'face' }>
+  | (Extract<milky.IncomingSegment, { type: 'forward' }> & {
+      data: { messages?: milky.IncomingForwardedMessage[] };
+    });
 
 export interface DriftBottleOptions {
   storagePath?: string;

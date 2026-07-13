@@ -31,12 +31,14 @@ test('接收消息段会转换成可安全发送的消息段', async () => {
   ]);
 });
 
-test('回复消息中的图片和视频可以作为漂流瓶内容', () => {
+test('回复消息中的非文字字段可以作为漂流瓶内容', () => {
   const client = createMockMilkyClient();
   const quoted = client.inbox.group({ groupId: 20001, userId: 10001 }, [
     inseg.text('不会被带入的文字'),
     inseg.image({ resourceId: 'image-id', tempUrl: 'https://example.com/image' }),
     inseg.video({ resourceId: 'video-id', tempUrl: 'https://example.com/video' }),
+    inseg.face(14),
+    inseg.forward({ title: '聊天记录' }),
   ]);
   const message = client.inbox.group({ groupId: 20001, userId: 10002 }, [inseg.text('当前文字'), inseg.reply(quoted)]);
 
@@ -44,7 +46,35 @@ test('回复消息中的图片和视频可以作为漂流瓶内容', () => {
 
   assert.deepEqual(
     content.map((segment) => segment.type),
-    ['text', 'image', 'video'],
+    ['text', 'image', 'video', 'face', 'forward'],
   );
   assert.equal(content[0]?.type === 'text' && content[0].data.text, '当前文字');
+});
+
+test('合并转发消息会转换成可发送的完整消息', async () => {
+  const client = createMockMilkyClient();
+  client.stubApi('get_forwarded_messages', () => ({
+    messages: [
+      {
+        message_seq: 1,
+        sender_name: '测试用户',
+        avatar_url: 'https://example.com/avatar',
+        time: 1_700_000_000,
+        segments: [inseg.text('转发正文')],
+      },
+    ],
+  }));
+  const message = client.inbox.group({ groupId: 20001, userId: 10001 }, [inseg.forward({ title: '聊天记录' })]);
+
+  const segments = await toOutgoingSegments(client, message.segments, 10000);
+
+  assert.equal(segments[0]?.type, 'forward');
+  assert.deepEqual(segments[0]?.type === 'forward' && segments[0].data.messages, [
+    {
+      user_id: 10000,
+      sender_name: '测试用户',
+      time: 1_700_000_000,
+      segments: [{ type: 'text', data: { text: '转发正文' } }],
+    },
+  ]);
 });
