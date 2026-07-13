@@ -1,4 +1,4 @@
-import { type Context, param, type Session } from '@fraqjs/fraq';
+import { type Context, type milky, param, type Session } from '@fraqjs/fraq';
 
 import type { BottleStore } from './storage.js';
 
@@ -17,6 +17,33 @@ export function registerAdministrationCommands(ctx: Context, store: BottleStore,
 
   function validUserId(userId: number): boolean {
     return Number.isSafeInteger(userId) && userId > 0;
+  }
+
+  function parseUserIds(segments: milky.IncomingSegment[]): number[] | undefined {
+    const userIds: number[] = [];
+    for (const segment of segments) {
+      if (segment.type === 'mention') {
+        userIds.push(segment.data.user_id);
+        continue;
+      }
+      if (segment.type !== 'text') {
+        return undefined;
+      }
+
+      const text = segment.data.text.trim();
+      if (!text) {
+        continue;
+      }
+      for (const value of text.split(/[\s,，]+/)) {
+        if (!/^\d+$/.test(value)) {
+          return undefined;
+        }
+        userIds.push(Number(value));
+      }
+    }
+
+    const uniqueUserIds = [...new Set(userIds)];
+    return uniqueUserIds.length > 0 && uniqueUserIds.every(validUserId) ? uniqueUserIds : undefined;
   }
 
   ctx.router
@@ -52,35 +79,48 @@ export function registerAdministrationCommands(ctx: Context, store: BottleStore,
     });
 
   const permissions = ctx.router.group('漂流瓶权限');
+  permissions.command('添加').execute(async (session) => {
+    await session.reply('请使用“漂流瓶权限 添加 <QQ号或@用户...>”。');
+  });
   permissions
     .command('添加')
-    .arg('userId', param.num())
-    .execute(async (session, { userId }) => {
+    .arg('users', param.catchAll())
+    .execute(async (session, { users }) => {
       if (!isOwner(session)) {
         await session.reply('只有插件主人可以管理漂流瓶权限。');
         return;
       }
-      if (!validUserId(userId)) {
-        await session.reply('请输入有效的 QQ 号。');
+      const userIds = parseUserIds(users);
+      if (!userIds) {
+        await session.reply('请输入有效的 QQ 号或提及用户。');
         return;
       }
-      store.addModerator(userId);
-      await session.reply(`已允许 ${userId} 删除漂流瓶。`);
+      for (const userId of userIds) {
+        store.addModerator(userId);
+      }
+      await session.reply(`已允许 ${userIds.join('、')} 删除漂流瓶。`);
     });
 
+  permissions.command('删除').execute(async (session) => {
+    await session.reply('请使用“漂流瓶权限 删除 <QQ号或@用户...>”。');
+  });
   permissions
     .command('删除')
-    .arg('userId', param.num())
-    .execute(async (session, { userId }) => {
+    .arg('users', param.catchAll())
+    .execute(async (session, { users }) => {
       if (!isOwner(session)) {
         await session.reply('只有插件主人可以管理漂流瓶权限。');
         return;
       }
-      if (!validUserId(userId)) {
-        await session.reply('请输入有效的 QQ 号。');
+      const userIds = parseUserIds(users);
+      if (!userIds) {
+        await session.reply('请输入有效的 QQ 号或提及用户。');
         return;
       }
-      await session.reply(store.removeModerator(userId) ? `已移除 ${userId} 的删除权限。` : '该用户不在权限列表中。');
+      const removed = userIds.filter((userId) => store.removeModerator(userId));
+      await session.reply(
+        removed.length > 0 ? `已移除 ${removed.join('、')} 的删除权限。` : '这些用户都不在权限列表中。',
+      );
     });
 
   permissions.command('列表').execute(async (session) => {

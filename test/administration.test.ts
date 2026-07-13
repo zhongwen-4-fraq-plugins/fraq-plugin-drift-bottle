@@ -39,8 +39,8 @@ test('主人、群管和授权列表成员可以删除漂流瓶', async (t) => {
   await dispatch(ctx, client, 10001, 'member', inmsg`删除漂流瓶 ${ownerBottle.id}`);
   assert.equal(store.count(), 0);
 
-  await dispatch(ctx, client, 10001, 'member', inmsg`漂流瓶权限 添加 10004`);
-  assert.deepEqual(store.moderators(), [10004]);
+  await dispatch(ctx, client, 10001, 'member', inmsg`漂流瓶权限 添加 10004 ${inseg.mention(10006)}`);
+  assert.deepEqual(store.moderators(), [10004, 10006]);
   const moderatorBottle = await addBottle(store);
   await dispatch(ctx, client, 10004, 'member', inmsg`删除漂流瓶 ${moderatorBottle.id}`);
   assert.equal(store.count(), 0);
@@ -72,10 +72,22 @@ test('只有插件主人可以管理数据库权限列表', async (t) => {
 
   await dispatch(ctx, client, 10002, 'admin', inmsg`漂流瓶权限 添加 10005`);
   assert.deepEqual(store.moderators(), []);
-  await dispatch(ctx, client, 10001, 'member', inmsg`漂流瓶权限 添加 10005`);
+  await dispatch(
+    ctx,
+    client,
+    10001,
+    'member',
+    inmsg`漂流瓶权限 添加 10005,10006 ${inseg.mention(10007)} ${inseg.mention(10005)}`,
+  );
   await dispatch(ctx, client, 10001, 'member', inmsg`漂流瓶权限 列表`);
-  assert.deepEqual(store.moderators(), [10005]);
-  await dispatch(ctx, client, 10001, 'member', inmsg`漂流瓶权限 删除 10005`);
+  assert.deepEqual(store.moderators(), [10005, 10006, 10007]);
+  await dispatch(
+    ctx,
+    client,
+    10001,
+    'member',
+    inmsg`漂流瓶权限 删除 10005 ${inseg.mention(10006)} ${inseg.mention(10007)}`,
+  );
   assert.deepEqual(store.moderators(), []);
 });
 
