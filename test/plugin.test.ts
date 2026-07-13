@@ -113,7 +113,7 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
     },
     {
       group_id: 20001,
-      message: [{ type: 'text', data: { text: '漂流瓶已经扔进海里了。' } }],
+      message: [{ type: 'text', data: { text: '漂流瓶已经扔进海里了（ID：<id>）。' } }],
     },
     {
       group_id: 20001,
@@ -132,6 +132,7 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
       message: [
         { type: 'text', data: { text: '捡到一个来自“海风”的漂流瓶（ID：<id>）：\n' } },
         { type: 'text', data: { text: '来自海上的问候' } },
+        { type: 'text', data: { text: '\n\n发送“评论漂流瓶 <id> <内容>”可以评论这个瓶子。' } },
       ],
     },
     {
@@ -140,13 +141,14 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
     },
     {
       group_id: 20001,
-      message: [{ type: 'text', data: { text: '漂流瓶已经扔进海里了。' } }],
+      message: [{ type: 'text', data: { text: '漂流瓶已经扔进海里了（ID：<id>）。' } }],
     },
     {
       group_id: 20001,
       message: [
         { type: 'text', data: { text: '捡到一个匿名漂流瓶（ID：<id>）：\n' } },
         { type: 'text', data: { text: '匿名问候' } },
+        { type: 'text', data: { text: '\n\n发送“评论漂流瓶 <id> <内容>”可以评论这个瓶子。' } },
       ],
     },
     {
@@ -155,7 +157,7 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
     },
     {
       group_id: 20001,
-      message: [{ type: 'text', data: { text: '漂流瓶已经扔进海里了。' } }],
+      message: [{ type: 'text', data: { text: '漂流瓶已经扔进海里了（ID：<id>）。' } }],
     },
     {
       group_id: 20001,

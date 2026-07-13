@@ -78,7 +78,7 @@ export function registerDriftBottleCommands(
       return;
     }
 
-    await store.add({
+    const bottle = await store.add({
       senderId: session.raw.sender_id,
       displayName: signature.displayName,
       source: {
@@ -87,7 +87,7 @@ export function registerDriftBottleCommands(
       },
       segments: storedContent,
     });
-    await session.reply('漂流瓶已经扔进海里了。');
+    await session.reply(`漂流瓶已经扔进海里了（ID：${bottle.id}）。`);
   }
 
   ctx.router
@@ -143,6 +143,10 @@ export function registerDriftBottleCommands(
           },
         },
         ...(await toOutgoingSegments(ctx.client, bottle.segments, session.selfId)),
+        {
+          type: 'text',
+          data: { text: `\n\n发送“评论漂流瓶 ${bottle.id} <内容>”可以评论这个瓶子。` },
+        },
       ]);
     });
 }

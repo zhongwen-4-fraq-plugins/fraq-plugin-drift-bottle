@@ -3,6 +3,7 @@ import { AiService } from '@fraqjs/plugin-ai';
 
 import { registerAdministrationCommands } from './administration.js';
 import { registerDriftBottleCommands } from './commands.js';
+import { registerCommentCommands } from './comments.js';
 import { registerHelpCommand } from './help.js';
 import { moderateBottle } from './moderation.js';
 import { registerPickPreferenceCommand } from './pick-preference.js';
@@ -10,7 +11,7 @@ import { registerSignatureCommands } from './signature.js';
 import { BottleStore } from './storage.js';
 import type { DriftBottleOptions } from './types.js';
 
-export type { BottleSegment, DriftBottle, DriftBottleOptions } from './types.js';
+export type { BottleComment, BottleSegment, DriftBottle, DriftBottleOptions } from './types.js';
 
 export default definePlugin({
   name: 'drift-bottle',
@@ -30,5 +31,6 @@ export default definePlugin({
     registerHelpCommand(ctx);
     registerAdministrationCommands(ctx, store, options.ownerIds ?? []);
     registerPickPreferenceCommand(ctx, store, options.deleteAfterPick ?? true);
+    registerCommentCommands(ctx, store, moderator);
   },
 });

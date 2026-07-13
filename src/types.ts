@@ -31,3 +31,14 @@ export interface NewDriftBottle {
   source: DriftBottle['source'];
   segments: BottleSegment[];
 }
+
+export interface BottleComment {
+  id: string;
+  bottleId: string;
+  senderId: number;
+  createdAt: number;
+  displayName?: string;
+  content: string;
+}
+
+export type NewBottleComment = Pick<BottleComment, 'bottleId' | 'senderId' | 'displayName' | 'content'>;

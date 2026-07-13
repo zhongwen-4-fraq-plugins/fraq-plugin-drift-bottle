@@ -30,10 +30,25 @@ test('漂流瓶会持久化，并可选择捡取后是否删除', async (t) => {
     );
     INSERT INTO bottle_profiles (sender_id, alias) VALUES (10003, '旧别名');
   `);
+  legacyDatabase
+    .prepare(`
+      INSERT INTO bottles (id, sender_id, created_at, source_scene, source_peer_id, segments)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `)
+    .run(
+      'legacy-bottle',
+      10004,
+      1_700_000_000_000,
+      'group',
+      20001,
+      JSON.stringify([{ type: 'text', data: { text: '旧瓶子' } }]),
+    );
   legacyDatabase.close();
 
   const store = new BottleStore(storagePath);
   await store.load();
+  assert.equal(store.hasBottle('legacy-bottle'), true);
+  assert.equal(store.deleteBottle('legacy-bottle'), true);
   store.setSignature(10001, { type: 'alias', name: '海风' });
   store.setSignature(10002, { type: 'original' });
   store.addModerator(20001);
@@ -47,22 +62,30 @@ test('漂流瓶会持久化，并可选择捡取后是否删除', async (t) => {
   assert.equal(store.repeatPickFor(30001), true);
   assert.equal(store.repeatPickFor(30002), false);
   assert.equal(store.repeatPickFor(30003), undefined);
-  await store.add({
+  const firstBottle = await store.add({
     senderId: 10001,
     displayName: '海风',
     source: { scene: 'friend', peerId: 10001 },
     segments: [{ type: 'text', data: { text: '第一条' } }],
   });
-  await store.add({
+  const secondBottle = await store.add({
     senderId: 10002,
     source: { scene: 'group', peerId: 20001 },
     segments: [{ type: 'text', data: { text: '第二条' } }],
   });
 
   assert.equal(store.count(), 2);
+  store.addComment({
+    bottleId: secondBottle.id,
+    senderId: 30001,
+    displayName: '浪花',
+    content: '写得真好',
+  });
+  assert.equal(store.commentCount(secondBottle.id), 1);
   assert.equal((await store.pick(false, 0.99))?.senderId, 10002);
   assert.equal(store.count(), 2);
   assert.equal((await store.pick(true, 0.99))?.senderId, 10002);
+  assert.equal(store.hasBottle(secondBottle.id), true);
   store.dispose();
 
   const reloadedStore = new BottleStore(storagePath);
@@ -72,6 +95,10 @@ test('漂流瓶会持久化，并可选择捡取后是否删除', async (t) => {
   assert.deepEqual(reloadedStore.moderators(), [20001]);
   assert.equal(reloadedStore.repeatPickFor(30001), true);
   assert.equal(reloadedStore.repeatPickFor(30002), false);
+  assert.deepEqual(
+    reloadedStore.commentsFor(secondBottle.id).map(({ displayName, content }) => ({ displayName, content })),
+    [{ displayName: '浪花', content: '写得真好' }],
+  );
   assert.equal(reloadedStore.count(), 1);
   const bottle = await reloadedStore.pick(false, 0);
   assert.equal(bottle?.senderId, 10001);
@@ -79,6 +106,10 @@ test('漂流瓶会持久化，并可选择捡取后是否删除', async (t) => {
   assert.equal(reloadedStore.count(), 1);
   assert.equal((await reloadedStore.pick(true, 0))?.senderId, 10001);
   assert.equal(reloadedStore.count(), 0);
+  assert.equal(reloadedStore.hasBottle(firstBottle.id), true);
+  assert.equal(reloadedStore.deleteBottle(secondBottle.id), true);
+  assert.equal(reloadedStore.hasBottle(secondBottle.id), false);
+  assert.equal(reloadedStore.commentCount(secondBottle.id), 0);
   reloadedStore.setSignature(10001, { type: 'anonymous' });
   assert.deepEqual(reloadedStore.signatureFor(10001), { type: 'anonymous' });
   assert.equal(reloadedStore.removeModerator(20001), true);

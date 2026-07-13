@@ -1,6 +1,6 @@
 import type { Disposable } from '@fraqjs/fraq';
 
-import type { DriftBottle, NewDriftBottle } from './types.js';
+import type { BottleComment, DriftBottle, NewBottleComment, NewDriftBottle } from './types.js';
 
 import { randomUUID } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
@@ -15,6 +15,15 @@ interface BottleRow {
   source_scene: DriftBottle['source']['scene'];
   source_peer_id: number;
   segments: string;
+}
+
+interface BottleCommentRow {
+  id: string;
+  bottle_id: string;
+  sender_id: number;
+  created_at: number;
+  display_name: string | null;
+  content: string;
 }
 
 export type BottleSignature = { type: 'anonymous' } | { type: 'original' } | { type: 'alias'; name: string };
@@ -42,6 +51,26 @@ export class BottleStore implements Disposable {
     if (!columns.some((column) => column.name === 'display_name')) {
       this.database.exec('ALTER TABLE bottles ADD COLUMN display_name TEXT');
     }
+    this.database.exec(`
+      CREATE TABLE IF NOT EXISTS bottle_threads (
+        id TEXT PRIMARY KEY,
+        sender_id INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        display_name TEXT
+      );
+      INSERT OR IGNORE INTO bottle_threads (id, sender_id, created_at, display_name)
+      SELECT id, sender_id, created_at, display_name FROM bottles;
+      CREATE TABLE IF NOT EXISTS bottle_comments (
+        id TEXT PRIMARY KEY,
+        bottle_id TEXT NOT NULL,
+        sender_id INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        display_name TEXT,
+        content TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS bottle_comments_bottle_id_created_at
+      ON bottle_comments (bottle_id, created_at, id);
+    `);
     this.database.exec(`
       CREATE TABLE IF NOT EXISTS bottle_profiles (
         sender_id INTEGER PRIMARY KEY,
@@ -74,21 +103,35 @@ export class BottleStore implements Disposable {
       ...input,
     };
 
-    this.getDatabase()
-      .prepare(`
-        INSERT INTO bottles (id, sender_id, created_at, display_name, source_scene, source_peer_id, segments)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `)
-      .run(
-        bottle.id,
-        bottle.senderId,
-        bottle.createdAt,
-        bottle.displayName ?? null,
-        bottle.source.scene,
-        bottle.source.peerId,
-        JSON.stringify(bottle.segments),
-      );
-    return bottle;
+    const database = this.getDatabase();
+    database.exec('BEGIN IMMEDIATE');
+    try {
+      database
+        .prepare(`
+          INSERT INTO bottle_threads (id, sender_id, created_at, display_name)
+          VALUES (?, ?, ?, ?)
+        `)
+        .run(bottle.id, bottle.senderId, bottle.createdAt, bottle.displayName ?? null);
+      database
+        .prepare(`
+          INSERT INTO bottles (id, sender_id, created_at, display_name, source_scene, source_peer_id, segments)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `)
+        .run(
+          bottle.id,
+          bottle.senderId,
+          bottle.createdAt,
+          bottle.displayName ?? null,
+          bottle.source.scene,
+          bottle.source.peerId,
+          JSON.stringify(bottle.segments),
+        );
+      database.exec('COMMIT');
+      return bottle;
+    } catch (error) {
+      database.exec('ROLLBACK');
+      throw error;
+    }
   }
 
   async pick(deleteAfterPick: boolean, randomValue = Math.random()): Promise<DriftBottle | undefined> {
@@ -129,7 +172,67 @@ export class BottleStore implements Disposable {
   }
 
   deleteBottle(id: string): boolean {
-    return this.getDatabase().prepare('DELETE FROM bottles WHERE id = ?').run(id).changes > 0;
+    const database = this.getDatabase();
+    database.exec('BEGIN IMMEDIATE');
+    try {
+      database.prepare('DELETE FROM bottle_comments WHERE bottle_id = ?').run(id);
+      database.prepare('DELETE FROM bottles WHERE id = ?').run(id);
+      const deleted = database.prepare('DELETE FROM bottle_threads WHERE id = ?').run(id).changes > 0;
+      database.exec('COMMIT');
+      return deleted;
+    } catch (error) {
+      database.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
+  hasBottle(id: string): boolean {
+    return Boolean(this.getDatabase().prepare('SELECT 1 FROM bottle_threads WHERE id = ?').get(id));
+  }
+
+  addComment(input: NewBottleComment): BottleComment | undefined {
+    if (!this.hasBottle(input.bottleId)) {
+      return undefined;
+    }
+
+    const comment: BottleComment = {
+      id: randomUUID(),
+      createdAt: Date.now(),
+      ...input,
+    };
+    this.getDatabase()
+      .prepare(`
+        INSERT INTO bottle_comments (id, bottle_id, sender_id, created_at, display_name, content)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `)
+      .run(
+        comment.id,
+        comment.bottleId,
+        comment.senderId,
+        comment.createdAt,
+        comment.displayName ?? null,
+        comment.content,
+      );
+    return comment;
+  }
+
+  commentsFor(bottleId: string, limit = 20): BottleComment[] {
+    const rows = this.getDatabase()
+      .prepare(`
+        SELECT * FROM bottle_comments
+        WHERE bottle_id = ?
+        ORDER BY created_at DESC, id DESC
+        LIMIT ?
+      `)
+      .all(bottleId, limit) as unknown as BottleCommentRow[];
+    return rows.reverse().map((row) => this.toComment(row));
+  }
+
+  commentCount(bottleId: string): number {
+    const row = this.getDatabase()
+      .prepare('SELECT COUNT(*) AS count FROM bottle_comments WHERE bottle_id = ?')
+      .get(bottleId) as { count: number };
+    return row.count;
   }
 
   addModerator(userId: number): void {
@@ -225,6 +328,17 @@ export class BottleStore implements Disposable {
         peerId: row.source_peer_id,
       },
       segments: JSON.parse(row.segments) as DriftBottle['segments'],
+    };
+  }
+
+  private toComment(row: BottleCommentRow): BottleComment {
+    return {
+      id: row.id,
+      bottleId: row.bottle_id,
+      senderId: row.sender_id,
+      createdAt: row.created_at,
+      displayName: row.display_name ?? undefined,
+      content: row.content,
     };
   }
 }

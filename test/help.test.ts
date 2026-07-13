@@ -30,6 +30,7 @@ test('漂流瓶帮助命令会列出可用命令和支持字段', async (t) => {
   assert.match(output.message[0]?.type === 'text' ? output.message[0].data.text : '', /漂流瓶署名 原名/);
   assert.match(output.message[0]?.type === 'text' ? output.message[0].data.text : '', /删除漂流瓶 <ID>/);
   assert.match(output.message[0]?.type === 'text' ? output.message[0].data.text : '', /漂流瓶重复捡 开启\/关闭\/默认/);
+  assert.match(output.message[0]?.type === 'text' ? output.message[0].data.text : '', /评论漂流瓶 <ID> <内容>/);
   assert.match(output.message[0]?.type === 'text' ? output.message[0].data.text : '', /动态表情/);
   assert.match(output.message[0]?.type === 'text' ? output.message[0].data.text : '', /回复包含非文字内容/);
 });
