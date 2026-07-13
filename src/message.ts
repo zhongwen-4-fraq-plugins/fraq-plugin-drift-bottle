@@ -10,6 +10,20 @@ export function hasOnlySupportedBottleSegments(segments: milky.IncomingSegment[]
   return segments.every((segment) => segment.type === 'text' || segment.type === 'image' || segment.type === 'video');
 }
 
+export function resolveBottleContent(
+  segments: milky.IncomingSegment[],
+  sourceSegments: milky.IncomingSegment[] = segments,
+): milky.IncomingSegment[] {
+  return [
+    ...segments.filter((segment) => segment.type !== 'reply' && (segment.type !== 'text' || segment.data.text.trim())),
+    ...sourceSegments.flatMap((segment) =>
+      segment.type === 'reply'
+        ? segment.data.segments.filter((quoted) => quoted.type === 'image' || quoted.type === 'video')
+        : [],
+    ),
+  ];
+}
+
 export async function toOutgoingSegments(
   client: MilkyClient,
   segments: milky.IncomingSegment[],

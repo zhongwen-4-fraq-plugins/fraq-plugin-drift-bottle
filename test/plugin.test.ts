@@ -28,7 +28,9 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
   const store = new BottleStore(join(directory, 'bottles.db'));
   await store.load();
   ctx.provide(BottleStore, store);
+  let moderatedSegmentTypes: string[] = [];
   const moderator: BottleModerator = async (segments) => {
+    moderatedSegmentTypes = segments.map((segment) => segment.type);
     if (segments.some((segment) => segment.type === 'text' && segment.data.text.includes('审核故障'))) {
       throw new Error('AI unavailable');
     }
@@ -55,6 +57,14 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
   await dispatchGroupMessage(ctx, client, 10001, inmsg`扔漂流瓶 匿名问候`);
   await dispatchGroupMessage(ctx, client, 10002, inmsg`捡漂流瓶`);
   await dispatchGroupMessage(ctx, client, 10003, inmsg`捡漂流瓶`);
+  const quoted = client.inbox.group({ groupId: 20001, userId: 10002 }, [
+    inseg.text('不会被带入的文字'),
+    inseg.image({ tempUrl: 'https://example.com/image' }),
+    inseg.video({ tempUrl: 'https://example.com/video' }),
+  ]);
+  await dispatchGroupMessage(ctx, client, 10001, inmsg`${inseg.reply(quoted)}扔漂流瓶`);
+
+  assert.deepEqual(moderatedSegmentTypes, ['image', 'video']);
 
   const replies = client.apiCalls
     .filter((call) => call.endpoint === 'send_group_message')
@@ -110,6 +120,10 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
     {
       group_id: 20001,
       message: [{ type: 'text', data: { text: '海里暂时没有漂流瓶。' } }],
+    },
+    {
+      group_id: 20001,
+      message: [{ type: 'text', data: { text: '漂流瓶已经扔进海里了。' } }],
     },
   ]);
 });
