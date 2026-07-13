@@ -13,6 +13,7 @@ export function hasOnlySupportedBottleSegments(segments: milky.IncomingSegment[]
       segment.type === 'image' ||
       segment.type === 'video' ||
       segment.type === 'face' ||
+      segment.type === 'market_face' ||
       segment.type === 'forward',
   );
 }
@@ -27,7 +28,11 @@ export function resolveBottleContent(
       segment.type === 'reply'
         ? segment.data.segments.filter(
             (quoted) =>
-              quoted.type === 'image' || quoted.type === 'video' || quoted.type === 'face' || quoted.type === 'forward',
+              quoted.type === 'image' ||
+              quoted.type === 'video' ||
+              quoted.type === 'face' ||
+              quoted.type === 'market_face' ||
+              quoted.type === 'forward',
           )
         : [],
     ),

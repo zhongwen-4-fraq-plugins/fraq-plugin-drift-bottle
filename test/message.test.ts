@@ -38,6 +38,7 @@ test('回复消息中的非文字字段可以作为漂流瓶内容', () => {
     inseg.image({ resourceId: 'image-id', tempUrl: 'https://example.com/image' }),
     inseg.video({ resourceId: 'video-id', tempUrl: 'https://example.com/video' }),
     inseg.face(14),
+    inseg.marketFace({ summary: '动态表情', url: 'https://example.com/face.gif' }),
     inseg.forward({ title: '聊天记录' }),
   ]);
   const message = client.inbox.group({ groupId: 20001, userId: 10002 }, [inseg.text('当前文字'), inseg.reply(quoted)]);
@@ -46,7 +47,7 @@ test('回复消息中的非文字字段可以作为漂流瓶内容', () => {
 
   assert.deepEqual(
     content.map((segment) => segment.type),
-    ['text', 'image', 'video', 'face', 'forward'],
+    ['text', 'image', 'video', 'face', 'market_face', 'forward'],
   );
   assert.equal(content[0]?.type === 'text' && content[0].data.text, '当前文字');
 });

@@ -32,7 +32,7 @@ test('AI 审核指令明确要求返回 json', () => {
   assert.match(createModerationInstructions(), /json/i);
 });
 
-test('AI 审核会读取表情和合并转发正文', () => {
+test('AI 审核会读取表情、动态表情和合并转发正文', () => {
   const forward: Extract<BottleSegment, { type: 'forward' }> = {
     type: 'forward',
     data: {
@@ -52,10 +52,21 @@ test('AI 审核会读取表情和合并转发正文', () => {
     },
   };
 
-  const content = createModerationContent([inseg.face(14), forward]);
+  const content = createModerationContent([
+    inseg.face(14),
+    inseg.marketFace({ summary: '动态表情', url: 'https://example.com/face.gif' }),
+    forward,
+  ]);
   const texts = content.filter((part) => part.type === 'text').map((part) => part.text);
 
   assert.ok(texts.includes('[QQ 表情：14]'));
+  assert.ok(texts.includes('动态表情'));
   assert.ok(texts.includes('[测试用户]'));
   assert.ok(texts.includes('转发正文'));
+  assert.ok(
+    content.some(
+      (part) =>
+        part.type === 'file' && part.mediaType === 'image' && part.data.toString() === 'https://example.com/face.gif',
+    ),
+  );
 });

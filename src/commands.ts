@@ -26,7 +26,7 @@ export function registerDriftBottleCommands(
     }
 
     if (!hasOnlySupportedBottleSegments(bottleContent)) {
-      await session.reply('漂流瓶只支持文字、图片、视频、表情和合并转发消息。');
+      await session.reply('漂流瓶只支持文字、图片、视频、表情、动态表情和合并转发消息。');
       return;
     }
 

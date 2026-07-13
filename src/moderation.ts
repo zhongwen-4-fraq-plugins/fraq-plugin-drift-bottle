@@ -74,6 +74,10 @@ function appendModerationSegment(content: Exclude<UserContent, string>, segment:
     case 'face':
       content.push({ type: 'text', text: `[QQ 表情：${segment.data.face_id}]` });
       break;
+    case 'market_face':
+      content.push({ type: 'text', text: segment.data.summary });
+      content.push({ type: 'file', mediaType: 'image', data: new URL(segment.data.url) });
+      break;
     case 'forward':
       content.push({
         type: 'text',

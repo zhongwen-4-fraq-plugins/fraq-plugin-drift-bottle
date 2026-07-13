@@ -73,11 +73,12 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
     inseg.image({ tempUrl: 'https://example.com/image' }),
     inseg.video({ tempUrl: 'https://example.com/video' }),
     inseg.face(14),
+    inseg.marketFace({ summary: '动态表情', url: 'https://example.com/face.gif' }),
     inseg.forward({ title: '聊天记录' }),
   ]);
   await dispatchGroupMessage(ctx, client, 10001, inmsg`${inseg.reply(quoted)}扔漂流瓶`);
 
-  assert.deepEqual(moderatedSegmentTypes, ['image', 'video', 'face', 'forward']);
+  assert.deepEqual(moderatedSegmentTypes, ['image', 'video', 'face', 'market_face', 'forward']);
 
   const replies = client.apiCalls
     .filter((call) => call.endpoint === 'send_group_message')
@@ -98,7 +99,7 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
     },
     {
       group_id: 20001,
-      message: [{ type: 'text', data: { text: '漂流瓶只支持文字、图片、视频、表情和合并转发消息。' } }],
+      message: [{ type: 'text', data: { text: '漂流瓶只支持文字、图片、视频、表情、动态表情和合并转发消息。' } }],
     },
     {
       group_id: 20001,
