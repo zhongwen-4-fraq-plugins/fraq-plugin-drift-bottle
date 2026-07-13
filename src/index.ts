@@ -13,6 +13,6 @@ export default definePlugin({
     const store = new BottleStore(options.storagePath ?? './data/drift-bottles.db');
     await store.load();
     ctx.provide(BottleStore, store);
-    registerDriftBottleCommands(ctx, store, options.deleteAfterPick ?? false);
+    registerDriftBottleCommands(ctx, store, options.deleteAfterPick ?? true);
   },
 });

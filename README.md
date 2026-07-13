@@ -17,7 +17,7 @@ import DriftBottlePlugin from 'fraq-plugin-drift-bottle';
 
 ctx.install(DriftBottlePlugin, {
   storagePath: './data/drift-bottles.db',
-  deleteAfterPick: false,
+  deleteAfterPick: true,
 });
 ```
 
@@ -26,4 +26,4 @@ ctx.install(DriftBottlePlugin, {
 
 漂流瓶使用 SQLite 存储。`storagePath` 可选，默认使用运行目录下的 `./data/drift-bottles.db`。
 
-`deleteAfterPick` 控制瓶子被捡取后是否删除，默认为 `false`；设置为 `true` 后，瓶子只会被捡到一次。
+`deleteAfterPick` 控制瓶子被捡取后是否删除，默认为 `true`，瓶子只会被捡到一次；设置为 `false` 可保留瓶子。
