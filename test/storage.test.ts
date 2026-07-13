@@ -23,15 +23,25 @@ test('漂流瓶会持久化，并可选择捡取后是否删除', async (t) => {
       segments TEXT NOT NULL
     )
   `);
+  legacyDatabase.exec(`
+    CREATE TABLE bottle_profiles (
+      sender_id INTEGER PRIMARY KEY,
+      alias TEXT NOT NULL
+    );
+    INSERT INTO bottle_profiles (sender_id, alias) VALUES (10003, '旧别名');
+  `);
   legacyDatabase.close();
 
   const store = new BottleStore(storagePath);
   await store.load();
-  store.setAlias(10001, '海风');
-  assert.equal(store.aliasFor(10001), '海风');
+  store.setSignature(10001, { type: 'alias', name: '海风' });
+  store.setSignature(10002, { type: 'original' });
+  assert.deepEqual(store.signatureFor(10001), { type: 'alias', name: '海风' });
+  assert.deepEqual(store.signatureFor(10002), { type: 'original' });
+  assert.deepEqual(store.signatureFor(10003), { type: 'alias', name: '旧别名' });
   await store.add({
     senderId: 10001,
-    displayName: store.aliasFor(10001),
+    displayName: '海风',
     source: { scene: 'friend', peerId: 10001 },
     segments: [{ type: 'text', data: { text: '第一条' } }],
   });
@@ -49,7 +59,8 @@ test('漂流瓶会持久化，并可选择捡取后是否删除', async (t) => {
 
   const reloadedStore = new BottleStore(storagePath);
   await reloadedStore.load();
-  assert.equal(reloadedStore.aliasFor(10001), '海风');
+  assert.deepEqual(reloadedStore.signatureFor(10001), { type: 'alias', name: '海风' });
+  assert.deepEqual(reloadedStore.signatureFor(10002), { type: 'original' });
   assert.equal(reloadedStore.count(), 1);
   const bottle = await reloadedStore.pick(false, 0);
   assert.equal(bottle?.senderId, 10001);
@@ -57,7 +68,7 @@ test('漂流瓶会持久化，并可选择捡取后是否删除', async (t) => {
   assert.equal(reloadedStore.count(), 1);
   assert.equal((await reloadedStore.pick(true, 0))?.senderId, 10001);
   assert.equal(reloadedStore.count(), 0);
-  reloadedStore.setAlias(10001);
-  assert.equal(reloadedStore.aliasFor(10001), undefined);
+  reloadedStore.setSignature(10001, { type: 'anonymous' });
+  assert.deepEqual(reloadedStore.signatureFor(10001), { type: 'anonymous' });
   reloadedStore.dispose();
 });

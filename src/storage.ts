@@ -17,6 +17,8 @@ interface BottleRow {
   segments: string;
 }
 
+export type BottleSignature = { type: 'anonymous' } | { type: 'original' } | { type: 'alias'; name: string };
+
 export class BottleStore implements Disposable {
   private database?: DatabaseSync;
 
@@ -43,9 +45,14 @@ export class BottleStore implements Disposable {
     this.database.exec(`
       CREATE TABLE IF NOT EXISTS bottle_profiles (
         sender_id INTEGER PRIMARY KEY,
-        alias TEXT NOT NULL
+        alias TEXT NOT NULL,
+        mode TEXT NOT NULL DEFAULT 'alias'
       )
     `);
+    const profileColumns = this.database.prepare('PRAGMA table_info(bottle_profiles)').all() as { name: string }[];
+    if (!profileColumns.some((column) => column.name === 'mode')) {
+      this.database.exec("ALTER TABLE bottle_profiles ADD COLUMN mode TEXT NOT NULL DEFAULT 'alias'");
+    }
   }
 
   async add(input: NewDriftBottle): Promise<DriftBottle> {
@@ -109,26 +116,29 @@ export class BottleStore implements Disposable {
     return row.count;
   }
 
-  setAlias(senderId: number, alias?: string): void {
-    if (!alias) {
+  setSignature(senderId: number, signature: BottleSignature): void {
+    if (signature.type === 'anonymous') {
       this.getDatabase().prepare('DELETE FROM bottle_profiles WHERE sender_id = ?').run(senderId);
       return;
     }
 
     this.getDatabase()
       .prepare(`
-        INSERT INTO bottle_profiles (sender_id, alias)
-        VALUES (?, ?)
-        ON CONFLICT(sender_id) DO UPDATE SET alias = excluded.alias
+        INSERT INTO bottle_profiles (sender_id, alias, mode)
+        VALUES (?, ?, ?)
+        ON CONFLICT(sender_id) DO UPDATE SET alias = excluded.alias, mode = excluded.mode
       `)
-      .run(senderId, alias);
+      .run(senderId, signature.type === 'alias' ? signature.name : '', signature.type);
   }
 
-  aliasFor(senderId: number): string | undefined {
-    const row = this.getDatabase().prepare('SELECT alias FROM bottle_profiles WHERE sender_id = ?').get(senderId) as
-      | { alias: string }
-      | undefined;
-    return row?.alias;
+  signatureFor(senderId: number): BottleSignature {
+    const row = this.getDatabase()
+      .prepare('SELECT alias, mode FROM bottle_profiles WHERE sender_id = ?')
+      .get(senderId) as { alias: string; mode: string } | undefined;
+    if (!row) {
+      return { type: 'anonymous' };
+    }
+    return row.mode === 'original' ? { type: 'original' } : { type: 'alias', name: row.alias };
   }
 
   dispose(): void {

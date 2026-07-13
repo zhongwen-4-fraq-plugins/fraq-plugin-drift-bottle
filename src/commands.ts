@@ -8,6 +8,7 @@ import {
   toOutgoingSegments,
 } from './message.js';
 import type { BottleModerator, ModerationResult } from './moderation.js';
+import { type ResolvedBottleSignature, resolveBottleSignature } from './signature.js';
 import type { BottleStore } from './storage.js';
 import type { BottleSegment } from './types.js';
 
@@ -60,9 +61,25 @@ export function registerDriftBottleCommands(
       return;
     }
 
+    let signature: ResolvedBottleSignature;
+    try {
+      signature = await resolveBottleSignature(ctx.client, store, session.raw);
+      if (signature.displayName && signature.needsModeration) {
+        const result = await moderator([{ type: 'text', data: { text: signature.displayName } }]);
+        if (!result.approved) {
+          await session.reply(`漂流瓶原名未通过 AI 审核：${result.reason}`);
+          return;
+        }
+      }
+    } catch (error) {
+      ctx.logger.error('读取漂流瓶原名失败', error);
+      await session.reply('无法读取当前昵称，请稍后再试。');
+      return;
+    }
+
     await store.add({
       senderId: session.raw.sender_id,
-      displayName: store.aliasFor(session.raw.sender_id),
+      displayName: signature.displayName,
       source: {
         scene: session.raw.message_scene,
         peerId: session.raw.peer_id,
@@ -76,7 +93,7 @@ export function registerDriftBottleCommands(
     .command('扔瓶子')
     .describe('将一条消息放入漂流瓶')
     .execute(async (session) => {
-      await session.reply('请在“扔漂流瓶”后面写下内容。');
+      await session.reply('请在“扔瓶子”后面写下内容。');
     });
 
   ctx.router
@@ -90,7 +107,7 @@ export function registerDriftBottleCommands(
   ctx.router
     .rawPattern()
     .arg('reply', param.segment('reply'))
-    .arg('command', param.literal('扔漂流瓶'))
+    .arg('command', param.literal('扔瓶子'))
     .arg('content', param.catchAll())
     .execute(async (session, { content }) => {
       await throwBottle(session, content);
@@ -99,7 +116,7 @@ export function registerDriftBottleCommands(
   ctx.router
     .rawPattern()
     .arg('reply', param.segment('reply'))
-    .arg('command', param.literal('扔漂流瓶'))
+    .arg('command', param.literal('扔瓶子'))
     .execute(async (session) => {
       await throwBottle(session, []);
     });

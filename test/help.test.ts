@@ -26,7 +26,8 @@ test('漂流瓶帮助命令会列出可用命令和支持字段', async (t) => {
   assert.equal(replies.length, 3);
   const reply = replies[0];
   const output = reply?.params as milky.SendGroupMessageInput_ZodInput;
-  assert.match(output.message[0]?.type === 'text' ? output.message[0].data.text : '', /扔漂流瓶 <内容>/);
+  assert.match(output.message[0]?.type === 'text' ? output.message[0].data.text : '', /扔瓶子 <内容>/);
+  assert.match(output.message[0]?.type === 'text' ? output.message[0].data.text : '', /漂流瓶署名 原名/);
   assert.match(output.message[0]?.type === 'text' ? output.message[0].data.text : '', /动态表情/);
   assert.match(output.message[0]?.type === 'text' ? output.message[0].data.text : '', /回复包含非文字内容/);
 });

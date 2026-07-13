@@ -59,15 +59,15 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
 
   await dispatchGroupMessage(ctx, client, 10001, inmsg`漂流瓶署名 海风`);
   await dispatchGroupMessage(ctx, client, 10001, inmsg`漂流瓶署名 违规别名`);
-  await dispatchGroupMessage(ctx, client, 10001, inmsg`扔漂流瓶 来自海上的问候`);
-  await dispatchGroupMessage(ctx, client, 10001, inmsg`扔漂流瓶 ${inseg.record()}`);
-  await dispatchGroupMessage(ctx, client, 10001, inmsg`扔漂流瓶 违规内容`);
-  await dispatchGroupMessage(ctx, client, 10001, inmsg`扔漂流瓶 审核故障`);
-  await dispatchGroupMessage(ctx, client, 10002, inmsg`捡漂流瓶`);
+  await dispatchGroupMessage(ctx, client, 10001, inmsg`扔瓶子 来自海上的问候`);
+  await dispatchGroupMessage(ctx, client, 10001, inmsg`扔瓶子 ${inseg.record()}`);
+  await dispatchGroupMessage(ctx, client, 10001, inmsg`扔瓶子 违规内容`);
+  await dispatchGroupMessage(ctx, client, 10001, inmsg`扔瓶子 审核故障`);
+  await dispatchGroupMessage(ctx, client, 10002, inmsg`捡瓶子`);
   await dispatchGroupMessage(ctx, client, 10001, inmsg`漂流瓶署名 匿名`);
-  await dispatchGroupMessage(ctx, client, 10001, inmsg`扔漂流瓶 匿名问候`);
-  await dispatchGroupMessage(ctx, client, 10002, inmsg`捡漂流瓶`);
-  await dispatchGroupMessage(ctx, client, 10003, inmsg`捡漂流瓶`);
+  await dispatchGroupMessage(ctx, client, 10001, inmsg`扔瓶子 匿名问候`);
+  await dispatchGroupMessage(ctx, client, 10002, inmsg`捡瓶子`);
+  await dispatchGroupMessage(ctx, client, 10003, inmsg`捡瓶子`);
   const quoted = client.inbox.group({ groupId: 20001, userId: 10002 }, [
     inseg.text('不会被带入的文字'),
     inseg.image({ tempUrl: 'https://example.com/image' }),
@@ -76,9 +76,11 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
     inseg.marketFace({ summary: '动态表情', url: 'https://example.com/face.gif' }),
     inseg.forward({ title: '聊天记录' }),
   ]);
-  await dispatchGroupMessage(ctx, client, 10001, inmsg`${inseg.reply(quoted)}扔漂流瓶`);
+  await dispatchGroupMessage(ctx, client, 10001, inmsg`${inseg.reply(quoted)}扔瓶子`);
+  await dispatchGroupMessage(ctx, client, 10001, inmsg`漂流瓶署名 原名`);
 
   assert.deepEqual(moderatedSegmentTypes, ['image', 'video', 'face', 'market_face', 'forward']);
+  assert.deepEqual(store.signatureFor(10001), { type: 'original' });
 
   const replies = client.apiCalls
     .filter((call) => call.endpoint === 'send_group_message')
@@ -138,6 +140,10 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
     {
       group_id: 20001,
       message: [{ type: 'text', data: { text: '漂流瓶已经扔进海里了。' } }],
+    },
+    {
+      group_id: 20001,
+      message: [{ type: 'text', data: { text: '之后扔出的漂流瓶将使用当前群昵称或 QQ 昵称。' } }],
     },
   ]);
 });

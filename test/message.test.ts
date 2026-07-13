@@ -59,7 +59,7 @@ test('回复段内容为空时会获取原消息', async () => {
   ]);
   const reply = inseg.reply(quoted);
   reply.data.segments = [];
-  const message = client.inbox.group({ groupId: 20001, userId: 10002 }, [reply, inseg.text('扔漂流瓶')]);
+  const message = client.inbox.group({ groupId: 20001, userId: 10002 }, [reply, inseg.text('扔瓶子')]);
 
   const content = await resolveBottleContent(client, [], message);
 
