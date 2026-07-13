@@ -12,14 +12,14 @@ export function registerDriftBottleCommands(
 ): void {
   ctx.router
     .command('扔漂流瓶')
-    .describe('将一条匿名消息放入漂流瓶')
+    .describe('将一条消息放入漂流瓶')
     .execute(async (session) => {
       await session.reply('请在“扔漂流瓶”后面写下内容。');
     });
 
   ctx.router
     .command('扔漂流瓶')
-    .describe('将一条匿名消息放入漂流瓶')
+    .describe('将一条消息放入漂流瓶')
     .arg('content', param.catchAll())
     .execute(async (session, { content }) => {
       if (!hasBottleContent(content)) {
@@ -48,6 +48,7 @@ export function registerDriftBottleCommands(
 
       await store.add({
         senderId: session.raw.sender_id,
+        displayName: store.aliasFor(session.raw.sender_id),
         source: {
           scene: session.raw.message_scene,
           peerId: session.raw.peer_id,
@@ -69,7 +70,12 @@ export function registerDriftBottleCommands(
       }
 
       await session.reply([
-        { type: 'text', data: { text: '捡到一个漂流瓶：\n' } },
+        {
+          type: 'text',
+          data: {
+            text: bottle.displayName ? `捡到一个来自“${bottle.displayName}”的漂流瓶：\n` : '捡到一个匿名漂流瓶：\n',
+          },
+        },
         ...(await toOutgoingSegments(ctx.client, bottle.segments)),
       ]);
     });

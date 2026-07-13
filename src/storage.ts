@@ -11,6 +11,7 @@ interface BottleRow {
   id: string;
   sender_id: number;
   created_at: number;
+  display_name: string | null;
   source_scene: DriftBottle['source']['scene'];
   source_peer_id: number;
   segments: string;
@@ -29,9 +30,20 @@ export class BottleStore implements Disposable {
         id TEXT PRIMARY KEY,
         sender_id INTEGER NOT NULL,
         created_at INTEGER NOT NULL,
+        display_name TEXT,
         source_scene TEXT NOT NULL,
         source_peer_id INTEGER NOT NULL,
         segments TEXT NOT NULL
+      )
+    `);
+    const columns = this.database.prepare('PRAGMA table_info(bottles)').all() as { name: string }[];
+    if (!columns.some((column) => column.name === 'display_name')) {
+      this.database.exec('ALTER TABLE bottles ADD COLUMN display_name TEXT');
+    }
+    this.database.exec(`
+      CREATE TABLE IF NOT EXISTS bottle_profiles (
+        sender_id INTEGER PRIMARY KEY,
+        alias TEXT NOT NULL
       )
     `);
   }
@@ -45,13 +57,14 @@ export class BottleStore implements Disposable {
 
     this.getDatabase()
       .prepare(`
-        INSERT INTO bottles (id, sender_id, created_at, source_scene, source_peer_id, segments)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO bottles (id, sender_id, created_at, display_name, source_scene, source_peer_id, segments)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `)
       .run(
         bottle.id,
         bottle.senderId,
         bottle.createdAt,
+        bottle.displayName ?? null,
         bottle.source.scene,
         bottle.source.peerId,
         JSON.stringify(bottle.segments),
@@ -96,6 +109,28 @@ export class BottleStore implements Disposable {
     return row.count;
   }
 
+  setAlias(senderId: number, alias?: string): void {
+    if (!alias) {
+      this.getDatabase().prepare('DELETE FROM bottle_profiles WHERE sender_id = ?').run(senderId);
+      return;
+    }
+
+    this.getDatabase()
+      .prepare(`
+        INSERT INTO bottle_profiles (sender_id, alias)
+        VALUES (?, ?)
+        ON CONFLICT(sender_id) DO UPDATE SET alias = excluded.alias
+      `)
+      .run(senderId, alias);
+  }
+
+  aliasFor(senderId: number): string | undefined {
+    const row = this.getDatabase().prepare('SELECT alias FROM bottle_profiles WHERE sender_id = ?').get(senderId) as
+      | { alias: string }
+      | undefined;
+    return row?.alias;
+  }
+
   dispose(): void {
     this.database?.close();
     this.database = undefined;
@@ -114,6 +149,7 @@ export class BottleStore implements Disposable {
       id: row.id,
       senderId: row.sender_id,
       createdAt: row.created_at,
+      displayName: row.display_name ?? undefined,
       source: {
         scene: row.source_scene,
         peerId: row.source_peer_id,

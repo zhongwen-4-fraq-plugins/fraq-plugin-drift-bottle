@@ -12,6 +12,7 @@ export interface DriftBottle {
   id: string;
   senderId: number;
   createdAt: number;
+  displayName?: string;
   source: {
     scene: milky.IncomingMessage['message_scene'];
     peerId: number;
@@ -21,6 +22,7 @@ export interface DriftBottle {
 
 export interface NewDriftBottle {
   senderId: number;
+  displayName?: string;
   source: DriftBottle['source'];
   segments: BottleSegment[];
 }

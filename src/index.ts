@@ -3,6 +3,7 @@ import { AiService } from '@fraqjs/plugin-ai';
 
 import { registerDriftBottleCommands } from './commands.js';
 import { moderateBottle } from './moderation.js';
+import { registerSignatureCommands } from './signature.js';
 import { BottleStore } from './storage.js';
 import type { DriftBottleOptions } from './types.js';
 
@@ -18,8 +19,10 @@ export default definePlugin({
     const store = new BottleStore(options.storagePath ?? './data/drift-bottles.db');
     await store.load();
     ctx.provide(BottleStore, store);
-    registerDriftBottleCommands(ctx, store, options.deleteAfterPick ?? true, (segments) =>
-      moderateBottle(ctx.ai, segments, options.moderationModel),
-    );
+    function moderator(segments: Parameters<typeof moderateBottle>[1]) {
+      return moderateBottle(ctx.ai, segments, options.moderationModel);
+    }
+    registerDriftBottleCommands(ctx, store, options.deleteAfterPick ?? true, moderator);
+    registerSignatureCommands(ctx, store, moderator);
   },
 });
