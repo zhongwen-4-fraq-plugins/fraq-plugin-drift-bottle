@@ -73,14 +73,14 @@ export function registerDriftBottleCommands(
   }
 
   ctx.router
-    .command('扔漂流瓶')
+    .command('扔瓶子')
     .describe('将一条消息放入漂流瓶')
     .execute(async (session) => {
       await session.reply('请在“扔漂流瓶”后面写下内容。');
     });
 
   ctx.router
-    .command('扔漂流瓶')
+    .command('扔瓶子')
     .describe('将一条消息放入漂流瓶')
     .arg('content', param.catchAll())
     .execute(async (session, { content }) => {
@@ -105,7 +105,7 @@ export function registerDriftBottleCommands(
     });
 
   ctx.router
-    .command('捡漂流瓶')
+    .command('捡瓶子')
     .describe('随机捡取一个漂流瓶')
     .execute(async (session) => {
       const bottle = await store.pick(deleteAfterPick);
