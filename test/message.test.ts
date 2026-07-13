@@ -31,7 +31,7 @@ test('接收消息段会转换成可安全发送的消息段', async () => {
   ]);
 });
 
-test('回复消息中的非文字字段可以作为漂流瓶内容', () => {
+test('回复消息中的非文字字段可以作为漂流瓶内容', async () => {
   const client = createMockMilkyClient();
   const quoted = client.inbox.group({ groupId: 20001, userId: 10001 }, [
     inseg.text('不会被带入的文字'),
@@ -43,13 +43,30 @@ test('回复消息中的非文字字段可以作为漂流瓶内容', () => {
   ]);
   const message = client.inbox.group({ groupId: 20001, userId: 10002 }, [inseg.text('当前文字'), inseg.reply(quoted)]);
 
-  const content = resolveBottleContent(message.segments);
+  const content = await resolveBottleContent(client, message.segments, message);
 
   assert.deepEqual(
     content.map((segment) => segment.type),
     ['text', 'image', 'video', 'face', 'market_face', 'forward'],
   );
   assert.equal(content[0]?.type === 'text' && content[0].data.text, '当前文字');
+});
+
+test('回复段内容为空时会获取原消息', async () => {
+  const client = createMockMilkyClient();
+  const quoted = client.inbox.group({ groupId: 20001, userId: 10001 }, [
+    inseg.marketFace({ summary: '动态表情', url: 'https://example.com/face.gif' }),
+  ]);
+  const reply = inseg.reply(quoted);
+  reply.data.segments = [];
+  const message = client.inbox.group({ groupId: 20001, userId: 10002 }, [reply, inseg.text('扔漂流瓶')]);
+
+  const content = await resolveBottleContent(client, [], message);
+
+  assert.deepEqual(
+    content.map((segment) => segment.type),
+    ['market_face'],
+  );
 });
 
 test('合并转发消息会转换成可发送的完整消息', async () => {

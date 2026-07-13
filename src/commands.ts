@@ -18,7 +18,14 @@ export function registerDriftBottleCommands(
   moderator: BottleModerator,
 ): void {
   async function throwBottle(session: Session, content: milky.IncomingSegment[]): Promise<void> {
-    const bottleContent = resolveBottleContent(content, session.raw.segments);
+    let bottleContent: milky.IncomingSegment[];
+    try {
+      bottleContent = await resolveBottleContent(ctx.client, content, session.raw);
+    } catch (error) {
+      ctx.logger.error('读取被回复的消息失败', error);
+      await session.reply('无法读取被回复的消息，请稍后再试。');
+      return;
+    }
 
     if (!hasBottleContent(bottleContent)) {
       await session.reply('漂流瓶里不能只有空白内容。');

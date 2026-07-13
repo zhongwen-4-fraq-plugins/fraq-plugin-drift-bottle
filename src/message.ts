@@ -18,25 +18,42 @@ export function hasOnlySupportedBottleSegments(segments: milky.IncomingSegment[]
   );
 }
 
-export function resolveBottleContent(
+export async function resolveBottleContent(
+  client: MilkyClient,
   segments: milky.IncomingSegment[],
-  sourceSegments: milky.IncomingSegment[] = segments,
-): milky.IncomingSegment[] {
-  return [
-    ...segments.filter((segment) => segment.type !== 'reply' && (segment.type !== 'text' || segment.data.text.trim())),
-    ...sourceSegments.flatMap((segment) =>
-      segment.type === 'reply'
-        ? segment.data.segments.filter(
-            (quoted) =>
-              quoted.type === 'image' ||
-              quoted.type === 'video' ||
-              quoted.type === 'face' ||
-              quoted.type === 'market_face' ||
-              quoted.type === 'forward',
-          )
-        : [],
+  message: milky.IncomingMessage,
+): Promise<milky.IncomingSegment[]> {
+  const direct = segments.filter(
+    (segment) => segment.type !== 'reply' && (segment.type !== 'text' || segment.data.text.trim()),
+  );
+  const replies = message.segments.filter((segment) => segment.type === 'reply');
+  const quoted = replies.flatMap((reply) => supportedReplySegments(reply.data.segments));
+
+  if (quoted.length > 0 || replies.length === 0) {
+    return [...direct, ...quoted];
+  }
+
+  const fetched = await Promise.all(
+    replies.map((reply) =>
+      client.get_message({
+        message_scene: message.message_scene,
+        peer_id: message.peer_id,
+        message_seq: reply.data.message_seq,
+      }),
     ),
-  ];
+  );
+  return [...direct, ...fetched.flatMap((result) => supportedReplySegments(result.message.segments))];
+}
+
+function supportedReplySegments(segments: milky.IncomingSegment[]): BottleSegment[] {
+  return segments.filter(
+    (segment): segment is BottleSegment =>
+      segment.type === 'image' ||
+      segment.type === 'video' ||
+      segment.type === 'face' ||
+      segment.type === 'market_face' ||
+      segment.type === 'forward',
+  );
 }
 
 export async function loadForwardMessages(client: MilkyClient, segments: BottleSegment[]): Promise<BottleSegment[]> {
