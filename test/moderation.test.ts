@@ -1,6 +1,6 @@
 import { inseg } from '@fraqjs/mock';
 
-import { createModerationContent } from '../src/moderation.js';
+import { createModerationContent, createModerationInstructions } from '../src/moderation.js';
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -25,4 +25,8 @@ test('AI 审核输入包含文字、图片和视频', () => {
       { type: 'video', url: 'https://example.com/video.mp4' },
     ],
   );
+});
+
+test('AI 审核指令明确要求返回 json', () => {
+  assert.match(createModerationInstructions(), /json/i);
 });
