@@ -1,14 +1,16 @@
 # fraq-plugin-drift-bottle
 
-Fraq 漂流瓶插件，提供投递、捡取和署名功能，并使用 AI 审核脏话与 R18 内容。
+Fraq 漂流瓶插件，支持投递、随机捡取、匿名或别名署名，并使用 AI 审核脏话与 R18 内容。
 
 需要 Node.js 22.13.0 或更高版本。
 
 ## 安装
 
 ```bash
-pnpm add fraq-plugin-drift-bottle @fraqjs/plugin-ai ai
+pnpm add fraq-plugin-drift-bottle @fraqjs/plugin-ai ai zod
 ```
+
+使用前需按照 [Fraq AI 插件文档](https://fraq.dev/docs/plugins/ai) 安装并配置 `@fraqjs/plugin-ai`。
 
 ## 使用
 
@@ -22,13 +24,28 @@ ctx.install(DriftBottlePlugin, {
 });
 ```
 
-使用前需要按照 [Fraq AI 插件文档](https://fraq.dev/docs/plugins/ai) 安装并配置 `@fraqjs/plugin-ai`。`moderationModel` 可选，可以填写 AI 插件中的模型别名或完整模型名；不填写时使用 AI 插件的默认模型。审核会将图片和视频交给模型，因此应选择支持对应媒体输入的模型。
+## 配置
 
-- `扔漂流瓶 <内容>`：保存一条漂流瓶消息，仅支持文字、图片和视频。
-- `捡漂流瓶`：随机捡取一条漂流瓶消息。
-- `漂流瓶署名 匿名`：之后投递的漂流瓶保持匿名。
-- `漂流瓶署名 <别名>`：之后投递使用指定别名，最多 20 个字符。
+所有配置项均为可选。
 
-漂流瓶使用 SQLite 存储。`storagePath` 可选，默认使用运行目录下的 `./data/drift-bottles.db`。
+| 字段 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `storagePath` | `string` | `./data/drift-bottles.db` | SQLite 数据库路径；父目录会自动创建。 |
+| `deleteAfterPick` | `boolean` | `true` | `true` 为捡取后删除，`false` 为保留并允许重复捡取。 |
+| `moderationModel` | `string` | AI 插件默认模型 | AI 模型别名或 `提供商/模型`；需支持所投递的图片或视频。 |
 
-`deleteAfterPick` 控制瓶子被捡取后是否删除，默认为 `true`，瓶子只会被捡到一次；设置为 `false` 可保留瓶子。
+## 命令
+
+| 命令 | 说明 |
+| --- | --- |
+| `扔漂流瓶 <内容>` | 投递漂流瓶，仅支持文字、图片和视频。 |
+| `捡漂流瓶` | 随机捡取一个漂流瓶。 |
+| `漂流瓶署名 匿名` | 后续投递保持匿名。 |
+| `漂流瓶署名 <别名>` | 后续投递使用别名，最多 20 个字符。 |
+
+## 行为
+
+- 默认匿名；别名按 QQ 用户保存，旧瓶子不受后续改名影响。
+- 内容和别名通过 AI 审核后才会写入数据库。
+- AI 审核失败或服务不可用时拒绝投递，不会绕过审核。
+- 数据存储在 SQLite 中，旧版数据库会自动迁移。
