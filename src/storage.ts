@@ -59,6 +59,12 @@ export class BottleStore implements Disposable {
         created_at INTEGER NOT NULL
       )
     `);
+    this.database.exec(`
+      CREATE TABLE IF NOT EXISTS bottle_pick_preferences (
+        user_id INTEGER PRIMARY KEY,
+        repeat_pick INTEGER NOT NULL
+      )
+    `);
   }
 
   async add(input: NewDriftBottle): Promise<DriftBottle> {
@@ -147,6 +153,27 @@ export class BottleStore implements Disposable {
       user_id: number;
     }[];
     return rows.map((row) => row.user_id);
+  }
+
+  setRepeatPick(userId: number, enabled?: boolean): void {
+    if (enabled === undefined) {
+      this.getDatabase().prepare('DELETE FROM bottle_pick_preferences WHERE user_id = ?').run(userId);
+      return;
+    }
+    this.getDatabase()
+      .prepare(`
+        INSERT INTO bottle_pick_preferences (user_id, repeat_pick)
+        VALUES (?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET repeat_pick = excluded.repeat_pick
+      `)
+      .run(userId, enabled ? 1 : 0);
+  }
+
+  repeatPickFor(userId: number): boolean | undefined {
+    const row = this.getDatabase()
+      .prepare('SELECT repeat_pick FROM bottle_pick_preferences WHERE user_id = ?')
+      .get(userId) as { repeat_pick: number } | undefined;
+    return row ? Boolean(row.repeat_pick) : undefined;
   }
 
   setSignature(senderId: number, signature: BottleSignature): void {

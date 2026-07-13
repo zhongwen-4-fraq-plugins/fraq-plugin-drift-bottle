@@ -37,11 +37,16 @@ test('漂流瓶会持久化，并可选择捡取后是否删除', async (t) => {
   store.setSignature(10001, { type: 'alias', name: '海风' });
   store.setSignature(10002, { type: 'original' });
   store.addModerator(20001);
+  store.setRepeatPick(30001, true);
+  store.setRepeatPick(30002, false);
   assert.deepEqual(store.signatureFor(10001), { type: 'alias', name: '海风' });
   assert.deepEqual(store.signatureFor(10002), { type: 'original' });
   assert.deepEqual(store.signatureFor(10003), { type: 'alias', name: '旧别名' });
   assert.equal(store.isModerator(20001), true);
   assert.deepEqual(store.moderators(), [20001]);
+  assert.equal(store.repeatPickFor(30001), true);
+  assert.equal(store.repeatPickFor(30002), false);
+  assert.equal(store.repeatPickFor(30003), undefined);
   await store.add({
     senderId: 10001,
     displayName: '海风',
@@ -65,6 +70,8 @@ test('漂流瓶会持久化，并可选择捡取后是否删除', async (t) => {
   assert.deepEqual(reloadedStore.signatureFor(10001), { type: 'alias', name: '海风' });
   assert.deepEqual(reloadedStore.signatureFor(10002), { type: 'original' });
   assert.deepEqual(reloadedStore.moderators(), [20001]);
+  assert.equal(reloadedStore.repeatPickFor(30001), true);
+  assert.equal(reloadedStore.repeatPickFor(30002), false);
   assert.equal(reloadedStore.count(), 1);
   const bottle = await reloadedStore.pick(false, 0);
   assert.equal(bottle?.senderId, 10001);
@@ -76,5 +83,7 @@ test('漂流瓶会持久化，并可选择捡取后是否删除', async (t) => {
   assert.deepEqual(reloadedStore.signatureFor(10001), { type: 'anonymous' });
   assert.equal(reloadedStore.removeModerator(20001), true);
   assert.equal(reloadedStore.isModerator(20001), false);
+  reloadedStore.setRepeatPick(30001);
+  assert.equal(reloadedStore.repeatPickFor(30001), undefined);
   reloadedStore.dispose();
 });

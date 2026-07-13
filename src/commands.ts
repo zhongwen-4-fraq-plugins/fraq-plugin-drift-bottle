@@ -8,6 +8,7 @@ import {
   toOutgoingSegments,
 } from './message.js';
 import type { BottleModerator, ModerationResult } from './moderation.js';
+import { deleteAfterPickFor } from './pick-preference.js';
 import { type ResolvedBottleSignature, resolveBottleSignature } from './signature.js';
 import type { BottleStore } from './storage.js';
 import type { BottleSegment } from './types.js';
@@ -125,7 +126,7 @@ export function registerDriftBottleCommands(
     .command('捡瓶子')
     .describe('随机捡取一个漂流瓶')
     .execute(async (session) => {
-      const bottle = await store.pick(deleteAfterPick);
+      const bottle = await store.pick(deleteAfterPickFor(store, session.raw.sender_id, deleteAfterPick));
 
       if (!bottle) {
         await session.reply('海里暂时没有漂流瓶。');
