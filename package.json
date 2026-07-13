@@ -30,7 +30,10 @@
     "typescript": "^6.0.3"
   },
   "peerDependencies": {
-    "@fraqjs/fraq": "^0.13.0"
+    "@fraqjs/fraq": "^0.13.0",
+    "@fraqjs/plugin-ai": "^0.3.0",
+    "ai": "^7.0.0",
+    "zod": "^4.4.3"
   },
   "repository": {
     "type": "git",

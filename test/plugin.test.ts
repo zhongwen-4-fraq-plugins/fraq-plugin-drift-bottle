@@ -1,7 +1,8 @@
 import { Context, type milky } from '@fraqjs/fraq';
 import { createMockMilkyClient, inmsg } from '@fraqjs/mock';
 
-import DriftBottlePlugin from '../src/index.js';
+import { registerDriftBottleCommands } from '../src/commands.js';
+import { BottleStore } from '../src/storage.js';
 
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -9,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-test('可以扔出、捡取漂流瓶，并在瓶池为空时提示', async (t) => {
+test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-'));
   const client = createMockMilkyClient();
   const ctx = Context.fromClient(client, {
@@ -22,10 +23,26 @@ test('可以扔出、捡取漂流瓶，并在瓶池为空时提示', async (t) =
 
   let messageSeq = 1;
   client.stubApi('send_group_message', () => ({ message_seq: messageSeq++, time: 1_700_000_000 }));
-  ctx.install(DriftBottlePlugin, { storagePath: join(directory, 'bottles.db') });
+  const store = new BottleStore(join(directory, 'bottles.db'));
+  await store.load();
+  ctx.provide(BottleStore, store);
+  registerDriftBottleCommands(ctx, store, true, async (segments) => {
+    if (segments.some((segment) => segment.type === 'text' && segment.data.text.includes('审核故障'))) {
+      throw new Error('AI unavailable');
+    }
+
+    const rejected = segments.some((segment) => segment.type === 'text' && segment.data.text.includes('违规'));
+    return {
+      approved: !rejected,
+      categories: rejected ? ['profanity'] : [],
+      reason: rejected ? '包含不适宜公开的语言' : '',
+    };
+  });
   await ctx.start();
 
   await dispatchGroupMessage(ctx, client, 10001, inmsg`扔漂流瓶 来自海上的问候`);
+  await dispatchGroupMessage(ctx, client, 10001, inmsg`扔漂流瓶 违规内容`);
+  await dispatchGroupMessage(ctx, client, 10001, inmsg`扔漂流瓶 审核故障`);
   await dispatchGroupMessage(ctx, client, 10002, inmsg`捡漂流瓶`);
   await dispatchGroupMessage(ctx, client, 10003, inmsg`捡漂流瓶`);
 
@@ -37,6 +54,14 @@ test('可以扔出、捡取漂流瓶，并在瓶池为空时提示', async (t) =
     {
       group_id: 20001,
       message: [{ type: 'text', data: { text: '漂流瓶已经扔进海里了。' } }],
+    },
+    {
+      group_id: 20001,
+      message: [{ type: 'text', data: { text: '漂流瓶未通过 AI 审核：包含不适宜公开的语言' } }],
+    },
+    {
+      group_id: 20001,
+      message: [{ type: 'text', data: { text: 'AI 审核暂时不可用，请稍后再试。' } }],
     },
     {
       group_id: 20001,

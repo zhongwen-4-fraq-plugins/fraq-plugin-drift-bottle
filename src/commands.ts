@@ -1,9 +1,15 @@
 import { type Context, param } from '@fraqjs/fraq';
 
 import { hasBottleContent, toOutgoingSegments } from './message.js';
+import type { BottleModerator, ModerationResult } from './moderation.js';
 import type { BottleStore } from './storage.js';
 
-export function registerDriftBottleCommands(ctx: Context, store: BottleStore, deleteAfterPick: boolean): void {
+export function registerDriftBottleCommands(
+  ctx: Context,
+  store: BottleStore,
+  deleteAfterPick: boolean,
+  moderator: BottleModerator,
+): void {
   ctx.router
     .command('扔漂流瓶')
     .describe('将一条匿名消息放入漂流瓶')
@@ -18,6 +24,20 @@ export function registerDriftBottleCommands(ctx: Context, store: BottleStore, de
     .execute(async (session, { content }) => {
       if (!hasBottleContent(content)) {
         await session.reply('漂流瓶里不能只有空白内容。');
+        return;
+      }
+
+      let moderation: ModerationResult;
+      try {
+        moderation = await moderator(content);
+      } catch (error) {
+        ctx.logger.error('漂流瓶 AI 审核失败', error);
+        await session.reply('AI 审核暂时不可用，请稍后再试。');
+        return;
+      }
+
+      if (!moderation.approved) {
+        await session.reply(`漂流瓶未通过 AI 审核：${moderation.reason}`);
         return;
       }
 
