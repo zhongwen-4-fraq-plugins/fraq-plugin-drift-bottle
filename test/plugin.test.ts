@@ -1,5 +1,5 @@
 import { Context, type milky } from '@fraqjs/fraq';
-import { createMockMilkyClient, inmsg } from '@fraqjs/mock';
+import { createMockMilkyClient, inmsg, inseg } from '@fraqjs/mock';
 
 import { registerDriftBottleCommands } from '../src/commands.js';
 import { BottleStore } from '../src/storage.js';
@@ -41,6 +41,7 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
   await ctx.start();
 
   await dispatchGroupMessage(ctx, client, 10001, inmsg`扔漂流瓶 来自海上的问候`);
+  await dispatchGroupMessage(ctx, client, 10001, inmsg`扔漂流瓶 ${inseg.face(14)}`);
   await dispatchGroupMessage(ctx, client, 10001, inmsg`扔漂流瓶 违规内容`);
   await dispatchGroupMessage(ctx, client, 10001, inmsg`扔漂流瓶 审核故障`);
   await dispatchGroupMessage(ctx, client, 10002, inmsg`捡漂流瓶`);
@@ -54,6 +55,10 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
     {
       group_id: 20001,
       message: [{ type: 'text', data: { text: '漂流瓶已经扔进海里了。' } }],
+    },
+    {
+      group_id: 20001,
+      message: [{ type: 'text', data: { text: '漂流瓶只支持文字、图片和视频。' } }],
     },
     {
       group_id: 20001,

@@ -1,7 +1,8 @@
-import type { milky } from '@fraqjs/fraq';
 import type { AiService } from '@fraqjs/plugin-ai';
 import { generateText, Output, type UserContent } from 'ai';
 import { z } from 'zod';
+
+import type { BottleSegment } from './types.js';
 
 export interface ModerationResult {
   approved: boolean;
@@ -9,11 +10,11 @@ export interface ModerationResult {
   reason: string;
 }
 
-export type BottleModerator = (segments: milky.IncomingSegment[]) => Promise<ModerationResult>;
+export type BottleModerator = (segments: BottleSegment[]) => Promise<ModerationResult>;
 
 export async function moderateBottle(
   ai: AiService,
-  segments: milky.IncomingSegment[],
+  segments: BottleSegment[],
   modelName?: string,
 ): Promise<ModerationResult> {
   const { output } = await generateText({
@@ -39,7 +40,7 @@ export async function moderateBottle(
   };
 }
 
-export function createModerationContent(segments: milky.IncomingSegment[]): UserContent {
+export function createModerationContent(segments: BottleSegment[]): UserContent {
   const content: UserContent = [{ type: 'text', text: '以下是待审核的漂流瓶内容：' }];
 
   for (const segment of segments) {
@@ -57,49 +58,21 @@ export function createModerationContent(segments: milky.IncomingSegment[]): User
   return content;
 }
 
-function segmentText(segment: milky.IncomingSegment): string | undefined {
+function segmentText(segment: BottleSegment): string {
   switch (segment.type) {
     case 'text':
       return segment.data.text;
-    case 'mention':
-      return `@${segment.data.name}`;
-    case 'mention_all':
-      return '@全体成员';
-    case 'face':
-      return '[QQ 表情]';
-    case 'reply':
-      return '[回复消息]';
     case 'image':
       return segment.data.summary;
-    case 'record':
-      return '[语音消息]';
     case 'video':
       return '[视频消息]';
-    case 'file':
-      return `[文件：${segment.data.file_name}]`;
-    case 'forward':
-      return `[合并转发：${segment.data.title} ${segment.data.preview.join(' ')}]`;
-    case 'market_face':
-      return segment.data.summary;
-    case 'light_app':
-      return `[小程序：${segment.data.app_name}] ${segment.data.json_payload}`;
-    case 'xml':
-      return segment.data.xml_payload;
-    case 'markdown':
-      return segment.data.content;
-    default:
-      return '[未知消息类型]';
   }
 }
 
-function segmentMedia(segment: milky.IncomingSegment): { type: 'image' | 'audio' | 'video'; url: string } | undefined {
+function segmentMedia(segment: BottleSegment): { type: 'image' | 'video'; url: string } | undefined {
   switch (segment.type) {
     case 'image':
       return { type: 'image', url: segment.data.temp_url };
-    case 'market_face':
-      return { type: 'image', url: segment.data.url };
-    case 'record':
-      return { type: 'audio', url: segment.data.temp_url };
     case 'video':
       return { type: 'video', url: segment.data.temp_url };
     default:

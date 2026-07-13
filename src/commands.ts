@@ -1,6 +1,6 @@
 import { type Context, param } from '@fraqjs/fraq';
 
-import { hasBottleContent, toOutgoingSegments } from './message.js';
+import { hasBottleContent, hasOnlySupportedBottleSegments, toOutgoingSegments } from './message.js';
 import type { BottleModerator, ModerationResult } from './moderation.js';
 import type { BottleStore } from './storage.js';
 
@@ -24,6 +24,11 @@ export function registerDriftBottleCommands(
     .execute(async (session, { content }) => {
       if (!hasBottleContent(content)) {
         await session.reply('漂流瓶里不能只有空白内容。');
+        return;
+      }
+
+      if (!hasOnlySupportedBottleSegments(content)) {
+        await session.reply('漂流瓶只支持文字、图片和视频。');
         return;
       }
 

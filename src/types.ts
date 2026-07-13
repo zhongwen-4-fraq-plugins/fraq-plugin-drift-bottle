@@ -1,5 +1,7 @@
 import type { milky } from '@fraqjs/fraq';
 
+export type BottleSegment = Extract<milky.IncomingSegment, { type: 'text' | 'image' | 'video' }>;
+
 export interface DriftBottleOptions {
   storagePath?: string;
   deleteAfterPick?: boolean;
@@ -20,5 +22,5 @@ export interface DriftBottle {
 export interface NewDriftBottle {
   senderId: number;
   source: DriftBottle['source'];
-  segments: milky.IncomingSegment[];
+  segments: BottleSegment[];
 }

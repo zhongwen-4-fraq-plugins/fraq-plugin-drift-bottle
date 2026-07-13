@@ -1,7 +1,13 @@
 import type { MilkyClient, milky } from '@fraqjs/fraq';
 
+import type { BottleSegment } from './types.js';
+
 export function hasBottleContent(segments: milky.IncomingSegment[]): boolean {
   return segments.some((segment) => segment.type !== 'text' || segment.data.text.trim().length > 0);
+}
+
+export function hasOnlySupportedBottleSegments(segments: milky.IncomingSegment[]): segments is BottleSegment[] {
+  return segments.every((segment) => segment.type === 'text' || segment.type === 'image' || segment.type === 'video');
 }
 
 export async function toOutgoingSegments(

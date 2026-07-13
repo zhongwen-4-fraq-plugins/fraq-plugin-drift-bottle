@@ -6,7 +6,7 @@ import { moderateBottle } from './moderation.js';
 import { BottleStore } from './storage.js';
 import type { DriftBottleOptions } from './types.js';
 
-export type { DriftBottle, DriftBottleOptions } from './types.js';
+export type { BottleSegment, DriftBottle, DriftBottleOptions } from './types.js';
 
 export default definePlugin({
   name: 'drift-bottle',

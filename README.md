@@ -22,9 +22,9 @@ ctx.install(DriftBottlePlugin, {
 });
 ```
 
-使用前需要按照 [Fraq AI 插件文档](https://fraq.dev/docs/plugins/ai) 安装并配置 `@fraqjs/plugin-ai`。`moderationModel` 可选，可以填写 AI 插件中的模型别名或完整模型名；不填写时使用 AI 插件的默认模型。审核会将图片、语音和视频交给模型，因此应选择支持对应媒体输入的模型。
+使用前需要按照 [Fraq AI 插件文档](https://fraq.dev/docs/plugins/ai) 安装并配置 `@fraqjs/plugin-ai`。`moderationModel` 可选，可以填写 AI 插件中的模型别名或完整模型名；不填写时使用 AI 插件的默认模型。审核会将图片和视频交给模型，因此应选择支持对应媒体输入的模型。
 
-- `扔漂流瓶 <内容>`：匿名保存一条漂流瓶消息。
+- `扔漂流瓶 <内容>`：匿名保存一条漂流瓶消息，仅支持文字、图片和视频。
 - `捡漂流瓶`：随机捡取一条漂流瓶消息。
 
 漂流瓶使用 SQLite 存储。`storagePath` 可选，默认使用运行目录下的 `./data/drift-bottles.db`。
