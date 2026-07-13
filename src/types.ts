@@ -10,6 +10,7 @@ export interface DriftBottleOptions {
   storagePath?: string;
   deleteAfterPick?: boolean;
   moderationModel?: string;
+  ownerIds?: number[];
 }
 
 export interface DriftBottle {

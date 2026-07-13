@@ -53,6 +53,12 @@ export class BottleStore implements Disposable {
     if (!profileColumns.some((column) => column.name === 'mode')) {
       this.database.exec("ALTER TABLE bottle_profiles ADD COLUMN mode TEXT NOT NULL DEFAULT 'alias'");
     }
+    this.database.exec(`
+      CREATE TABLE IF NOT EXISTS bottle_moderators (
+        user_id INTEGER PRIMARY KEY,
+        created_at INTEGER NOT NULL
+      )
+    `);
   }
 
   async add(input: NewDriftBottle): Promise<DriftBottle> {
@@ -114,6 +120,33 @@ export class BottleStore implements Disposable {
   count(): number {
     const row = this.getDatabase().prepare('SELECT COUNT(*) AS count FROM bottles').get() as { count: number };
     return row.count;
+  }
+
+  deleteBottle(id: string): boolean {
+    return this.getDatabase().prepare('DELETE FROM bottles WHERE id = ?').run(id).changes > 0;
+  }
+
+  addModerator(userId: number): void {
+    this.getDatabase()
+      .prepare('INSERT OR IGNORE INTO bottle_moderators (user_id, created_at) VALUES (?, ?)')
+      .run(userId, Date.now());
+  }
+
+  removeModerator(userId: number): boolean {
+    return this.getDatabase().prepare('DELETE FROM bottle_moderators WHERE user_id = ?').run(userId).changes > 0;
+  }
+
+  isModerator(userId: number): boolean {
+    return Boolean(this.getDatabase().prepare('SELECT 1 FROM bottle_moderators WHERE user_id = ?').get(userId));
+  }
+
+  moderators(): number[] {
+    const rows = this.getDatabase()
+      .prepare('SELECT user_id FROM bottle_moderators ORDER BY created_at, user_id')
+      .all() as {
+      user_id: number;
+    }[];
+    return rows.map((row) => row.user_id);
   }
 
   setSignature(senderId: number, signature: BottleSignature): void {

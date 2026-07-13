@@ -1,6 +1,7 @@
 import { definePlugin } from '@fraqjs/fraq';
 import { AiService } from '@fraqjs/plugin-ai';
 
+import { registerAdministrationCommands } from './administration.js';
 import { registerDriftBottleCommands } from './commands.js';
 import { registerHelpCommand } from './help.js';
 import { moderateBottle } from './moderation.js';
@@ -26,5 +27,6 @@ export default definePlugin({
     registerDriftBottleCommands(ctx, store, options.deleteAfterPick ?? true, moderator);
     registerSignatureCommands(ctx, store, moderator);
     registerHelpCommand(ctx);
+    registerAdministrationCommands(ctx, store, options.ownerIds ?? []);
   },
 });

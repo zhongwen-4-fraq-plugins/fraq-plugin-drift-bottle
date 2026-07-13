@@ -1,6 +1,6 @@
 # fraq-plugin-drift-bottle
 
-Fraq 漂流瓶插件，支持投递、随机捡取、匿名或别名署名，并使用 AI 审核脏话与 R18 内容。
+Fraq 漂流瓶插件，支持投递、随机捡取、匿名、原名或别名署名，并使用 AI 审核脏话与 R18 内容。
 
 需要 Node.js 22.13.0 或更高版本。
 
@@ -21,6 +21,7 @@ ctx.install(DriftBottlePlugin, {
   storagePath: './data/drift-bottles.db',
   deleteAfterPick: true,
   moderationModel: 'fast',
+  ownerIds: [123456789],
 });
 ```
 
@@ -33,6 +34,7 @@ ctx.install(DriftBottlePlugin, {
 | `storagePath` | `string` | `./data/drift-bottles.db` | SQLite 数据库路径；父目录会自动创建。 |
 | `deleteAfterPick` | `boolean` | `true` | `true` 为捡取后删除，`false` 为保留并允许重复捡取。 |
 | `moderationModel` | `string` | AI 插件默认模型 | AI 模型别名或 `提供商/模型`；需支持所投递的图片或视频。 |
+| `ownerIds` | `number[]` | `[]` | 插件主人 QQ 号；可删除漂流瓶并管理数据库授权列表。 |
 
 ## 命令
 
@@ -43,11 +45,16 @@ ctx.install(DriftBottlePlugin, {
 | `漂流瓶署名 匿名` | 后续投递保持匿名。 |
 | `漂流瓶署名 原名` | 后续投递使用当前群昵称或 QQ 昵称。 |
 | `漂流瓶署名 <别名>` | 后续投递使用别名，最多 20 个字符。 |
+| `删除漂流瓶 <ID>` | 按捡取结果中的 ID 删除漂流瓶；主人、群管或授权用户可执行。 |
+| `漂流瓶权限 添加 <QQ号>` | 将用户加入删除权限列表，仅插件主人可执行。 |
+| `漂流瓶权限 删除 <QQ号>` | 将用户移出删除权限列表，仅插件主人可执行。 |
+| `漂流瓶权限 列表` | 查看数据库中的删除权限列表，仅插件主人可执行。 |
 | `漂流瓶帮助` | 查看命令和支持内容。 |
 
 ## 行为
 
 - 默认匿名；署名模式按 QQ 用户保存。原名会在投递时读取当前群昵称或 QQ 昵称，旧瓶子不受后续改名影响。
-- 内容和别名通过 AI 审核后才会写入数据库。
+- 内容和署名通过 AI 审核后才会写入数据库。
 - AI 审核失败或服务不可用时拒绝投递，不会绕过审核。
 - 数据存储在 SQLite 中，旧版数据库会自动迁移。
+- 删除权限列表存储在同一个 SQLite 数据库中；群主和群管理员无需加入列表。

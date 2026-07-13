@@ -84,7 +84,23 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
 
   const replies = client.apiCalls
     .filter((call) => call.endpoint === 'send_group_message')
-    .map((call) => call.params as milky.SendGroupMessageInput_ZodInput);
+    .map((call) => call.params as milky.SendGroupMessageInput_ZodInput)
+    .map((reply) => ({
+      ...reply,
+      message: reply.message.map((segment) =>
+        segment.type === 'text'
+          ? {
+              ...segment,
+              data: {
+                text: segment.data.text.replace(
+                  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g,
+                  '<id>',
+                ),
+              },
+            }
+          : segment,
+      ),
+    }));
 
   assert.deepEqual(replies, [
     {
@@ -114,7 +130,7 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
     {
       group_id: 20001,
       message: [
-        { type: 'text', data: { text: '捡到一个来自“海风”的漂流瓶：\n' } },
+        { type: 'text', data: { text: '捡到一个来自“海风”的漂流瓶（ID：<id>）：\n' } },
         { type: 'text', data: { text: '来自海上的问候' } },
       ],
     },
@@ -129,7 +145,7 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
     {
       group_id: 20001,
       message: [
-        { type: 'text', data: { text: '捡到一个匿名漂流瓶：\n' } },
+        { type: 'text', data: { text: '捡到一个匿名漂流瓶（ID：<id>）：\n' } },
         { type: 'text', data: { text: '匿名问候' } },
       ],
     },

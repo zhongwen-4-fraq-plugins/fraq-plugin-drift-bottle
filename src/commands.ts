@@ -136,7 +136,9 @@ export function registerDriftBottleCommands(
         {
           type: 'text',
           data: {
-            text: bottle.displayName ? `捡到一个来自“${bottle.displayName}”的漂流瓶：\n` : '捡到一个匿名漂流瓶：\n',
+            text: bottle.displayName
+              ? `捡到一个来自“${bottle.displayName}”的漂流瓶（ID：${bottle.id}）：\n`
+              : `捡到一个匿名漂流瓶（ID：${bottle.id}）：\n`,
           },
         },
         ...(await toOutgoingSegments(ctx.client, bottle.segments, session.selfId)),
