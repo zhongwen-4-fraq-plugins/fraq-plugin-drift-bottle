@@ -27,7 +27,7 @@ export function registerHelpCommand(ctx: Context): void {
             user_id: session.selfId,
             sender_name: '漂流瓶帮助',
             time,
-            segments: [{ type: 'text', data: { text: `${command}\n${description}` } }],
+            segments: [{ type: 'text', data: { text: `指令：${command}\n说明：${description}` } }],
           })),
           title: '漂流瓶命令帮助',
           preview: commands.slice(0, 4).map(([command]) => command),

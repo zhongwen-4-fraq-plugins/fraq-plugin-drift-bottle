@@ -1,7 +1,7 @@
 {
   "name": "fraq-plugin-drift-bottle",
   "type": "module",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Fraq 漂流瓶插件",
   "files": [
     "dist"

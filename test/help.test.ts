@@ -36,10 +36,11 @@ test('漂流瓶帮助命令会列出可用命令和支持字段', async (t) => {
   assert.equal(messages.length, 14);
   assert.ok(messages.every((message) => message.segments.length === 1 && message.segments[0]?.type === 'text'));
   const texts = messages.map((message) => (message.segments[0]?.type === 'text' ? message.segments[0].data.text : ''));
-  assert.ok(texts.some((text) => text.startsWith('扔瓶子 <内容>\n')));
-  assert.ok(texts.some((text) => text.startsWith('漂流瓶重复捡 开启\n')));
-  assert.ok(texts.some((text) => text.startsWith('漂流瓶重复捡 关闭\n')));
-  assert.ok(texts.some((text) => text.startsWith('漂流瓶权限 添加 <QQ号或@用户...>\n')));
-  assert.ok(texts.some((text) => text.startsWith('漂流瓶权限 删除 <QQ号或@用户...>\n')));
+  assert.ok(texts.every((text) => /^指令：.+\n说明：.+$/s.test(text)));
+  assert.ok(texts.some((text) => text.startsWith('指令：扔瓶子 <内容>\n说明：')));
+  assert.ok(texts.some((text) => text.startsWith('指令：漂流瓶重复捡 开启\n说明：')));
+  assert.ok(texts.some((text) => text.startsWith('指令：漂流瓶重复捡 关闭\n说明：')));
+  assert.ok(texts.some((text) => text.startsWith('指令：漂流瓶权限 添加 <QQ号或@用户...>\n说明：')));
+  assert.ok(texts.some((text) => text.startsWith('指令：漂流瓶权限 删除 <QQ号或@用户...>\n说明：')));
   assert.ok(texts.some((text) => text.includes('动态表情')));
 });
