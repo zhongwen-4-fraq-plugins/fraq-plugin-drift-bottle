@@ -190,6 +190,12 @@ export class BottleStore implements Disposable {
     return Boolean(this.getDatabase().prepare('SELECT 1 FROM bottle_threads WHERE id = ?').get(id));
   }
 
+  isBottleOwner(id: string, userId: number): boolean {
+    return Boolean(
+      this.getDatabase().prepare('SELECT 1 FROM bottle_threads WHERE id = ? AND sender_id = ?').get(id, userId),
+    );
+  }
+
   addComment(input: NewBottleComment): BottleComment | undefined {
     if (!this.hasBottle(input.bottleId)) {
       return undefined;

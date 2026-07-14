@@ -86,6 +86,8 @@ test('漂流瓶会持久化，并可选择捡取后是否删除', async (t) => {
   assert.equal(store.count(), 2);
   assert.equal((await store.pick(true, 0.99))?.senderId, 10002);
   assert.equal(store.hasBottle(secondBottle.id), true);
+  assert.equal(store.isBottleOwner(secondBottle.id, 10002), true);
+  assert.equal(store.isBottleOwner(secondBottle.id, 10001), false);
   store.dispose();
 
   const reloadedStore = new BottleStore(storagePath);

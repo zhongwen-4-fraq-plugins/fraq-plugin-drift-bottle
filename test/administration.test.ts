@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-test('主人、群管和授权列表成员可以删除漂流瓶', async (t) => {
+test('普通用户只能删除自己的漂流瓶，管理人员可以删除任意瓶子', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-'));
   const client = createMockMilkyClient();
   const ctx = Context.fromClient(client, {
@@ -35,6 +35,16 @@ test('主人、群管和授权列表成员可以删除漂流瓶', async (t) => {
   await dispatch(ctx, client, 10003, 'admin', inmsg`删除漂流瓶 ${adminBottle.id}`);
   assert.equal(store.count(), 0);
 
+  const personalBottle = await addBottle(store, 10002);
+  await dispatch(ctx, client, 10002, 'member', inmsg`删除漂流瓶 ${personalBottle.id}`);
+  assert.equal(store.count(), 0);
+
+  const archivedBottle = await addBottle(store, 10002);
+  await store.pick(true, 0);
+  assert.equal(store.hasBottle(archivedBottle.id), true);
+  await dispatch(ctx, client, 10002, 'member', inmsg`删除漂流瓶 ${archivedBottle.id}`);
+  assert.equal(store.hasBottle(archivedBottle.id), false);
+
   const ownerBottle = await addBottle(store);
   await dispatch(ctx, client, 10001, 'member', inmsg`删除漂流瓶 ${ownerBottle.id}`);
   assert.equal(store.count(), 0);
@@ -48,7 +58,10 @@ test('主人、群管和授权列表成员可以删除漂流瓶', async (t) => {
   const replies = client.apiCalls
     .filter((call) => call.endpoint === 'send_group_message')
     .map((call) => call.params as milky.SendGroupMessageInput_ZodInput);
-  assert.equal(replies[0]?.message[0]?.type === 'text' && replies[0].message[0].data.text, '你没有删除漂流瓶的权限。');
+  assert.equal(
+    replies[0]?.message[0]?.type === 'text' && replies[0].message[0].data.text,
+    '普通用户只能删除自己投递的漂流瓶。',
+  );
 });
 
 test('只有插件主人可以管理数据库权限列表', async (t) => {
@@ -91,9 +104,9 @@ test('只有插件主人可以管理数据库权限列表', async (t) => {
   assert.deepEqual(store.moderators(), []);
 });
 
-async function addBottle(store: BottleStore) {
+async function addBottle(store: BottleStore, senderId = 20001) {
   return store.add({
-    senderId: 20001,
+    senderId,
     source: { scene: 'group', peerId: 30001 },
     segments: [inseg.text('测试漂流瓶')],
   });

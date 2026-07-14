@@ -7,12 +7,16 @@ export function registerAdministrationCommands(ctx: Context, store: BottleStore,
     return ownerIds.includes(session.raw.sender_id);
   }
 
-  function canDelete(session: Session): boolean {
+  function canDeleteAnyBottle(session: Session): boolean {
     return (
       isOwner(session) ||
       store.isModerator(session.raw.sender_id) ||
       (session.raw.message_scene === 'group' && session.raw.group_member.role !== 'member')
     );
+  }
+
+  function canDelete(session: Session, bottleId: string): boolean {
+    return canDeleteAnyBottle(session) || store.isBottleOwner(bottleId, session.raw.sender_id);
   }
 
   function validUserId(userId: number): boolean {
@@ -58,16 +62,17 @@ export function registerAdministrationCommands(ctx: Context, store: BottleStore,
     .describe('按 ID 删除漂流瓶')
     .arg('id', param.greedy())
     .execute(async (session, { id }) => {
-      if (!canDelete(session)) {
-        await session.reply('你没有删除漂流瓶的权限。');
-        return;
-      }
-
       const bottleId = id.trim();
-      if (!bottleId || !store.deleteBottle(bottleId)) {
+      if (!bottleId || !store.hasBottle(bottleId)) {
         await session.reply('没有找到这个漂流瓶。');
         return;
       }
+      if (!canDelete(session, bottleId)) {
+        await session.reply('普通用户只能删除自己投递的漂流瓶。');
+        return;
+      }
+
+      store.deleteBottle(bottleId);
       await session.reply('漂流瓶已删除。');
     });
 
