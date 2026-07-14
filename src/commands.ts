@@ -14,7 +14,7 @@ import type { BottleStore } from './storage.js';
 import type { BottleSegment } from './types.js';
 
 export function registerDriftBottleCommands(ctx: Context, store: BottleStore, moderator: BottleModerator): void {
-  async function replyForwardBottle(session: Session, segments: milky.OutgoingSegment_ZodInput[]): Promise<void> {
+  async function replyBottleSegments(session: Session, segments: milky.OutgoingSegment_ZodInput[]): Promise<void> {
     let regularSegments: milky.OutgoingSegment_ZodInput[] = [];
     for (const segment of segments) {
       if (segment.type !== 'forward') {
@@ -149,12 +149,12 @@ export function registerDriftBottleCommands(ctx: Context, store: BottleStore, mo
 
       const bottleDescription = bottle.displayName ? `来自“${bottle.displayName}”的` : '匿名';
       const outgoingSegments = await toOutgoingSegments(ctx.client, bottle.segments, session.selfId);
-      if (outgoingSegments.some((segment) => segment.type === 'forward')) {
+      if (outgoingSegments.some((segment) => segment.type !== 'text')) {
         await session.reply(
           `捡到一个${bottleDescription}漂流瓶（ID：${bottle.id}）。\n` +
             '回复本消息并发送“评论漂流瓶 <内容>”可以评论这个瓶子。',
         );
-        await replyForwardBottle(session, outgoingSegments);
+        await replyBottleSegments(session, outgoingSegments);
         return;
       }
 

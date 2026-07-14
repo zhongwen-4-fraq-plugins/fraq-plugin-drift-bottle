@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-test('合并转发瓶子的 ID 和内容会分别发送', async (t) => {
+test('所有非文字瓶子的 ID 和内容会分别发送', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-'));
   const client = createMockMilkyClient();
   const ctx = Context.fromClient(client, {
@@ -53,7 +53,13 @@ test('合并转发瓶子的 ID 和内容会分别发送', async (t) => {
   const bottle = await store.add({
     senderId: 10001,
     source: { scene: 'group', peerId: 20001 },
-    segments: [forward],
+    segments: [
+      inseg.image({ tempUrl: 'https://example.com/image' }),
+      inseg.video({ tempUrl: 'https://example.com/video' }),
+      inseg.face(14),
+      inseg.marketFace({ summary: '动态表情', url: 'https://example.com/face.gif' }),
+      forward,
+    ],
   });
 
   const message = client.inbox.group({ groupId: 20001, userId: 10002 }, inmsg`捡瓶子`);
@@ -62,7 +68,7 @@ test('合并转发瓶子的 ID 和内容会分别发送', async (t) => {
   const replies = client.apiCalls
     .filter((call) => call.endpoint === 'send_group_message')
     .map((call) => call.params as milky.SendGroupMessageInput_ZodInput);
-  assert.equal(replies.length, 2);
+  assert.equal(replies.length, 3);
   assert.deepEqual(replies[0]?.message, [
     {
       type: 'text',
@@ -71,6 +77,10 @@ test('合并转发瓶子的 ID 和内容会分别发送', async (t) => {
       },
     },
   ]);
-  assert.equal(replies[1]?.message.length, 1);
-  assert.equal(replies[1]?.message[0]?.type, 'forward');
+  assert.deepEqual(
+    replies[1]?.message.map((segment) => segment.type),
+    ['image', 'video', 'face', 'image'],
+  );
+  assert.equal(replies[2]?.message.length, 1);
+  assert.equal(replies[2]?.message[0]?.type, 'forward');
 });
