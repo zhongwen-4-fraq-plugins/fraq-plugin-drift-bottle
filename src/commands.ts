@@ -14,6 +14,25 @@ import type { BottleStore } from './storage.js';
 import type { BottleSegment } from './types.js';
 
 export function registerDriftBottleCommands(ctx: Context, store: BottleStore, moderator: BottleModerator): void {
+  async function replyForwardBottle(session: Session, segments: milky.OutgoingSegment_ZodInput[]): Promise<void> {
+    let regularSegments: milky.OutgoingSegment_ZodInput[] = [];
+    for (const segment of segments) {
+      if (segment.type !== 'forward') {
+        regularSegments.push(segment);
+        continue;
+      }
+
+      if (regularSegments.length > 0) {
+        await session.reply(regularSegments);
+        regularSegments = [];
+      }
+      await session.reply([segment]);
+    }
+    if (regularSegments.length > 0) {
+      await session.reply(regularSegments);
+    }
+  }
+
   async function throwBottle(session: Session, content: milky.IncomingSegment[]): Promise<void> {
     let bottleContent: milky.IncomingSegment[];
     try {
@@ -128,16 +147,25 @@ export function registerDriftBottleCommands(ctx: Context, store: BottleStore, mo
         return;
       }
 
+      const bottleDescription = bottle.displayName ? `来自“${bottle.displayName}”的` : '匿名';
+      const outgoingSegments = await toOutgoingSegments(ctx.client, bottle.segments, session.selfId);
+      if (outgoingSegments.some((segment) => segment.type === 'forward')) {
+        await session.reply(
+          `捡到一个${bottleDescription}漂流瓶（ID：${bottle.id}）。\n` +
+            '回复本消息并发送“评论漂流瓶 <内容>”可以评论这个瓶子。',
+        );
+        await replyForwardBottle(session, outgoingSegments);
+        return;
+      }
+
       await session.reply([
         {
           type: 'text',
           data: {
-            text: bottle.displayName
-              ? `捡到一个来自“${bottle.displayName}”的漂流瓶（ID：${bottle.id}）：\n`
-              : `捡到一个匿名漂流瓶（ID：${bottle.id}）：\n`,
+            text: `捡到一个${bottleDescription}漂流瓶（ID：${bottle.id}）：\n`,
           },
         },
-        ...(await toOutgoingSegments(ctx.client, bottle.segments, session.selfId)),
+        ...outgoingSegments,
         {
           type: 'text',
           data: { text: `\n\n发送“评论漂流瓶 ${bottle.id} <内容>”可以评论这个瓶子。` },
