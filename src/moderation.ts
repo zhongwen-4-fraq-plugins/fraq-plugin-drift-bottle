@@ -3,6 +3,7 @@ import type { AiService } from '@fraqjs/plugin-ai';
 import { generateText, Output, type UserContent } from 'ai';
 import { z } from 'zod';
 
+import { retryMediaDownload } from './media-download.js';
 import type { BottleSegment } from './types.js';
 
 export interface ModerationResult {
@@ -18,20 +19,22 @@ export async function moderateBottle(
   segments: BottleSegment[],
   modelName?: string,
 ): Promise<ModerationResult> {
-  const { output } = await generateText({
-    model: ai.model(modelName),
-    output: Output.object({
-      schema: z.object({
-        approved: z.boolean().describe('内容是否完全不含脏话、侮辱、R18 或性暗示倾向，可以公开投放'),
-        categories: z
-          .array(z.enum(['profanity', 'r18']))
-          .describe('命中的违规类别；性暗示、性挑逗或敏感部位聚焦均属于 r18'),
-        reason: z.string().describe('简短、中性且不复述违规内容的中文理由'),
+  const { output } = await retryMediaDownload(() =>
+    generateText({
+      model: ai.model(modelName),
+      output: Output.object({
+        schema: z.object({
+          approved: z.boolean().describe('内容是否完全不含脏话、侮辱、R18 或性暗示倾向，可以公开投放'),
+          categories: z
+            .array(z.enum(['profanity', 'r18']))
+            .describe('命中的违规类别；性暗示、性挑逗或敏感部位聚焦均属于 r18'),
+          reason: z.string().describe('简短、中性且不复述违规内容的中文理由'),
+        }),
       }),
+      instructions: createModerationInstructions(),
+      messages: [{ role: 'user', content: createModerationContent(segments) }],
     }),
-    instructions: createModerationInstructions(),
-    messages: [{ role: 'user', content: createModerationContent(segments) }],
-  });
+  );
 
   return {
     ...output,
