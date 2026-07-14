@@ -26,11 +26,11 @@ export default definePlugin({
     function moderator(segments: Parameters<typeof moderateBottle>[1]) {
       return moderateBottle(ctx.ai, segments, options.moderationModel);
     }
-    registerDriftBottleCommands(ctx, store, options.deleteAfterPick ?? true, moderator);
+    registerDriftBottleCommands(ctx, store, moderator);
     registerSignatureCommands(ctx, store, moderator);
     registerHelpCommand(ctx);
     registerAdministrationCommands(ctx, store, options.ownerIds ?? []);
-    registerPickPreferenceCommand(ctx, store, options.deleteAfterPick ?? true);
+    registerPickPreferenceCommand(ctx, store);
     registerCommentCommands(ctx, store, moderator);
   },
 });

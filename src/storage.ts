@@ -134,7 +134,7 @@ export class BottleStore implements Disposable {
     }
   }
 
-  async pick(deleteAfterPick: boolean, randomValue = Math.random()): Promise<DriftBottle | undefined> {
+  async pick(removeAfterPick: boolean, randomValue = Math.random()): Promise<DriftBottle | undefined> {
     const database = this.getDatabase();
     database.exec('BEGIN IMMEDIATE');
 
@@ -155,7 +155,7 @@ export class BottleStore implements Disposable {
         return undefined;
       }
 
-      if (deleteAfterPick) {
+      if (removeAfterPick) {
         database.prepare('DELETE FROM bottles WHERE id = ?').run(row.id);
       }
       database.exec('COMMIT');

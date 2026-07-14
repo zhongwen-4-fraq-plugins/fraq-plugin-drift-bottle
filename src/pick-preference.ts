@@ -2,20 +2,19 @@ import { type Context, param } from '@fraqjs/fraq';
 
 import type { BottleStore } from './storage.js';
 
-export function deleteAfterPickFor(store: BottleStore, userId: number, defaultValue: boolean): boolean {
-  const repeatPick = store.repeatPickFor(userId);
-  return repeatPick === undefined ? defaultValue : !repeatPick;
+export function shouldRemovePickedBottle(store: BottleStore, userId: number): boolean {
+  return !(store.repeatPickFor(userId) ?? false);
 }
 
-export function registerPickPreferenceCommand(ctx: Context, store: BottleStore, defaultDeleteAfterPick: boolean): void {
+export function registerPickPreferenceCommand(ctx: Context, store: BottleStore): void {
   ctx.router
     .command('漂流瓶重复捡')
     .describe('设置个人捡取后是否保留漂流瓶')
     .execute(async (session) => {
       const repeatPick = store.repeatPickFor(session.raw.sender_id);
-      const enabled = repeatPick ?? !defaultDeleteAfterPick;
+      const enabled = repeatPick ?? false;
       await session.reply(
-        `当前设置：${enabled ? '开启' : '关闭'}${repeatPick === undefined ? '（使用全局默认）' : ''}。\n` +
+        `当前设置：${enabled ? '开启' : '关闭'}${repeatPick === undefined ? '（默认）' : ''}。\n` +
           '请使用“漂流瓶重复捡 开启”、“漂流瓶重复捡 关闭”或“漂流瓶重复捡 默认”。',
       );
     });
@@ -27,7 +26,7 @@ export function registerPickPreferenceCommand(ctx: Context, store: BottleStore, 
     .execute(async (session, { mode }) => {
       if (mode === '默认') {
         store.setRepeatPick(session.raw.sender_id);
-        await session.reply('已恢复使用全局捡取设置。');
+        await session.reply('已恢复默认设置，之后捡到的瓶子会删除。');
         return;
       }
 

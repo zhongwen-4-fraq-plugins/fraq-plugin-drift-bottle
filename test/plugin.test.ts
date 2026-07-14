@@ -53,7 +53,7 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
       reason: rejected ? '包含不适宜公开的语言' : '',
     };
   };
-  registerDriftBottleCommands(ctx, store, true, moderator);
+  registerDriftBottleCommands(ctx, store, moderator);
   registerSignatureCommands(ctx, store, moderator);
   await ctx.start();
 
