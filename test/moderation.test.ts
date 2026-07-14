@@ -32,6 +32,16 @@ test('AI 审核指令明确要求返回 json', () => {
   assert.match(createModerationInstructions(), /json/i);
 });
 
+test('AI 审核会将卡通或动物的性暗示倾向视为 R18', () => {
+  const instructions = createModerationInstructions();
+
+  assert.match(instructions, /性暗示/);
+  assert.match(instructions, /臀部.*肛门.*裆部/);
+  assert.match(instructions, /触摸.*圈形手势/);
+  assert.match(instructions, /卡通.*动物.*表情包/);
+  assert.match(instructions, /没有裸露.*r18/i);
+});
+
 test('AI 审核会读取表情、动态表情和合并转发正文', () => {
   const forward: Extract<BottleSegment, { type: 'forward' }> = {
     type: 'forward',
