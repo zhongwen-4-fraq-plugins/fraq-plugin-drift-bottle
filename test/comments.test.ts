@@ -1,5 +1,5 @@
 import { Context, type milky } from '@fraqjs/fraq';
-import { createMockMilkyClient, inmsg } from '@fraqjs/mock';
+import { createMockMilkyClient, inmsg, inseg } from '@fraqjs/mock';
 
 import { registerCommentCommands } from '../src/comments.js';
 import type { BottleModerator } from '../src/moderation.js';
@@ -48,12 +48,21 @@ test('归档后的漂流瓶仍可评论和查看评论', async (t) => {
 
   await dispatch(ctx, client, 10001, inmsg`评论漂流瓶 ${bottle.id} 写得真好`);
   await dispatch(ctx, client, 10003, inmsg`评论漂流瓶 ${bottle.id} 违规评论`);
-  await dispatch(ctx, client, 10003, inmsg`漂流瓶评论 ${bottle.id}`);
+  const quoted = client.inbox.group({ groupId: 20001, userId: 10000 }, [
+    inseg.text(`捡到一个匿名漂流瓶（ID：${bottle.id}）：\n瓶子正文`),
+  ]);
+  await dispatch(ctx, client, 10003, inmsg`${inseg.reply(quoted)}评论漂流瓶 回复评论`);
+  const emptyReply = inseg.reply(quoted);
+  emptyReply.data.segments = [];
+  await dispatch(ctx, client, 10003, inmsg`${emptyReply}漂流瓶评论`);
 
-  assert.equal(store.commentCount(bottle.id), 1);
+  assert.equal(store.commentCount(bottle.id), 2);
   assert.deepEqual(
     store.commentsFor(bottle.id).map(({ displayName, content }) => ({ displayName, content })),
-    [{ displayName: '海风', content: '写得真好' }],
+    [
+      { displayName: '海风', content: '写得真好' },
+      { displayName: undefined, content: '回复评论' },
+    ],
   );
 
   const replies = client.apiCalls
@@ -63,7 +72,8 @@ test('归档后的漂流瓶仍可评论和查看评论', async (t) => {
   assert.deepEqual(replies, [
     '评论已发布。',
     '漂流瓶评论未通过 AI 审核：包含不适宜公开的语言',
-    `漂流瓶 ${bottle.id} 的评论（共 1 条）：\n1. 海风：写得真好`,
+    '评论已发布。',
+    `漂流瓶 ${bottle.id} 的评论（共 2 条）：\n1. 海风：写得真好\n2. 匿名：回复评论`,
   ]);
 });
 
