@@ -1,5 +1,6 @@
 import type { Disposable } from '@fraqjs/fraq';
 
+import type { ModerationProcess, ModerationRecord, NewModerationRecord } from './moderation-records.js';
 import type { BottleComment, DriftBottle, NewBottleComment, NewDriftBottle } from './types.js';
 
 import { randomUUID } from 'node:crypto';
@@ -24,6 +25,18 @@ interface BottleCommentRow {
   created_at: number;
   display_name: string | null;
   content: string;
+}
+
+interface ModerationRecordRow {
+  id: string;
+  created_at: number;
+  content: string;
+  process: string;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  total_tokens: number | null;
+  success: number;
+  approved: number | null;
 }
 
 export type BottleSignature = { type: 'anonymous' } | { type: 'original' } | { type: 'alias'; name: string };
@@ -93,6 +106,21 @@ export class BottleStore implements Disposable {
         user_id INTEGER PRIMARY KEY,
         repeat_pick INTEGER NOT NULL
       )
+    `);
+    this.database.exec(`
+      CREATE TABLE IF NOT EXISTS bottle_moderation_records (
+        id TEXT PRIMARY KEY,
+        created_at INTEGER NOT NULL,
+        content TEXT NOT NULL,
+        process TEXT NOT NULL,
+        input_tokens INTEGER,
+        output_tokens INTEGER,
+        total_tokens INTEGER,
+        success INTEGER NOT NULL,
+        approved INTEGER
+      );
+      CREATE INDEX IF NOT EXISTS bottle_moderation_records_created_at
+      ON bottle_moderation_records (created_at, id);
     `);
   }
 
@@ -283,6 +311,49 @@ export class BottleStore implements Disposable {
       .prepare('SELECT repeat_pick FROM bottle_pick_preferences WHERE user_id = ?')
       .get(userId) as { repeat_pick: number } | undefined;
     return row ? Boolean(row.repeat_pick) : undefined;
+  }
+
+  addModerationRecord(input: NewModerationRecord): ModerationRecord {
+    const record: ModerationRecord = {
+      id: randomUUID(),
+      createdAt: Date.now(),
+      ...input,
+    };
+    this.getDatabase()
+      .prepare(`
+        INSERT INTO bottle_moderation_records (
+          id, created_at, content, process, input_tokens, output_tokens, total_tokens, success, approved
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+      .run(
+        record.id,
+        record.createdAt,
+        JSON.stringify(record.content),
+        JSON.stringify(record.process),
+        record.inputTokens ?? null,
+        record.outputTokens ?? null,
+        record.totalTokens ?? null,
+        record.success ? 1 : 0,
+        record.approved === undefined ? null : record.approved ? 1 : 0,
+      );
+    return record;
+  }
+
+  moderationRecords(limit = 100): ModerationRecord[] {
+    const rows = this.getDatabase()
+      .prepare('SELECT * FROM bottle_moderation_records ORDER BY created_at DESC, rowid DESC LIMIT ?')
+      .all(limit) as unknown as ModerationRecordRow[];
+    return rows.map((row) => ({
+      id: row.id,
+      createdAt: row.created_at,
+      content: JSON.parse(row.content) as ModerationRecord['content'],
+      process: JSON.parse(row.process) as ModerationProcess,
+      inputTokens: row.input_tokens ?? undefined,
+      outputTokens: row.output_tokens ?? undefined,
+      totalTokens: row.total_tokens ?? undefined,
+      success: Boolean(row.success),
+      approved: row.approved === null ? undefined : Boolean(row.approved),
+    }));
   }
 
   setSignature(senderId: number, signature: BottleSignature): void {

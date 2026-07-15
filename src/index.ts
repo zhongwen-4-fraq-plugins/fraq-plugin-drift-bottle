@@ -5,12 +5,14 @@ import { registerAdministrationCommands } from './administration.js';
 import { registerDriftBottleCommands } from './commands.js';
 import { registerCommentCommands } from './comments.js';
 import { registerHelpCommand } from './help.js';
-import { formatModerationUsage, moderateBottle } from './moderation.js';
+import { moderateBottle } from './moderation.js';
+import { withModerationRecords } from './moderation-records.js';
 import { registerPickPreferenceCommand } from './pick-preference.js';
 import { registerSignatureCommands } from './signature.js';
 import { BottleStore } from './storage.js';
 import type { DriftBottleOptions } from './types.js';
 
+export type { ModerationProcess, ModerationRecord } from './moderation-records.js';
 export type { BottleComment, BottleSegment, DriftBottle, DriftBottleOptions } from './types.js';
 
 export default definePlugin({
@@ -23,13 +25,9 @@ export default definePlugin({
     const store = new BottleStore(options.storagePath ?? './data/drift-bottles.db');
     await store.load();
     ctx.provide(BottleStore, store);
-    async function moderator(segments: Parameters<typeof moderateBottle>[1]) {
-      const result = await moderateBottle(ctx.ai, segments, options.moderationModel);
-      if (result.usage) {
-        ctx.logger.info(formatModerationUsage(result.usage));
-      }
-      return result;
-    }
+    const moderator = withModerationRecords(store, ctx.logger, (segments) =>
+      moderateBottle(ctx.ai, segments, options.moderationModel),
+    );
     registerDriftBottleCommands(ctx, store, moderator);
     registerSignatureCommands(ctx, store, moderator);
     registerHelpCommand(ctx);

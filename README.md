@@ -34,6 +34,22 @@ ctx.install(DriftBottlePlugin, {
 | `moderationModel` | `string` | AI 插件默认模型 | AI 模型别名或 `提供商/模型`；需支持所投递的图片或视频。 |
 | `ownerIds` | `number[]` | `[]` | 插件主人 QQ 号；可删除漂流瓶并管理数据库授权列表。 |
 
+## 审核记录
+
+审核记录保存在 SQLite 的 `bottle_moderation_records` 表中。
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 审核记录 ID。 |
+| `created_at` | 记录时间，Unix 毫秒时间戳。 |
+| `content` | 投稿消息段的 JSON 快照。 |
+| `process` | AI 返回的审核结果，失败时为错误名称和信息。 |
+| `input_tokens` | 输入 Token，无法获得时为 `NULL`。 |
+| `output_tokens` | 输出 Token，无法获得时为 `NULL`。 |
+| `total_tokens` | 总 Token，无法获得时为 `NULL`。 |
+| `success` | AI 调用成功为 `1`，调用失败为 `0`。 |
+| `approved` | 内容通过为 `1`，内容被拒绝为 `0`，调用失败为 `NULL`。 |
+
 ## 命令
 
 | 命令 | 说明 |
@@ -60,6 +76,7 @@ ctx.install(DriftBottlePlugin, {
 - 默认匿名；署名模式按 QQ 用户保存。原名会在投递时读取当前群昵称或 QQ 昵称，旧瓶子不受后续改名影响。
 - 内容和署名通过 AI 审核后才会写入数据库。
 - 每次 AI 审核完成后，插件日志会记录输入、输出和总 Token 数量。
+- 每次 AI 审核都会写入 SQLite 的 `bottle_moderation_records` 表，包括时间、投稿内容 JSON、审核结果或错误、Token 用量、调用是否成功及内容是否通过。
 - R18 审核包含性暗示倾向、敏感部位聚焦或触摸等内容，卡通、动物和表情包采用相同标准。
 - AI 审核失败或服务不可用时拒绝投递，不会绕过审核。
 - 数据存储在 SQLite 中，旧版数据库会自动迁移。
