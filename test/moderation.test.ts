@@ -1,6 +1,6 @@
 import { inseg } from '@fraqjs/mock';
 
-import { createModerationContent, createModerationInstructions } from '../src/moderation.js';
+import { createModerationContent, createModerationInstructions, formatModerationUsage } from '../src/moderation.js';
 import type { BottleSegment } from '../src/types.js';
 
 import assert from 'node:assert/strict';
@@ -30,6 +30,14 @@ test('AI 审核输入包含文字、图片和视频', () => {
 
 test('AI 审核指令明确要求返回 json', () => {
   assert.match(createModerationInstructions(), /json/i);
+});
+
+test('AI 审核 Token 用量包含输入、输出和总计', () => {
+  assert.equal(
+    formatModerationUsage({ inputTokens: 120, outputTokens: 30, totalTokens: 150 }),
+    '漂流瓶 AI 审核 Token：输入 120，输出 30，总计 150',
+  );
+  assert.equal(formatModerationUsage({}), '漂流瓶 AI 审核 Token：输入 未知，输出 未知，总计 未知');
 });
 
 test('AI 审核会将卡通或动物的性暗示倾向视为 R18', () => {

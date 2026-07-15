@@ -5,7 +5,7 @@ import { registerAdministrationCommands } from './administration.js';
 import { registerDriftBottleCommands } from './commands.js';
 import { registerCommentCommands } from './comments.js';
 import { registerHelpCommand } from './help.js';
-import { moderateBottle } from './moderation.js';
+import { formatModerationUsage, moderateBottle } from './moderation.js';
 import { registerPickPreferenceCommand } from './pick-preference.js';
 import { registerSignatureCommands } from './signature.js';
 import { BottleStore } from './storage.js';
@@ -23,8 +23,12 @@ export default definePlugin({
     const store = new BottleStore(options.storagePath ?? './data/drift-bottles.db');
     await store.load();
     ctx.provide(BottleStore, store);
-    function moderator(segments: Parameters<typeof moderateBottle>[1]) {
-      return moderateBottle(ctx.ai, segments, options.moderationModel);
+    async function moderator(segments: Parameters<typeof moderateBottle>[1]) {
+      const result = await moderateBottle(ctx.ai, segments, options.moderationModel);
+      if (result.usage) {
+        ctx.logger.info(formatModerationUsage(result.usage));
+      }
+      return result;
     }
     registerDriftBottleCommands(ctx, store, moderator);
     registerSignatureCommands(ctx, store, moderator);

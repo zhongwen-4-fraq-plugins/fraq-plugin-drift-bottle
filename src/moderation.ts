@@ -9,6 +9,13 @@ export interface ModerationResult {
   approved: boolean;
   categories: ('profanity' | 'r18')[];
   reason: string;
+  usage?: ModerationUsage;
+}
+
+export interface ModerationUsage {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
 }
 
 export type BottleModerator = (segments: BottleSegment[]) => Promise<ModerationResult>;
@@ -18,7 +25,7 @@ export async function moderateBottle(
   segments: BottleSegment[],
   modelName?: string,
 ): Promise<ModerationResult> {
-  const { output } = await generateText({
+  const { output, usage } = await generateText({
     model: ai.model(modelName),
     output: Output.object({
       schema: z.object({
@@ -36,7 +43,16 @@ export async function moderateBottle(
   return {
     ...output,
     approved: output.approved && output.categories.length === 0,
+    usage: {
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      totalTokens: usage.totalTokens,
+    },
   };
+}
+
+export function formatModerationUsage(usage: ModerationUsage): string {
+  return `漂流瓶 AI 审核 Token：输入 ${usage.inputTokens ?? '未知'}，输出 ${usage.outputTokens ?? '未知'}，总计 ${usage.totalTokens ?? '未知'}`;
 }
 
 export function createModerationInstructions(): string {
