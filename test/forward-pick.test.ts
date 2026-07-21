@@ -15,9 +15,7 @@ import test from 'node:test';
 test('所有非文字瓶子的 ID 和内容会分别发送', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-'));
   const client = createMockMilkyClient();
-  const ctx = Context.fromClient(client, {
-    routing: { activation: { default: { type: 'direct' } } },
-  });
+  const ctx = Context.fromClient(client);
   const store = new BottleStore(join(directory, 'bottles.db'));
   await store.load();
   t.after(async () => {

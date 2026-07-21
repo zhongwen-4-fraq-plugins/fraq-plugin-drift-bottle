@@ -30,14 +30,17 @@
     "typescript": "^6.0.3"
   },
   "peerDependencies": {
-    "@fraqjs/fraq": "^0.13.0",
-    "@fraqjs/plugin-ai": "^0.3.0",
+    "@fraqjs/fraq": "^0.14.0",
+    "@fraqjs/plugin-ai": "^0.5.1",
     "ai": "^7.0.0",
     "zod": "^4.4.3"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/zhongwen-4-fraq-plugins/fraq-plugin-drift-bottle.git"
+  },
+  "fraq": {
+    "category": "social"
   },
   "keywords": [
     "fraq",

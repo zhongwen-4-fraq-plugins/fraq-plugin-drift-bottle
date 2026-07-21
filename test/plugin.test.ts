@@ -15,9 +15,7 @@ import test from 'node:test';
 test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-'));
   const client = createMockMilkyClient();
-  const ctx = Context.fromClient(client, {
-    routing: { activation: { default: { type: 'direct' } } },
-  });
+  const ctx = Context.fromClient(client);
   t.after(async () => {
     await ctx.stop();
     await rm(directory, { recursive: true, force: true });

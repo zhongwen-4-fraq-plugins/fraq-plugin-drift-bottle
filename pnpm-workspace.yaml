@@ -3,3 +3,7 @@ allowBuilds:
 
 minimumReleaseAgeExclude:
   - "@fraqjs/*"
+
+peerDependencyRules:
+  allowedVersions:
+    "@fraqjs/mock>@fraqjs/fraq": "^0.14.0"

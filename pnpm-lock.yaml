@@ -9,11 +9,11 @@ importers:
   .:
     dependencies:
       '@fraqjs/fraq':
-        specifier: ^0.13.0
-        version: 0.13.0
+        specifier: ^0.14.0
+        version: 0.14.0
       '@fraqjs/plugin-ai':
-        specifier: ^0.3.0
-        version: 0.3.0(@fraqjs/fraq@0.13.0)(ai@7.0.22(zod@4.4.3))
+        specifier: ^0.5.1
+        version: 0.5.1(@fraqjs/fraq@0.14.0)(ai@7.0.22(zod@4.4.3))
       ai:
         specifier: ^7.0.0
         version: 7.0.22(zod@4.4.3)
@@ -26,7 +26,7 @@ importers:
         version: 2.5.2
       '@fraqjs/mock':
         specifier: ^0.1.0
-        version: 0.1.0(@fraqjs/fraq@0.13.0)
+        version: 0.1.0(@fraqjs/fraq@0.14.0)
       '@types/node':
         specifier: ^24.13.2
         version: 24.13.2
@@ -301,8 +301,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@fraqjs/fraq@0.13.0':
-    resolution: {integrity: sha512-aDpqcr6R/D2C/PpFskoRpxY4C78ZBfR0m9BII5a3t12iIQ/It01PKA5vswvvNZzibcZeW34HhBXx66IifLDHsA==}
+  '@fraqjs/fraq@0.14.0':
+    resolution: {integrity: sha512-oCVhcquY244zKen3OKD7xa/u49qSbWWTeUQajVaXDfWfklSMeCDTU+hbfXl+qo7gp1P4LQYXAGfyQYCJg8Y1kA==}
     engines: {node: '>=22'}
 
   '@fraqjs/mock@0.1.0':
@@ -310,11 +310,11 @@ packages:
     peerDependencies:
       '@fraqjs/fraq': ^0.6.0
 
-  '@fraqjs/plugin-ai@0.3.0':
-    resolution: {integrity: sha512-xWQMctWJNFk09L3cKISWAShw2tqcOd0XSrkFAvfefKtNTS1SoSz05vryQlvLVOcdPP0Es6Hyz76VZF77q7YHFA==}
+  '@fraqjs/plugin-ai@0.5.1':
+    resolution: {integrity: sha512-tfHLZJUMIA/1L40Qas5L+cvQ8W56x9yrqm6hxEIw4KZyHa0zkswt9n6RElUiAcMQKW3GYPZOfEuScVKcjNKDpw==}
     engines: {node: '>=22'}
     peerDependencies:
-      '@fraqjs/fraq': ^0.13.0
+      '@fraqjs/fraq': ^0.14.0
       ai: ^7.0.0
 
   '@jridgewell/gen-mapping@0.3.13':
@@ -486,6 +486,22 @@ packages:
   defu@6.1.7:
     resolution: {integrity: sha512-7z22QmUWiQ/2d0KkdYmANbRUVABpZ9SNYyH5vx6PZ+nE5bcC0l7uFvEfHlyld/HcGBFTL536ClDt3DEcSlEJAQ==}
 
+  dom-serializer@3.1.1:
+    resolution: {integrity: sha512-4MEa38/QexBob6gFNwu+EGdWvhJ1OKuNwdYY3Y3NyeWDQfnGeDYQUDfIRzWu5B5gsv03so2Uxd28YC6zrsx3Lw==}
+    engines: {node: '>=20.19.0'}
+
+  domelementtype@3.0.0:
+    resolution: {integrity: sha512-umCQid3jKbDmVjx8jGaW7uUykm4DEUeyV21hPxNMo2nV955DhUThwqyOIDtreepP31hl84X7G5U9ZfsWvIB3Pg==}
+    engines: {node: '>=20.19.0'}
+
+  domhandler@6.0.1:
+    resolution: {integrity: sha512-gYzvtM72ZtxQO0T048kd6HWSbbGCNOUwcnfQ01cqIJ4X2IYKFFHZ5mKvrQETcFXxsRObZulDaKmy//R7TPtsBg==}
+    engines: {node: '>=20.19.0'}
+
+  domutils@4.0.2:
+    resolution: {integrity: sha512-qI4JLRKnSzqFqr7hAlS5xQDusBCjKSEG4t4+7aNrIQMHBcsC2TGEhuyABJdYkgSewL57PNLYEiibY2iPKhKpaA==}
+    engines: {node: '>=20.19.0'}
+
   dts-resolver@3.0.0:
     resolution: {integrity: sha512-1T1f+z+4tl9XD+m+0HBgWoL/nm0bOIffyWaUuUSBlFg/86IWvfx+wjNaO/ybU0AJzG9/Mi5hBUgGV6zCmWEN7Q==}
     engines: {node: ^22.18.0 || >=24.0.0}
@@ -498,6 +514,10 @@ packages:
   empathic@2.0.1:
     resolution: {integrity: sha512-YGRs8knHhKHVShLkFET/rWAU8kmHbOV5LwN938RHI0pljAJ1Gf6SzXsSmRaEzcXTtOOmVqJ5+WtQPL5uigY50Q==}
     engines: {node: '>=14'}
+
+  entities@8.0.0:
+    resolution: {integrity: sha512-zwfzJecQ/Uej6tusMqwAqU/6KL2XaB2VZ2Jg54Je6ahNBGNH6Ek6g3jjNCF0fG9EWQKGZNddNjU5F1ZQn/sBnA==}
+    engines: {node: '>=20.19.0'}
 
   esbuild@0.28.1:
     resolution: {integrity: sha512-HrJrvZv5ayxBzPfwphOoNzkzOIIlifzk0KJrGK2c8R4+LKpMtpYLQeUdjnwjWv/LZlkH2laZk+4w78pi99D4Vw==}
@@ -531,6 +551,10 @@ packages:
 
   hookable@6.1.1:
     resolution: {integrity: sha512-U9LYDy1CwhMCnprUfeAZWZGByVbhd54hwepegYTK7Pi5NvqEj63ifz5z+xukznehT7i6NIZRu89Ay1AZmRsLEQ==}
+
+  htmlparser2@12.0.0:
+    resolution: {integrity: sha512-Tz7u1i95/g2x2jz81+x0FBVhBhY5aRTvD3tXXdFaljuNdzDLJ8UGNRrTcj2cgQvAg3iW/h77Fz15nLW0L0CrZw==}
+    engines: {node: '>=20.19.0'}
 
   import-without-cache@0.4.0:
     resolution: {integrity: sha512-NkJQA7oZ4YHQhd2+H3BoRFKF3d/XNsiKpHZCQEMH9pDX27hQQLsTyOocyRgaIVtf8gHX3Nt3LPkR4e5EdtPAGQ==}
@@ -657,6 +681,14 @@ packages:
 
   undici-types@7.18.2:
     resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
+
+  xml-formatter@3.7.0:
+    resolution: {integrity: sha512-+8qTc3zv2UcJ1v9IsSIce37Dl4MQG14Cp7tWrwmy202UaI1wqRukw5QMX1JHsV+DX64yw77EgGsj2s5wGvuMbQ==}
+    engines: {node: '>= 16'}
+
+  xml-parser-xo@4.1.6:
+    resolution: {integrity: sha512-mXbSNSM+rIwndoxSwmFa83bOdeP8G/cOGr7XvxA67X7ebCzoAuVez9JYDCDub3zRDNBZxIbfjuXLSsamr7NfwQ==}
+    engines: {node: '>= 20'}
 
   zod@4.4.3:
     resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
@@ -833,18 +865,22 @@ snapshots:
   '@esbuild/win32-x64@0.28.1':
     optional: true
 
-  '@fraqjs/fraq@0.13.0':
+  '@fraqjs/fraq@0.14.0':
     dependencies:
       mitt: 3.0.1
 
-  '@fraqjs/mock@0.1.0(@fraqjs/fraq@0.13.0)':
+  '@fraqjs/mock@0.1.0(@fraqjs/fraq@0.14.0)':
     dependencies:
-      '@fraqjs/fraq': 0.13.0
+      '@fraqjs/fraq': 0.14.0
 
-  '@fraqjs/plugin-ai@0.3.0(@fraqjs/fraq@0.13.0)(ai@7.0.22(zod@4.4.3))':
+  '@fraqjs/plugin-ai@0.5.1(@fraqjs/fraq@0.14.0)(ai@7.0.22(zod@4.4.3))':
     dependencies:
-      '@fraqjs/fraq': 0.13.0
+      '@fraqjs/fraq': 0.14.0
       ai: 7.0.22(zod@4.4.3)
+      dom-serializer: 3.1.1
+      domhandler: 6.0.1
+      htmlparser2: 12.0.0
+      xml-formatter: 3.7.0
       zod: 4.4.3
 
   '@jridgewell/gen-mapping@0.3.13':
@@ -965,9 +1001,29 @@ snapshots:
 
   defu@6.1.7: {}
 
+  dom-serializer@3.1.1:
+    dependencies:
+      domelementtype: 3.0.0
+      domhandler: 6.0.1
+      entities: 8.0.0
+
+  domelementtype@3.0.0: {}
+
+  domhandler@6.0.1:
+    dependencies:
+      domelementtype: 3.0.0
+
+  domutils@4.0.2:
+    dependencies:
+      dom-serializer: 3.1.1
+      domelementtype: 3.0.0
+      domhandler: 6.0.1
+
   dts-resolver@3.0.0: {}
 
   empathic@2.0.1: {}
+
+  entities@8.0.0: {}
 
   esbuild@0.28.1:
     optionalDependencies:
@@ -1016,6 +1072,13 @@ snapshots:
       resolve-pkg-maps: 1.0.0
 
   hookable@6.1.1: {}
+
+  htmlparser2@12.0.0:
+    dependencies:
+      domelementtype: 3.0.0
+      domhandler: 6.0.1
+      domutils: 4.0.2
+      entities: 8.0.0
 
   import-without-cache@0.4.0: {}
 
@@ -1126,5 +1189,11 @@ snapshots:
       quansync: 1.0.0
 
   undici-types@7.18.2: {}
+
+  xml-formatter@3.7.0:
+    dependencies:
+      xml-parser-xo: 4.1.6
+
+  xml-parser-xo@4.1.6: {}
 
   zod@4.4.3: {}

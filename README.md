@@ -4,15 +4,56 @@ Fraq 漂流瓶插件，支持投递、随机捡取、匿名、原名或别名署
 
 需要 Node.js 22.13.0 或更高版本。
 
-## 安装
+兼容 Fraq 0.14 与 Fraq CLI 0.7。
+
+## 使用 Fraq CLI
+
+在 `fraq.yml` 中先配置 `fraqjs/ai`，再添加 `drift-bottle`：
+
+```yaml
+configVersion: 1
+fraqVersion: 0.14.0
+
+milky:
+  url: http://localhost:30001/
+
+plugins:
+  fraqjs/ai:
+    providers:
+      deepseek:
+        sdk: "@ai-sdk/deepseek"
+        options:
+          apiKey: ${{ env:DEEPSEEK_API_KEY }}
+        models: [deepseek-chat]
+    defaultModel: deepseek/deepseek-chat
+
+  drift-bottle:
+    storagePath: ./data/drift-bottles.db
+    moderationModel: deepseek/deepseek-chat
+    ownerIds: [123456789]
+
+additionalDependencies:
+  "@ai-sdk/deepseek": ^3
+  ai: ^7
+  zod: ^4
+```
+
+然后同步插件版本并启动：
+
+```bash
+fraq lock
+fraq start
+```
+
+Fraq CLI 会把 `drift-bottle` 解析为 npm 包 `fraq-plugin-drift-bottle`，并检查其依赖的 `fraqjs/ai` 插件是否已经配置。
+
+## 代码安装
 
 ```bash
 pnpm add fraq-plugin-drift-bottle @fraqjs/plugin-ai ai zod
 ```
 
 使用前需按照 [Fraq AI 插件文档](https://fraq.dev/docs/plugins/ai) 安装并配置 `@fraqjs/plugin-ai`。
-
-## 使用
 
 ```ts
 import DriftBottlePlugin from 'fraq-plugin-drift-bottle';

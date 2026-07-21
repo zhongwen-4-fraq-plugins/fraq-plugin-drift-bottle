@@ -8,9 +8,7 @@ import test from 'node:test';
 
 test('漂流瓶帮助命令会列出可用命令和支持字段', async (t) => {
   const client = createMockMilkyClient();
-  const ctx = Context.fromClient(client, {
-    routing: { activation: { default: { type: 'direct' } } },
-  });
+  const ctx = Context.fromClient(client);
   t.after(() => ctx.stop());
 
   client.stubApi('send_group_message', () => ({ message_seq: 1, time: 1_700_000_000 }));
