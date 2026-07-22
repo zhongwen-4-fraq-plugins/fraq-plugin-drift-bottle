@@ -1,6 +1,6 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: 无进行中工作；`v0.2.4` 发布提交与标签已准备完成。
+Focus: 无进行中工作；已在 `D:\bot\fraq-plugins` 完成 `0.2.4` 集成测试。
 
 ## In flight
 
