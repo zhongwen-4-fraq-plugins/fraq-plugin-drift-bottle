@@ -85,6 +85,9 @@ Fraq CLI 会把 `drift-bottle` 解析为 npm 包 `fraq-plugin-drift-bottle`，�
 
 WebUI 由 Fraq Hono 插件统一提供服务，默认地址为 `http://127.0.0.1:4649/drift-bottle/`。
 
+插件首次载入时会生成一个 10 位、同时包含大写字母、小写字母和数字的管理密码，并在日志中显示一次。
+密码只以哈希形式保存在漂流瓶 SQLite 数据库中；登录成功后会进入空白的管理主页。
+
 ## 代码安装
 
 ```bash

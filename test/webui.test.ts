@@ -1,5 +1,6 @@
 import { HonoService } from '@fraqjs/plugin-hono';
 
+import { WebuiAuth } from '../src/webui/auth.js';
 import { registerWebuiRoutes } from '../src/webui/routes.js';
 
 import assert from 'node:assert/strict';
@@ -18,7 +19,16 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   });
 
   const hono = new HonoService();
-  registerWebuiRoutes(hono, { basePath: '/manage/drift-bottle/', directory });
+  let passwordHash: string | undefined;
+  const auth = new WebuiAuth({
+    webuiPasswordHash: () => passwordHash,
+    setWebuiPasswordHash: (hash) => {
+      passwordHash = hash;
+    },
+  });
+  const password = await auth.initialize();
+  assert.ok(password);
+  registerWebuiRoutes(hono, { auth, basePath: '/manage/drift-bottle/', directory });
 
   const redirect = await hono.app.request('http://localhost/manage/drift-bottle');
   assert.equal(redirect.status, 308);
@@ -40,4 +50,40 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
 
   const missingAsset = await hono.app.request('http://localhost/manage/drift-bottle/assets/missing.js');
   assert.equal(missingAsset.status, 404);
+
+  const anonymousSession = await hono.app.request('http://localhost/manage/drift-bottle/api/session');
+  assert.equal(anonymousSession.status, 200);
+  assert.deepEqual(await anonymousSession.json(), { authenticated: false });
+  assert.equal(anonymousSession.headers.get('cache-control'), 'no-store');
+
+  const rejectedLogin = await hono.app.request('http://localhost/manage/drift-bottle/api/session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: 'wrong-password' }),
+  });
+  assert.equal(rejectedLogin.status, 401);
+
+  const acceptedLogin = await hono.app.request('http://localhost/manage/drift-bottle/api/session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password }),
+  });
+  assert.equal(acceptedLogin.status, 200);
+  const cookie = acceptedLogin.headers.get('set-cookie');
+  assert.ok(cookie);
+  assert.match(cookie, /drift_bottle_session=[^;]+/);
+  assert.match(cookie, /HttpOnly/);
+  assert.match(cookie, /SameSite=Strict/);
+
+  const authenticatedSession = await hono.app.request('http://localhost/manage/drift-bottle/api/session', {
+    headers: { Cookie: cookie },
+  });
+  assert.deepEqual(await authenticatedSession.json(), { authenticated: true });
+
+  const logout = await hono.app.request('http://localhost/manage/drift-bottle/api/session', {
+    method: 'DELETE',
+    headers: { Cookie: cookie },
+  });
+  assert.equal(logout.status, 204);
+  assert.match(logout.headers.get('set-cookie') ?? '', /Max-Age=0/);
 });

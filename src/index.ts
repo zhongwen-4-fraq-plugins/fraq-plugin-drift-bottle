@@ -8,6 +8,7 @@ import type { DriftBottleOptions } from './models/index.js';
 import { BottleStore } from './persistence/bottle-store.js';
 import { moderateBottle } from './processing/moderation.js';
 import { withModerationRecords } from './processing/moderation-records.js';
+import { WebuiAuth } from './webui/auth.js';
 import { registerWebuiRoutes } from './webui/routes.js';
 
 export type {
@@ -39,12 +40,17 @@ export default definePlugin({
   async apply(ctx, options: DriftBottleOptions = {}) {
     const store = new BottleStore(options.storagePath ?? './data/drift-bottles.db');
     await store.load();
+    const webuiAuth = new WebuiAuth(store);
+    const initialPassword = await webuiAuth.initialize();
+    if (initialPassword) {
+      ctx.logger.warn(`漂流瓶 WebUI 初始密码：${initialPassword}（仅在首次生成时显示，请妥善保存）`);
+    }
     const moderator = withModerationRecords(store, ctx.logger, (segments) =>
       moderateBottle(ctx.ai, segments, options.moderationModel),
     );
     const api = new DriftBottleApi(ctx.client, store, moderator);
     ctx.provide(DriftBottleApi, api);
-    registerWebuiRoutes(ctx.hono, { basePath: options.webuiPath });
+    registerWebuiRoutes(ctx.hono, { auth: webuiAuth, basePath: options.webuiPath });
     buildDriftBottleCommands(ctx, api, options.ownerIds ?? []);
   },
 });

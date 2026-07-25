@@ -120,6 +120,13 @@ export class BottleStore implements Disposable {
       CREATE INDEX IF NOT EXISTS bottle_moderation_records_created_at
       ON bottle_moderation_records (created_at, id);
     `);
+    this.database.exec(`
+      CREATE TABLE IF NOT EXISTS bottle_webui_credentials (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        password_hash TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    `);
   }
 
   async add(input: NewDriftBottle): Promise<DriftBottle> {
@@ -352,6 +359,23 @@ export class BottleStore implements Disposable {
       success: Boolean(row.success),
       approved: row.approved === null ? undefined : Boolean(row.approved),
     }));
+  }
+
+  webuiPasswordHash(): string | undefined {
+    const row = this.getDatabase().prepare('SELECT password_hash FROM bottle_webui_credentials WHERE id = 1').get() as
+      | { password_hash: string }
+      | undefined;
+    return row?.password_hash;
+  }
+
+  setWebuiPasswordHash(hash: string): void {
+    this.getDatabase()
+      .prepare(`
+        INSERT INTO bottle_webui_credentials (id, password_hash, created_at)
+        VALUES (1, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET password_hash = excluded.password_hash
+      `)
+      .run(hash, Date.now());
   }
 
   setSignature(senderId: number, signature: BottleSignature): void {
