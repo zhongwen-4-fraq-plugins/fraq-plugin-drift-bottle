@@ -6,6 +6,8 @@ export type BottleSegment =
       data: { messages?: milky.IncomingForwardedMessage[] };
     });
 
+export type BottleSignature = { type: 'anonymous' } | { type: 'original' } | { type: 'alias'; name: string };
+
 export interface DriftBottleOptions {
   storagePath?: string;
   moderationModel?: string;

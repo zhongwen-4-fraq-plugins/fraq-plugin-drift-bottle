@@ -3,7 +3,7 @@ import type { AiService } from '@fraqjs/plugin-ai';
 import { generateText, Output, type UserContent } from 'ai';
 import { z } from 'zod';
 
-import type { BottleSegment } from './types.js';
+import type { BottleSegment } from '../models/index.js';
 
 export interface ModerationResult {
   approved: boolean;

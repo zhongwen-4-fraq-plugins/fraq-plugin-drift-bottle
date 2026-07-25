@@ -1,10 +1,11 @@
 import { Context, type milky } from '@fraqjs/fraq';
 import { createMockMilkyClient, inmsg, inseg } from '@fraqjs/mock';
 
-import { registerDriftBottleCommands } from '../src/commands.js';
-import type { BottleModerator } from '../src/moderation.js';
-import { BottleStore } from '../src/storage.js';
-import type { BottleSegment } from '../src/types.js';
+import { DriftBottleApi } from '../src/api/drift-bottle-api.js';
+import { registerDriftBottleCommands } from '../src/commands/bottle.js';
+import type { BottleSegment } from '../src/models/index.js';
+import { BottleStore } from '../src/persistence/bottle-store.js';
+import type { BottleModerator } from '../src/processing/moderation.js';
 
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -27,7 +28,8 @@ test('所有非文字瓶子的 ID 和内容会分别发送', async (t) => {
   let messageSeq = 1;
   client.stubApi('send_group_message', () => ({ message_seq: messageSeq++, time: 1_700_000_000 }));
   const moderator: BottleModerator = async () => ({ approved: true, categories: [], reason: '' });
-  registerDriftBottleCommands(ctx, store, moderator);
+  const api = new DriftBottleApi(client, store, moderator);
+  registerDriftBottleCommands(ctx, api);
   await ctx.start();
 
   const forward: Extract<BottleSegment, { type: 'forward' }> = {

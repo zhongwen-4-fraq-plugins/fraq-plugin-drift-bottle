@@ -1,8 +1,8 @@
 import type { Logger } from '@fraqjs/fraq';
 
+import type { BottleSegment } from '../models/index.js';
+import type { BottleStore } from '../persistence/bottle-store.js';
 import { type BottleModerator, formatModerationUsage, type ModerationResult } from './moderation.js';
-import type { BottleStore } from './storage.js';
-import type { BottleSegment } from './types.js';
 
 export type ModerationProcess =
   | {

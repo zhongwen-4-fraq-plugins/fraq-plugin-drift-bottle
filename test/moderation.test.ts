@@ -1,7 +1,11 @@
 import { inseg } from '@fraqjs/mock';
 
-import { createModerationContent, createModerationInstructions, formatModerationUsage } from '../src/moderation.js';
-import type { BottleSegment } from '../src/types.js';
+import type { BottleSegment } from '../src/models/index.js';
+import {
+  createModerationContent,
+  createModerationInstructions,
+  formatModerationUsage,
+} from '../src/processing/moderation.js';
 
 import assert from 'node:assert/strict';
 import test from 'node:test';

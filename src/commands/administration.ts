@@ -1,8 +1,8 @@
 import { type Context, type milky, param, type Session } from '@fraqjs/fraq';
 
-import type { BottleStore } from './storage.js';
+import type { DriftBottleApi } from '../api/drift-bottle-api.js';
 
-export function registerAdministrationCommands(ctx: Context, store: BottleStore, ownerIds: number[]): void {
+export function registerAdministrationCommands(ctx: Context, api: DriftBottleApi, ownerIds: number[]): void {
   function isOwner(session: Session): boolean {
     return ownerIds.includes(session.raw.sender_id);
   }
@@ -10,13 +10,13 @@ export function registerAdministrationCommands(ctx: Context, store: BottleStore,
   function canDeleteAnyBottle(session: Session): boolean {
     return (
       isOwner(session) ||
-      store.isModerator(session.raw.sender_id) ||
+      api.isModerator(session.raw.sender_id) ||
       (session.raw.message_scene === 'group' && session.raw.group_member.role !== 'member')
     );
   }
 
   function canDelete(session: Session, bottleId: string): boolean {
-    return canDeleteAnyBottle(session) || store.isBottleOwner(bottleId, session.raw.sender_id);
+    return canDeleteAnyBottle(session) || api.isBottleOwner(bottleId, session.raw.sender_id);
   }
 
   function validUserId(userId: number): boolean {
@@ -63,7 +63,7 @@ export function registerAdministrationCommands(ctx: Context, store: BottleStore,
     .arg('id', param.greedy())
     .execute(async (session, { id }) => {
       const bottleId = id.trim();
-      if (!bottleId || !store.hasBottle(bottleId)) {
+      if (!bottleId || !api.hasBottle(bottleId)) {
         await session.reply('没有找到这个漂流瓶。');
         return;
       }
@@ -72,7 +72,7 @@ export function registerAdministrationCommands(ctx: Context, store: BottleStore,
         return;
       }
 
-      store.deleteBottle(bottleId);
+      api.deleteBottle(bottleId);
       await session.reply('漂流瓶已删除。');
     });
 
@@ -101,7 +101,7 @@ export function registerAdministrationCommands(ctx: Context, store: BottleStore,
         return;
       }
       for (const userId of userIds) {
-        store.addModerator(userId);
+        api.addModerator(userId);
       }
       await session.reply(`已允许 ${userIds.join('、')} 删除漂流瓶。`);
     });
@@ -122,7 +122,7 @@ export function registerAdministrationCommands(ctx: Context, store: BottleStore,
         await session.reply('请输入有效的 QQ 号或提及用户。');
         return;
       }
-      const removed = userIds.filter((userId) => store.removeModerator(userId));
+      const removed = userIds.filter((userId) => api.removeModerator(userId));
       await session.reply(
         removed.length > 0 ? `已移除 ${removed.join('、')} 的删除权限。` : '这些用户都不在权限列表中。',
       );
@@ -133,7 +133,7 @@ export function registerAdministrationCommands(ctx: Context, store: BottleStore,
       await session.reply('只有插件主人可以管理漂流瓶权限。');
       return;
     }
-    const users = store.moderators();
+    const users = api.moderators();
     await session.reply(users.length > 0 ? `漂流瓶删除权限列表：\n${users.join('\n')}` : '漂流瓶删除权限列表为空。');
   });
 }

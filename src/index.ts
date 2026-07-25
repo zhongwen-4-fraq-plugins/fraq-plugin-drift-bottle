@@ -1,38 +1,46 @@
 import { definePlugin } from '@fraqjs/fraq';
 import { AiService } from '@fraqjs/plugin-ai';
 
-import { registerAdministrationCommands } from './administration.js';
-import { registerDriftBottleCommands } from './commands.js';
-import { registerCommentCommands } from './comments.js';
-import { registerHelpCommand } from './help.js';
-import { moderateBottle } from './moderation.js';
-import { withModerationRecords } from './moderation-records.js';
-import { registerPickPreferenceCommand } from './pick-preference.js';
-import { registerSignatureCommands } from './signature.js';
-import { BottleStore } from './storage.js';
-import type { DriftBottleOptions } from './types.js';
+import { DriftBottleApi } from './api/drift-bottle-api.js';
+import { buildDriftBottleCommands } from './commands/index.js';
+import type { DriftBottleOptions } from './models/index.js';
+import { BottleStore } from './persistence/bottle-store.js';
+import { moderateBottle } from './processing/moderation.js';
+import { withModerationRecords } from './processing/moderation-records.js';
 
-export type { ModerationProcess, ModerationRecord } from './moderation-records.js';
-export type { BottleComment, BottleSegment, DriftBottle, DriftBottleOptions } from './types.js';
+export type {
+  BottleComments,
+  CreateBottleResult,
+  DriftBottleApiErrorCode,
+  PublishCommentResult,
+  UpdateSignatureResult,
+} from './api/drift-bottle-api.js';
+export { DriftBottleApi, DriftBottleApiError } from './api/drift-bottle-api.js';
+export type {
+  BottleComment,
+  BottleSegment,
+  BottleSignature,
+  DriftBottle,
+  DriftBottleOptions,
+  NewBottleComment,
+  NewDriftBottle,
+} from './models/index.js';
+export type { ModerationProcess, ModerationRecord } from './processing/moderation-records.js';
 
 export default definePlugin({
   name: 'drift-bottle',
   inject: {
     ai: AiService,
   },
-  provides: [BottleStore],
+  provides: [DriftBottleApi],
   async apply(ctx, options: DriftBottleOptions = {}) {
     const store = new BottleStore(options.storagePath ?? './data/drift-bottles.db');
     await store.load();
-    ctx.provide(BottleStore, store);
     const moderator = withModerationRecords(store, ctx.logger, (segments) =>
       moderateBottle(ctx.ai, segments, options.moderationModel),
     );
-    registerDriftBottleCommands(ctx, store, moderator);
-    registerSignatureCommands(ctx, store, moderator);
-    registerHelpCommand(ctx);
-    registerAdministrationCommands(ctx, store, options.ownerIds ?? []);
-    registerPickPreferenceCommand(ctx, store);
-    registerCommentCommands(ctx, store, moderator);
+    const api = new DriftBottleApi(ctx.client, store, moderator);
+    ctx.provide(DriftBottleApi, api);
+    buildDriftBottleCommands(ctx, api, options.ownerIds ?? []);
   },
 });

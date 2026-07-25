@@ -1,7 +1,7 @@
 import type { Disposable } from '@fraqjs/fraq';
 
-import type { ModerationProcess, ModerationRecord, NewModerationRecord } from './moderation-records.js';
-import type { BottleComment, DriftBottle, NewBottleComment, NewDriftBottle } from './types.js';
+import type { BottleComment, BottleSignature, DriftBottle, NewBottleComment, NewDriftBottle } from '../models/index.js';
+import type { ModerationProcess, ModerationRecord, NewModerationRecord } from '../processing/moderation-records.js';
 
 import { randomUUID } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
@@ -38,8 +38,6 @@ interface ModerationRecordRow {
   success: number;
   approved: number | null;
 }
-
-export type BottleSignature = { type: 'anonymous' } | { type: 'original' } | { type: 'alias'; name: string };
 
 export class BottleStore implements Disposable {
   private database?: DatabaseSync;

@@ -1,10 +1,11 @@
 import { Context, type milky } from '@fraqjs/fraq';
 import { createMockMilkyClient, inmsg, inseg } from '@fraqjs/mock';
 
-import { registerDriftBottleCommands } from '../src/commands.js';
-import type { BottleModerator } from '../src/moderation.js';
-import { registerSignatureCommands } from '../src/signature.js';
-import { BottleStore } from '../src/storage.js';
+import { DriftBottleApi } from '../src/api/drift-bottle-api.js';
+import { registerDriftBottleCommands } from '../src/commands/bottle.js';
+import { registerSignatureCommands } from '../src/commands/signature.js';
+import { BottleStore } from '../src/persistence/bottle-store.js';
+import type { BottleModerator } from '../src/processing/moderation.js';
 
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -36,7 +37,6 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
   }));
   const store = new BottleStore(join(directory, 'bottles.db'));
   await store.load();
-  ctx.provide(BottleStore, store);
   let moderatedSegmentTypes: string[] = [];
   const moderator: BottleModerator = async (segments) => {
     moderatedSegmentTypes = segments.map((segment) => segment.type);
@@ -51,8 +51,10 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
       reason: rejected ? '包含不适宜公开的语言' : '',
     };
   };
-  registerDriftBottleCommands(ctx, store, moderator);
-  registerSignatureCommands(ctx, store, moderator);
+  const api = new DriftBottleApi(client, store, moderator);
+  ctx.provide(DriftBottleApi, api);
+  registerDriftBottleCommands(ctx, api);
+  registerSignatureCommands(ctx, api);
   await ctx.start();
 
   await dispatchGroupMessage(ctx, client, 10001, inmsg`漂流瓶署名 海风`);

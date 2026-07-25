@@ -3,9 +3,7 @@ import { createMockMilkyClient } from '@fraqjs/mock';
 import { AiService } from '@fraqjs/plugin-ai';
 import type { LanguageModel } from 'ai';
 
-import DriftBottlePlugin from '../src/index.js';
-import { BottleStore } from '../src/storage.js';
-import type { DriftBottleOptions } from '../src/types.js';
+import DriftBottlePlugin, { DriftBottleApi, type DriftBottleOptions } from '../src/index.js';
 
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
@@ -49,5 +47,5 @@ test('Fraq CLI 的 JSON 配置对象可以安装默认导出', async (t) => {
   ctx.install(DriftBottlePlugin, options);
   await ctx.start();
 
-  assert.equal(ctx.isProvided(BottleStore), true);
+  assert.equal(ctx.isProvided(DriftBottleApi), true);
 });

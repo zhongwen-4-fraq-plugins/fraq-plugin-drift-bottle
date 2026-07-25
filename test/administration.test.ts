@@ -1,8 +1,9 @@
 import { Context, type milky } from '@fraqjs/fraq';
 import { createMockMilkyClient, inmsg, inseg } from '@fraqjs/mock';
 
-import { registerAdministrationCommands } from '../src/administration.js';
-import { BottleStore } from '../src/storage.js';
+import { DriftBottleApi } from '../src/api/drift-bottle-api.js';
+import { registerAdministrationCommands } from '../src/commands/administration.js';
+import { BottleStore } from '../src/persistence/bottle-store.js';
 
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -24,7 +25,8 @@ test('普通用户只能删除自己的漂流瓶，管理人员可以删除任�
 
   let messageSeq = 1;
   client.stubApi('send_group_message', () => ({ message_seq: messageSeq++, time: 1_700_000_000 }));
-  registerAdministrationCommands(ctx, store, [10001]);
+  const api = new DriftBottleApi(client, store, async () => ({ approved: true, categories: [], reason: '' }));
+  registerAdministrationCommands(ctx, api, [10001]);
   await ctx.start();
 
   const adminBottle = await addBottle(store);
@@ -76,7 +78,8 @@ test('只有插件主人可以管理数据库权限列表', async (t) => {
 
   let messageSeq = 1;
   client.stubApi('send_group_message', () => ({ message_seq: messageSeq++, time: 1_700_000_000 }));
-  registerAdministrationCommands(ctx, store, [10001]);
+  const api = new DriftBottleApi(client, store, async () => ({ approved: true, categories: [], reason: '' }));
+  registerAdministrationCommands(ctx, api, [10001]);
   await ctx.start();
 
   await dispatch(ctx, client, 10002, 'admin', inmsg`漂流瓶权限 添加 10005`);

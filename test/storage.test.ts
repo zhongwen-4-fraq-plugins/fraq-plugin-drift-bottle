@@ -1,4 +1,4 @@
-import { BottleStore } from '../src/storage.js';
+import { BottleStore } from '../src/persistence/bottle-store.js';
 
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';

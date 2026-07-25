@@ -1,7 +1,7 @@
 import { Context, type milky } from '@fraqjs/fraq';
 import { createMockMilkyClient, inmsg } from '@fraqjs/mock';
 
-import { registerHelpCommand } from '../src/help.js';
+import { registerHelpCommand } from '../src/commands/help.js';
 
 import assert from 'node:assert/strict';
 import test from 'node:test';

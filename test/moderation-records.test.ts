@@ -1,7 +1,7 @@
 import { inseg } from '@fraqjs/mock';
 
-import { withModerationRecords } from '../src/moderation-records.js';
-import { BottleStore } from '../src/storage.js';
+import { BottleStore } from '../src/persistence/bottle-store.js';
+import { withModerationRecords } from '../src/processing/moderation-records.js';
 
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';

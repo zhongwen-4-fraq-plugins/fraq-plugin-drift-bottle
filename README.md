@@ -1,5 +1,36 @@
 # fraq-plugin-drift-bottle
 
+## 加载方式与公开 API
+
+Fraq CLI 会生成独立的 ESM 应用，通过
+`ctx.install((await import('fraq-plugin-drift-bottle')).default, options)` 安装本插件。因此默认导出只负责装配，
+可复用的漂流瓶操作由命名导出的 `DriftBottleApi` 提供。
+
+其他 Fraq 插件可以声明并注入该服务：
+
+```ts
+import { definePlugin } from '@fraqjs/fraq';
+import { DriftBottleApi } from 'fraq-plugin-drift-bottle';
+
+export default definePlugin({
+  name: 'drift-bottle-consumer',
+  requires: [DriftBottleApi],
+  inject: { driftBottle: DriftBottleApi },
+  async apply(ctx) {
+    const count = ctx.driftBottle.count();
+    ctx.logger.info(`当前有 ${count} 个可捡取的漂流瓶`);
+  },
+});
+```
+
+`DriftBottleApi` 提供投递、捡取、评论、署名、删除、权限、重复捡取偏好和审核记录等操作；命令层只负责参数解析和回复构建。源码按职责分为：
+
+- `src/api/`：供命令和其他插件复用的业务 API。
+- `src/persistence/`：SQLite 持久化。
+- `src/models/`：公开数据模型。
+- `src/processing/`：消息转换、署名解析和 AI 审核处理。
+- `src/commands/`：Fraq 命令构建与用户交互。
+
 Fraq 漂流瓶插件，支持投递、随机捡取、匿名、原名或别名署名，并使用 AI 审核脏话与 R18 内容。
 
 需要 Node.js 22.13.0 或更高版本。

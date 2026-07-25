@@ -1,7 +1,7 @@
 import { createMockMilkyClient, inseg } from '@fraqjs/mock';
 
-import { resolveBottleSignature } from '../src/signature.js';
-import { BottleStore } from '../src/storage.js';
+import { BottleStore } from '../src/persistence/bottle-store.js';
+import { resolveBottleSignature } from '../src/processing/signature.js';
 
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';

@@ -1,9 +1,10 @@
 import { Context, type milky } from '@fraqjs/fraq';
 import { createMockMilkyClient, inmsg, inseg } from '@fraqjs/mock';
 
-import { registerCommentCommands } from '../src/comments.js';
-import type { BottleModerator } from '../src/moderation.js';
-import { BottleStore } from '../src/storage.js';
+import { DriftBottleApi } from '../src/api/drift-bottle-api.js';
+import { registerCommentCommands } from '../src/commands/comments.js';
+import { BottleStore } from '../src/persistence/bottle-store.js';
+import type { BottleModerator } from '../src/processing/moderation.js';
 
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -33,7 +34,8 @@ test('归档后的漂流瓶仍可评论和查看评论', async (t) => {
       reason: rejected ? '包含不适宜公开的语言' : '',
     };
   };
-  registerCommentCommands(ctx, store, moderator);
+  const api = new DriftBottleApi(client, store, moderator);
+  registerCommentCommands(ctx, api);
   await ctx.start();
 
   store.setSignature(10001, { type: 'alias', name: '海风' });

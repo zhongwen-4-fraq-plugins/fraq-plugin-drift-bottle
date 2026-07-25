@@ -1,6 +1,6 @@
 import { createMockMilkyClient, inseg } from '@fraqjs/mock';
 
-import { resolveBottleContent, toOutgoingSegments } from '../src/message.js';
+import { resolveBottleContent, toOutgoingSegments } from '../src/processing/message.js';
 
 import assert from 'node:assert/strict';
 import test from 'node:test';

@@ -1,6 +1,6 @@
 import type { MilkyClient, milky } from '@fraqjs/fraq';
 
-import type { BottleSegment } from './types.js';
+import type { BottleSegment } from '../models/index.js';
 
 export function hasBottleContent(segments: milky.IncomingSegment[]): boolean {
   return segments.some((segment) => segment.type !== 'text' || segment.data.text.trim().length > 0);

@@ -1,8 +1,9 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: 无进行中工作；已在 `D:\bot\fraq-plugins` 完成 `0.2.4` 集成测试。
+Focus: 已按 Fraq CLI 加载边界完成漂流瓶插件分层重构。
 
 ## In flight
+
 
 ## Next
 
