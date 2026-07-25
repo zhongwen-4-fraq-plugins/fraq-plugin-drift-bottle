@@ -1,13 +1,14 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: 已建立漂流瓶审核管理后台的空白 Web 页面。
+Focus: 已把漂流瓶 WebUI 挂载到 Fraq Hono 插件。
 
 ## In flight
 
 
 
+
 ## Next
 
-- 等待下一项 WebUI 需求；建议从审核工作台开始。
+- 实现 WebUI 身份验证、审核 API 和审核工作台。
 
 ## Open questions

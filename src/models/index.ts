@@ -12,6 +12,7 @@ export interface DriftBottleOptions {
   storagePath?: string;
   moderationModel?: string;
   ownerIds?: number[];
+  webuiPath?: string;
 }
 
 export interface DriftBottle {

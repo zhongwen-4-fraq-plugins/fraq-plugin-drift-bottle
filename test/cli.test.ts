@@ -1,6 +1,7 @@
 import { Context } from '@fraqjs/fraq';
 import { createMockMilkyClient } from '@fraqjs/mock';
 import { AiService } from '@fraqjs/plugin-ai';
+import { HonoService } from '@fraqjs/plugin-hono';
 import type { LanguageModel } from 'ai';
 
 import DriftBottlePlugin, { DriftBottleApi, type DriftBottleOptions } from '../src/index.js';
@@ -18,6 +19,7 @@ test('包元信息符合 Fraq CLI 插件约定', async () => {
   assert.equal(packageJson.fraq.category, 'social');
   assert.equal(packageJson.peerDependencies['@fraqjs/fraq'], '^0.14.0');
   assert.equal(packageJson.peerDependencies['@fraqjs/plugin-ai'], '^0.5.1');
+  assert.equal(packageJson.peerDependencies['@fraqjs/plugin-hono'], '^0.2.1');
 });
 
 test('Fraq CLI 的 JSON 配置对象可以安装默认导出', async (t) => {
@@ -36,6 +38,7 @@ test('Fraq CLI 的 JSON 配置对象可以安装默认导出', async (t) => {
       aliases: {},
     }),
   );
+  ctx.provide(HonoService, new HonoService());
   const options = JSON.parse(
     JSON.stringify({
       storagePath: join(directory, 'bottles.db'),

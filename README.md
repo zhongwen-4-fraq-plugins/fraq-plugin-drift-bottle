@@ -39,7 +39,7 @@ Fraq 漂流瓶插件，支持投递、随机捡取、匿名、原名或别名署
 
 ## 使用 Fraq CLI
 
-在 `fraq.yml` 中先配置 `fraqjs/ai`，再添加 `drift-bottle`：
+在 `fraq.yml` 中先配置 `fraqjs/hono` 和 `fraqjs/ai`，再添加 `drift-bottle`：
 
 ```yaml
 configVersion: 1
@@ -49,6 +49,10 @@ milky:
   url: http://localhost:30001/
 
 plugins:
+  fraqjs/hono:
+    host: 127.0.0.1
+    port: 4649
+
   fraqjs/ai:
     providers:
       deepseek:
@@ -62,6 +66,7 @@ plugins:
     storagePath: ./data/drift-bottles.db
     moderationModel: deepseek/deepseek-chat
     ownerIds: [123456789]
+    webuiPath: /drift-bottle
 
 additionalDependencies:
   "@ai-sdk/deepseek": ^3
@@ -76,19 +81,23 @@ fraq lock
 fraq start
 ```
 
-Fraq CLI 会把 `drift-bottle` 解析为 npm 包 `fraq-plugin-drift-bottle`，并检查其依赖的 `fraqjs/ai` 插件是否已经配置。
+Fraq CLI 会把 `drift-bottle` 解析为 npm 包 `fraq-plugin-drift-bottle`，并检查其依赖的 `fraqjs/hono` 和 `fraqjs/ai` 插件是否已经配置。
+
+WebUI 由 Fraq Hono 插件统一提供服务，默认地址为 `http://127.0.0.1:4649/drift-bottle/`。
 
 ## 代码安装
 
 ```bash
-pnpm add fraq-plugin-drift-bottle @fraqjs/plugin-ai ai zod
+pnpm add fraq-plugin-drift-bottle @fraqjs/plugin-hono @fraqjs/plugin-ai ai zod
 ```
 
 使用前需按照 [Fraq AI 插件文档](https://fraq.dev/docs/plugins/ai) 安装并配置 `@fraqjs/plugin-ai`。
 
 ```ts
+import HonoPlugin from '@fraqjs/plugin-hono';
 import DriftBottlePlugin from 'fraq-plugin-drift-bottle';
 
+ctx.install(HonoPlugin, { host: '127.0.0.1', port: 4649 });
 ctx.install(DriftBottlePlugin, {
   storagePath: './data/drift-bottles.db',
   moderationModel: 'fast',
@@ -105,6 +114,7 @@ ctx.install(DriftBottlePlugin, {
 | `storagePath` | `string` | `./data/drift-bottles.db` | SQLite 数据库路径；父目录会自动创建。 |
 | `moderationModel` | `string` | AI 插件默认模型 | AI 模型别名或 `提供商/模型`；需支持所投递的图片或视频。 |
 | `ownerIds` | `number[]` | `[]` | 插件主人 QQ 号；可删除漂流瓶并管理数据库授权列表。 |
+| `webuiPath` | `string` | `/drift-bottle` | WebUI 在 Fraq Hono 服务上的挂载路径。 |
 
 ## 审核记录
 
