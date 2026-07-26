@@ -20,5 +20,9 @@ READ WHEN: when installing an unpublished local Fraq plugin build into a Fraq CL
 如果后续启动报 `EADDRINUSE`，先用 `Get-NetTCPConnection` 找到监听 PID，再沿父进程链确认它确实属于目标
 Fraq 宿主；确认后停止旧进程链，不要直接结束未经识别的同端口进程。
 
+普通 `npm start` 会在尝试绑定 Hono 端口之前重新生成并安装依赖，因此即使最后因 `EADDRINUSE` 退出，
+本地 tarball 也可能已经被 registry 同版本包覆盖。释放端口后要重新比较本地与宿主 bundle 哈希；不一致时
+再次安装 tarball。registry 不可达而本地依赖齐全时，可为安装命令增加 `--offline --no-audit --no-fund`。
+
 这种安装只适合等待发布期间验证。宿主再次运行普通 `npm start` 时会按 `versions.yml` 重新生成依赖清单，
 可能恢复 npm registry 中的同版本包；正式更新仍应发布新版本并更新 `versions.yml`。
