@@ -1,6 +1,6 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: `v0.3.0` 已安装到 `D:\bot\fraq-plugins\my-fraq-app`，并完成插件加载与 Hono 启动验证。
+Focus: `D:\bot\fraq-plugins\my-fraq-app` 已从 DeepSeek 切换到 OpenAI，并完成插件加载与 WebUI 验证。
 
 ## In flight
 
@@ -9,7 +9,7 @@ Focus: `v0.3.0` 已安装到 `D:\bot\fraq-plugins\my-fraq-app`，并完成插件
 
 ## Next
 
-- 在宿主环境设置真实的 `DEEPSEEK_API_KEY`，并在 Milky 服务可用时启动应用。
+- 在宿主环境设置真实的 `OPENAI_API_KEY`，并在 Milky 服务可用时启动应用。
 - 实现审核 API 和以待审核内容为核心的审核工作台。
 
 ## Open questions
