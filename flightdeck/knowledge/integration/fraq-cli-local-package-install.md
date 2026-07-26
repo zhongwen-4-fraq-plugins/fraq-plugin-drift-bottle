@@ -26,3 +26,8 @@ Fraq 宿主；确认后停止旧进程链，不要直接结束未经识别的同
 
 这种安装只适合等待发布期间验证。宿主再次运行普通 `npm start` 时会按 `versions.yml` 重新生成依赖清单，
 可能恢复 npm registry 中的同版本包；正式更新仍应发布新版本并更新 `versions.yml`。
+
+如果该宿主需要在等待发布期间反复由用户启动，可临时把宿主根 `package.json` 的默认 `start` 改为
+`fraq start --no-install`，并新增 `start:install` 保留原来的 `fraq start`。这样用户执行习惯性的
+`npm start` 也不会覆盖 tarball。正式版本发布并更新 `versions.yml` 后，应运行一次 `start:install`
+完成正常安装，再决定是否恢复默认脚本。
