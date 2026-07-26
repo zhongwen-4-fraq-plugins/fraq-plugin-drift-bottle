@@ -1,6 +1,6 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: `D:\bot\fraq-plugins\my-fraq-app` 已从 DeepSeek 切换到 OpenAI，并完成插件加载与 WebUI 验证。
+Focus: 宿主已按 Fraq 官方文档配置 Akile OpenAI-compatible 网关，并验证 `akile/gpt-5.6-sol` 模型注册成功。
 
 ## In flight
 
