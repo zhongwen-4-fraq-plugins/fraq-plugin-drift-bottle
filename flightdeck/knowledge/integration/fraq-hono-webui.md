@@ -19,5 +19,6 @@ READ WHEN: before any Fraq HTTP route, WebUI mount path, static asset serving, o
 - 带哈希的 Vite 资源使用长期 immutable 缓存。
 - 无扩展名的前端路由回退到 `index.html`。
 - 资源路径必须经过根目录越界检查。
+- 注册路由后使用规范化挂载路径和 Hono 的 host/port 输出完整 WebUI 地址；通配监听地址应转换为本机可访问的回环地址。
 
 发布前用构建后的 `dist/index.mjs` 实际请求 WebUI 路由，不只验证源码级路由函数。

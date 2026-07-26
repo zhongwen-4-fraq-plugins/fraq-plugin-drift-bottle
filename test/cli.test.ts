@@ -1,4 +1,4 @@
-import { Context } from '@fraqjs/fraq';
+import { Context, type LogMessage } from '@fraqjs/fraq';
 import { createMockMilkyClient } from '@fraqjs/mock';
 import { AiService } from '@fraqjs/plugin-ai';
 import { HonoService } from '@fraqjs/plugin-hono';
@@ -24,7 +24,10 @@ test('包元信息符合 Fraq CLI 插件约定', async () => {
 
 test('Fraq CLI 的 JSON 配置对象可以安装默认导出', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-cli-'));
-  const ctx = Context.fromClient(createMockMilkyClient());
+  const messages: LogMessage[] = [];
+  const ctx = Context.fromClient(createMockMilkyClient(), {
+    logHandler: (message) => messages.push(message),
+  });
   t.after(async () => {
     await ctx.stop();
     await rm(directory, { recursive: true, force: true });
@@ -44,6 +47,7 @@ test('Fraq CLI 的 JSON 配置对象可以安装默认导出', async (t) => {
       storagePath: join(directory, 'bottles.db'),
       moderationModel: 'test',
       ownerIds: [123456789],
+      webuiPath: '/manage/drift-bottle/',
     }),
   ) as DriftBottleOptions;
 
@@ -51,4 +55,5 @@ test('Fraq CLI 的 JSON 配置对象可以安装默认导出', async (t) => {
   await ctx.start();
 
   assert.equal(ctx.isProvided(DriftBottleApi), true);
+  assert.ok(messages.some((message) => message.message === '漂流瓶 WebUI：http://127.0.0.1:4649/manage/drift-bottle/'));
 });

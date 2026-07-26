@@ -2,6 +2,7 @@ import { HonoService } from '@fraqjs/plugin-hono';
 
 import { WebuiAuth } from '../src/webui/auth.js';
 import { registerWebuiRoutes } from '../src/webui/routes.js';
+import { buildWebuiUrl } from '../src/webui/url.js';
 
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -28,7 +29,9 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   });
   const password = await auth.initialize();
   assert.ok(password);
-  registerWebuiRoutes(hono, { auth, basePath: '/manage/drift-bottle/', directory });
+  const basePath = registerWebuiRoutes(hono, { auth, basePath: '/manage/drift-bottle/', directory });
+  assert.equal(basePath, '/manage/drift-bottle');
+  assert.equal(buildWebuiUrl(hono, basePath), 'http://127.0.0.1:4649/manage/drift-bottle/');
 
   const redirect = await hono.app.request('http://localhost/manage/drift-bottle');
   assert.equal(redirect.status, 308);
@@ -86,4 +89,13 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   });
   assert.equal(logout.status, 204);
   assert.match(logout.headers.get('set-cookie') ?? '', /Max-Age=0/);
+});
+
+test('WebUI 日志网址将通配监听地址转换为可访问的回环地址', () => {
+  assert.equal(buildWebuiUrl({ host: '0.0.0.0', port: 8080 }, '/drift-bottle'), 'http://127.0.0.1:8080/drift-bottle/');
+  assert.equal(buildWebuiUrl({ host: '::', port: 8080 }, '/drift-bottle'), 'http://[::1]:8080/drift-bottle/');
+  assert.equal(
+    buildWebuiUrl({ host: '2001:db8::1', port: 8080 }, '/drift-bottle'),
+    'http://[2001:db8::1]:8080/drift-bottle/',
+  );
 });

@@ -14,7 +14,7 @@ export interface WebuiRouteOptions {
 
 const SESSION_COOKIE = 'drift_bottle_session';
 
-export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: WebuiRouteOptions): void {
+export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: WebuiRouteOptions): string {
   const basePath = normalizeBasePath(options.basePath ?? '/drift-bottle');
   const directory = options.directory ?? fileURLToPath(new URL('./webui/', import.meta.url));
 
@@ -74,6 +74,7 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
     }
     return serveWebuiFile(directory, 'index.html');
   });
+  return basePath;
 }
 
 function readPassword(body: unknown): string | undefined {

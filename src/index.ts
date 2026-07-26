@@ -10,6 +10,7 @@ import { moderateBottle } from './processing/moderation.js';
 import { withModerationRecords } from './processing/moderation-records.js';
 import { WebuiAuth } from './webui/auth.js';
 import { registerWebuiRoutes } from './webui/routes.js';
+import { buildWebuiUrl } from './webui/url.js';
 
 export type {
   BottleComments,
@@ -50,7 +51,8 @@ export default definePlugin({
     );
     const api = new DriftBottleApi(ctx.client, store, moderator);
     ctx.provide(DriftBottleApi, api);
-    registerWebuiRoutes(ctx.hono, { auth: webuiAuth, basePath: options.webuiPath });
+    const webuiPath = registerWebuiRoutes(ctx.hono, { auth: webuiAuth, basePath: options.webuiPath });
+    ctx.logger.info(`漂流瓶 WebUI：${buildWebuiUrl(ctx.hono, webuiPath)}`);
     buildDriftBottleCommands(ctx, api, options.ownerIds ?? []);
   },
 });
