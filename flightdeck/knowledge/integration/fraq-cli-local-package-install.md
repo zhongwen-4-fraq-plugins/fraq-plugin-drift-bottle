@@ -15,6 +15,10 @@ READ WHEN: when installing an unpublished local Fraq plugin build into a Fraq CL
 2. 停止正在运行的宿主，避免旧进程继续使用已加载的旧模块。
 3. 在宿主 `app/` 中运行 `npm install --no-save --package-lock=false --legacy-peer-deps <tarball>`。
 4. 使用宿主的 `npm run start:no-install` 启动，并通过实际 WebUI API 验证新行为。
+5. 验证结束后，要么明确把该进程交接为持续运行的宿主，要么停止完整进程链并确认监听端口已经释放。
+
+如果后续启动报 `EADDRINUSE`，先用 `Get-NetTCPConnection` 找到监听 PID，再沿父进程链确认它确实属于目标
+Fraq 宿主；确认后停止旧进程链，不要直接结束未经识别的同端口进程。
 
 这种安装只适合等待发布期间验证。宿主再次运行普通 `npm start` 时会按 `versions.yml` 重新生成依赖清单，
 可能恢复 npm registry 中的同版本包；正式更新仍应发布新版本并更新 `versions.yml`。
