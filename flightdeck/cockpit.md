@@ -1,6 +1,6 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: Fraq 宿主已安装并运行正式版 `0.3.1`，WebUI 地址日志和首位主人头像均已验证。
+Focus: Fraq 宿主已安装正式版 `0.3.1`；所有 Fraq 实例现已关闭，`4649` 端口已释放。
 
 ## In flight
 
