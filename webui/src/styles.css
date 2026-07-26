@@ -144,6 +144,7 @@ textarea {
 }
 
 .password-field button {
+  position: relative;
   display: grid;
   width: 2.75rem;
   height: 2.75rem;
@@ -170,12 +171,52 @@ textarea {
 }
 
 .password-field button svg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
   width: 1.25rem;
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.75;
+  transform: translate(-50%, -50%);
+}
+
+.login-submit-check {
+  opacity: 0;
+}
+
+.password-field button.login-submit--success {
+  background: oklch(0.48 0.13 155);
+  cursor: default;
+}
+
+.login-submit--success .login-submit-arrow {
+  animation: login-arrow-out 120ms cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+.login-submit--success .login-submit-check {
+  animation: login-check-in 180ms 120ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes login-arrow-out {
+  to {
+    opacity: 0;
+    transform: translate(-42%, -50%);
+  }
+}
+
+@keyframes login-check-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.82);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
 }
 
 .login-error {
@@ -259,11 +300,28 @@ textarea {
   .password-field button:disabled {
     color: GrayText;
   }
+
+  .password-field button.login-submit--success {
+    color: ButtonText;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .password-field,
   .password-field button {
     transition: none;
+  }
+
+  .login-submit--success .login-submit-arrow,
+  .login-submit--success .login-submit-check {
+    animation: none;
+  }
+
+  .login-submit--success .login-submit-arrow {
+    opacity: 0;
+  }
+
+  .login-submit--success .login-submit-check {
+    opacity: 1;
   }
 }

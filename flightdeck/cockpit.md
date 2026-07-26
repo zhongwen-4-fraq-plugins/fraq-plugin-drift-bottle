@@ -1,6 +1,6 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: Fraq 宿主已安装正式版 `0.3.1`；所有 Fraq 实例现已关闭，`4649` 端口已释放。
+Focus: 登录成功按钮已实现箭头渐隐、勾号淡入和减少动态效果回退。
 
 ## In flight
 

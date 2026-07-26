@@ -9,6 +9,7 @@ export function App() {
   const [error, setError] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
+  const [succeeded, setSucceeded] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -58,6 +59,10 @@ export function App() {
         setPassword('');
         return;
       }
+      setSucceeded(true);
+      await new Promise((resolve) =>
+        window.setTimeout(resolve, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 120 : 420),
+      );
       setView('main');
       syncLocation(true);
     } catch {
@@ -103,12 +108,23 @@ export function App() {
             aria-invalid={Boolean(error)}
             disabled={submitting}
           />
-          <button type="submit" aria-label="登录" disabled={!password || submitting}>
-            <svg viewBox="0 0 20 20" aria-hidden="true">
+          <button
+            type="submit"
+            className={succeeded ? 'login-submit login-submit--success' : 'login-submit'}
+            aria-label={succeeded ? '登录成功' : '登录'}
+            disabled={!password || submitting}
+          >
+            <svg className="login-submit-arrow" viewBox="0 0 20 20" aria-hidden="true">
               <path d="m7 4 6 6-6 6" />
+            </svg>
+            <svg className="login-submit-check" viewBox="0 0 20 20" aria-hidden="true">
+              <path d="m4.5 10.25 3.5 3.5 7.5-7.5" />
             </svg>
           </button>
         </div>
+        <span className="visually-hidden" role="status">
+          {succeeded ? '登录成功' : ''}
+        </span>
         <p id="login-error" className="login-error" aria-live="polite">
           {error || '\u00a0'}
         </p>
