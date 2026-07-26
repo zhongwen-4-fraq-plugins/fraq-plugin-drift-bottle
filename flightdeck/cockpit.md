@@ -1,6 +1,6 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: 漂流瓶插件加载时会输出包含 Hono host、port 和规范化挂载路径的完整 WebUI 地址。
+Focus: WebUI 已建立覆盖手机、平板、桌面、触控、短屏横屏和安全区的响应式基线。
 
 ## In flight
 

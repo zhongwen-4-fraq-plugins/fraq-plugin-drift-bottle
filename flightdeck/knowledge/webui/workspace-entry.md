@@ -17,4 +17,7 @@ READ WHEN: before any WebUI dependency, entry point, build configuration, or wor
 - 全局主题与基础样式：`webui/src/styles.css`
 - 生产输出：`dist/webui/`
 
+响应式基线必须保持移动优先：支持 `viewport-fit=cover` 与安全区、使用 `svh` 处理移动浏览器动态视口、触控目标至少
+44×44px，并为短屏/横屏提供不会被软键盘遮挡的布局。桌面表单保持合理最大宽度，不随超宽屏无限拉伸。
+
 `webui/.impeccable/live/config.json` 已覆盖 Vite 的单页 HTML 入口。新增独立 HTML 页面时要同步扩大该配置的 `files` 范围。

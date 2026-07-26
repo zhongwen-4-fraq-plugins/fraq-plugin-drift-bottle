@@ -72,7 +72,7 @@ export function App() {
     <main className="login-page">
       <form className="login-form" onSubmit={handleSubmit} aria-busy={submitting}>
         <div className="login-avatar" aria-hidden="true">
-          <svg viewBox="0 0 24 24" role="img">
+          <svg viewBox="0 0 24 24">
             <path d="M12 12.25a4.25 4.25 0 1 0 0-8.5 4.25 4.25 0 0 0 0 8.5Z" />
             <path d="M4.25 20.25c.72-3.36 3.68-5.5 7.75-5.5s7.03 2.14 7.75 5.5" />
           </svg>
