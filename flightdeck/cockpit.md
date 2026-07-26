@@ -1,9 +1,8 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: WebUI 已建立覆盖手机、平板、桌面、触控、短屏横屏和安全区的响应式基线。
+Focus: 登录页已使用主人列表中的第一个 QQ 号加载头像，并保留失败回退。
 
 ## In flight
-
 
 
 

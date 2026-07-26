@@ -29,7 +29,12 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   });
   const password = await auth.initialize();
   assert.ok(password);
-  const basePath = registerWebuiRoutes(hono, { auth, basePath: '/manage/drift-bottle/', directory });
+  const basePath = registerWebuiRoutes(hono, {
+    auth,
+    basePath: '/manage/drift-bottle/',
+    directory,
+    ownerId: 123456789,
+  });
   assert.equal(basePath, '/manage/drift-bottle');
   assert.equal(buildWebuiUrl(hono, basePath), 'http://127.0.0.1:4649/manage/drift-bottle/');
 
@@ -56,7 +61,10 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
 
   const anonymousSession = await hono.app.request('http://localhost/manage/drift-bottle/api/session');
   assert.equal(anonymousSession.status, 200);
-  assert.deepEqual(await anonymousSession.json(), { authenticated: false });
+  assert.deepEqual(await anonymousSession.json(), {
+    authenticated: false,
+    avatarUrl: 'https://q1.qlogo.cn/g?b=qq&nk=123456789&s=640',
+  });
   assert.equal(anonymousSession.headers.get('cache-control'), 'no-store');
 
   const rejectedLogin = await hono.app.request('http://localhost/manage/drift-bottle/api/session', {
@@ -81,7 +89,10 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   const authenticatedSession = await hono.app.request('http://localhost/manage/drift-bottle/api/session', {
     headers: { Cookie: cookie },
   });
-  assert.deepEqual(await authenticatedSession.json(), { authenticated: true });
+  assert.deepEqual(await authenticatedSession.json(), {
+    authenticated: true,
+    avatarUrl: 'https://q1.qlogo.cn/g?b=qq&nk=123456789&s=640',
+  });
 
   const logout = await hono.app.request('http://localhost/manage/drift-bottle/api/session', {
     method: 'DELETE',

@@ -10,6 +10,7 @@ export interface WebuiRouteOptions {
   basePath?: string;
   directory?: string;
   auth: WebuiAuth;
+  ownerId?: number;
 }
 
 const SESSION_COOKIE = 'drift_bottle_session';
@@ -20,9 +21,14 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
 
   service.app.get(basePath, (context) => context.redirect(`${basePath}/`, 308));
   service.app.get(`${basePath}/api/session`, (context) =>
-    context.json({ authenticated: options.auth.isSessionValid(readSessionCookie(context.req.header('cookie'))) }, 200, {
-      'Cache-Control': 'no-store',
-    }),
+    context.json(
+      {
+        authenticated: options.auth.isSessionValid(readSessionCookie(context.req.header('cookie'))),
+        avatarUrl: ownerAvatarUrl(options.ownerId),
+      },
+      200,
+      { 'Cache-Control': 'no-store' },
+    ),
   );
   service.app.post(`${basePath}/api/session`, async (context) => {
     let body: unknown;
@@ -82,6 +88,13 @@ function readPassword(body: unknown): string | undefined {
     return undefined;
   }
   return body.password;
+}
+
+function ownerAvatarUrl(ownerId: number | undefined): string | undefined {
+  if (!Number.isSafeInteger(ownerId) || !ownerId || ownerId < 1) {
+    return undefined;
+  }
+  return `https://q1.qlogo.cn/g?b=qq&nk=${ownerId}&s=640`;
 }
 
 function readSessionCookie(header: string | undefined): string | undefined {

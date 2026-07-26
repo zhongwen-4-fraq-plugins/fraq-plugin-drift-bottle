@@ -41,12 +41,13 @@ test('Fraq CLI 的 JSON 配置对象可以安装默认导出', async (t) => {
       aliases: {},
     }),
   );
-  ctx.provide(HonoService, new HonoService());
+  const hono = new HonoService();
+  ctx.provide(HonoService, hono);
   const options = JSON.parse(
     JSON.stringify({
       storagePath: join(directory, 'bottles.db'),
       moderationModel: 'test',
-      ownerIds: [123456789],
+      ownerIds: [123456789, 987654321],
       webuiPath: '/manage/drift-bottle/',
     }),
   ) as DriftBottleOptions;
@@ -56,4 +57,9 @@ test('Fraq CLI 的 JSON 配置对象可以安装默认导出', async (t) => {
 
   assert.equal(ctx.isProvided(DriftBottleApi), true);
   assert.ok(messages.some((message) => message.message === '漂流瓶 WebUI：http://127.0.0.1:4649/manage/drift-bottle/'));
+  const session = await hono.app.request('http://localhost/manage/drift-bottle/api/session');
+  assert.deepEqual(await session.json(), {
+    authenticated: false,
+    avatarUrl: 'https://q1.qlogo.cn/g?b=qq&nk=123456789&s=640',
+  });
 });

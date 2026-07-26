@@ -51,7 +51,11 @@ export default definePlugin({
     );
     const api = new DriftBottleApi(ctx.client, store, moderator);
     ctx.provide(DriftBottleApi, api);
-    const webuiPath = registerWebuiRoutes(ctx.hono, { auth: webuiAuth, basePath: options.webuiPath });
+    const webuiPath = registerWebuiRoutes(ctx.hono, {
+      auth: webuiAuth,
+      basePath: options.webuiPath,
+      ownerId: options.ownerIds?.[0],
+    });
     ctx.logger.info(`漂流瓶 WebUI：${buildWebuiUrl(ctx.hono, webuiPath)}`);
     buildDriftBottleCommands(ctx, api, options.ownerIds ?? []);
   },
