@@ -306,6 +306,39 @@ textarea {
   margin-bottom: var(--space-md);
 }
 
+.dashboard-section-heading,
+.dashboard-metric-label {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.dashboard-section-heading {
+  align-items: flex-start;
+}
+
+.dashboard-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 auto;
+  color: var(--color-primary);
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.dashboard-section-heading > .dashboard-icon {
+  margin-top: 0.125rem;
+}
+
+.dashboard-metric-label .dashboard-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
 .dashboard-panel-header h2,
 .connection-label h2 {
   margin: 0;
@@ -423,6 +456,10 @@ textarea {
   font-size: var(--text-meta);
   font-weight: 500;
   line-height: 1.25rem;
+}
+
+.dashboard-metric--pending .dashboard-icon {
+  color: var(--color-warning);
 }
 
 .dashboard-metric strong {

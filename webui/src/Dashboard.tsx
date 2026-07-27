@@ -100,9 +100,12 @@ export function Dashboard({ onSessionExpired }: DashboardProps) {
       <div className="dashboard-overview">
         <section className="dashboard-panel dashboard-updates" aria-labelledby="updates-title">
           <header className="dashboard-panel-header">
-            <div>
-              <h2 id="updates-title">更新日志</h2>
-              <p>最近发布的功能与体验改进</p>
+            <div className="dashboard-section-heading">
+              <DashboardIcon name="release" />
+              <div>
+                <h2 id="updates-title">更新日志</h2>
+                <p>最近发布的功能与体验改进</p>
+              </div>
             </div>
           </header>
           {snapshot ? (
@@ -125,9 +128,12 @@ export function Dashboard({ onSessionExpired }: DashboardProps) {
 
         <div className="dashboard-status-column">
           <section className="dashboard-panel dashboard-uptime" aria-labelledby="uptime-title">
-            <div className="connection-label">
-              <span className="connection-dot" aria-hidden="true" />
-              <h2 id="uptime-title">实例连接时长</h2>
+            <div className="dashboard-section-heading">
+              <DashboardIcon name="uptime" />
+              <div className="connection-label">
+                <h2 id="uptime-title">实例连接时长</h2>
+                <span className="connection-dot" aria-hidden="true" />
+              </div>
             </div>
             <time className="uptime-value" dateTime={durationDateTime(now - (snapshot?.instanceStartedAt ?? now))}>
               {snapshot ? uptime : '—'}
@@ -137,11 +143,17 @@ export function Dashboard({ onSessionExpired }: DashboardProps) {
 
           <section className="dashboard-panel dashboard-counts" aria-label="漂流瓶数量概览">
             <div className="dashboard-metric">
-              <span>全部漂流瓶</span>
+              <div className="dashboard-metric-label">
+                <DashboardIcon name="bottle" />
+                <span>全部漂流瓶</span>
+              </div>
               <strong>{snapshot ? snapshot.counts.totalBottles.toLocaleString('zh-CN') : '—'}</strong>
             </div>
             <div className="dashboard-metric dashboard-metric--pending">
-              <span>待审核</span>
+              <div className="dashboard-metric-label">
+                <DashboardIcon name="review" />
+                <span>待审核</span>
+              </div>
               <strong>{snapshot ? snapshot.counts.pendingReview.toLocaleString('zh-CN') : '—'}</strong>
             </div>
           </section>
@@ -150,9 +162,12 @@ export function Dashboard({ onSessionExpired }: DashboardProps) {
 
       <section className="dashboard-panel dashboard-activity" aria-labelledby="activity-title">
         <header className="dashboard-panel-header dashboard-activity-header">
-          <div>
-            <h2 id="activity-title">操作记录</h2>
-            <p>投瓶、捡瓶、审核和管理操作会保存在这里</p>
+          <div className="dashboard-section-heading">
+            <DashboardIcon name="activity" />
+            <div>
+              <h2 id="activity-title">操作记录</h2>
+              <p>投瓶、捡瓶、审核和管理操作会保存在这里</p>
+            </div>
           </div>
           <span className={syncError ? 'sync-status sync-status--error' : 'sync-status'} role="status">
             {syncError || (snapshot ? '实时同步' : '正在载入')}
@@ -183,6 +198,48 @@ export function Dashboard({ onSessionExpired }: DashboardProps) {
         )}
       </section>
     </div>
+  );
+}
+
+type DashboardIconName = 'activity' | 'bottle' | 'release' | 'review' | 'uptime';
+
+function DashboardIcon({ name }: { name: DashboardIconName }) {
+  return (
+    <svg className="dashboard-icon" viewBox="0 0 24 24" aria-hidden="true">
+      {name === 'release' ? (
+        <>
+          <path d="M6 3.5h8.5l3.5 3.5v13.5H6z" />
+          <path d="M14.5 3.5V7H18M9 11h6M9 15h6" />
+        </>
+      ) : null}
+      {name === 'uptime' ? (
+        <>
+          <circle cx="12" cy="12" r="8.5" />
+          <path d="M12 7.5V12l3 2" />
+        </>
+      ) : null}
+      {name === 'bottle' ? (
+        <>
+          <path d="M9.5 3h5M10 3v4.2c0 .8-.38 1.55-1.03 2.02A4.6 4.6 0 0 0 7 13v5.5A2.5 2.5 0 0 0 9.5 21h5a2.5 2.5 0 0 0 2.5-2.5V13a4.6 4.6 0 0 0-1.97-3.78A2.46 2.46 0 0 1 14 7.2V3" />
+          <path d="M7 14h10" />
+        </>
+      ) : null}
+      {name === 'review' ? (
+        <>
+          <circle cx="12" cy="12" r="8.5" />
+          <path d="M12 7.5V12l3 2" />
+          <path d="M8.5 3.9 7.3 2.7M15.5 3.9l1.2-1.2" />
+        </>
+      ) : null}
+      {name === 'activity' ? (
+        <>
+          <path d="M5.5 6.5h13M5.5 12h13M5.5 17.5h13" />
+          <circle cx="3" cy="6.5" r="0.75" />
+          <circle cx="3" cy="12" r="0.75" />
+          <circle cx="3" cy="17.5" r="0.75" />
+        </>
+      ) : null}
+    </svg>
   );
 }
 
