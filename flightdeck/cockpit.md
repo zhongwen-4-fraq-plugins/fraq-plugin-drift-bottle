@@ -1,6 +1,6 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: 登录成功按钮已实现箭头渐隐、勾号淡入和减少动态效果回退。
+Focus: 准备发布 `v0.3.2`，并在发布成功后自动更新 Fraq 宿主。
 
 ## In flight
 
@@ -8,6 +8,7 @@ Focus: 登录成功按钮已实现箭头渐隐、勾号淡入和减少动态效�
 
 ## Next
 
+- 完成 `v0.3.2` 发布、宿主更新与 Fraq 实例清理。
 - 在宿主环境设置真实的 `OPENAI_API_KEY`，并在 Milky 服务可用时启动应用。
 - 实现审核 API 和以待审核内容为核心的审核工作台。
 
