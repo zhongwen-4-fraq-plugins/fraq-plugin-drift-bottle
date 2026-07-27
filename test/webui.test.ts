@@ -29,9 +29,17 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   });
   const password = await auth.initialize();
   assert.ok(password);
+  const dashboard = {
+    generatedAt: 1_700_000_001_000,
+    instanceStartedAt: 1_700_000_000_000,
+    counts: { totalBottles: 12, pendingReview: 3 },
+    changelog: [{ version: '0.3.6', items: ['加入主页概览'] }],
+    operations: [],
+  };
   const basePath = registerWebuiRoutes(hono, {
     auth,
     basePath: '/manage/drift-bottle/',
+    dashboard: () => dashboard,
     directory,
     ownerId: 123456789,
   });
@@ -67,6 +75,10 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   });
   assert.equal(anonymousSession.headers.get('cache-control'), 'no-store');
 
+  const anonymousDashboard = await hono.app.request('http://localhost/manage/drift-bottle/api/dashboard');
+  assert.equal(anonymousDashboard.status, 401);
+  assert.equal(anonymousDashboard.headers.get('cache-control'), 'no-store');
+
   const rejectedLogin = await hono.app.request('http://localhost/manage/drift-bottle/api/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -93,6 +105,13 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
     authenticated: true,
     avatarUrl: 'https://q1.qlogo.cn/g?b=qq&nk=123456789&s=640',
   });
+
+  const authenticatedDashboard = await hono.app.request('http://localhost/manage/drift-bottle/api/dashboard', {
+    headers: { Cookie: cookie },
+  });
+  assert.equal(authenticatedDashboard.status, 200);
+  assert.deepEqual(await authenticatedDashboard.json(), dashboard);
+  assert.equal(authenticatedDashboard.headers.get('cache-control'), 'no-store');
 
   const logout = await hono.app.request('http://localhost/manage/drift-bottle/api/session', {
     method: 'DELETE',

@@ -45,4 +45,16 @@ test('公开 API 可以脱离命令路由完成漂流瓶操作', async (t) => {
   api.setRepeatPick(10002, false);
   assert.equal((await api.pickBottle(10002, 0))?.id, created.bottle.id);
   assert.equal(api.count(), 0);
+  assert.deepEqual(
+    api.operationRecords().map(({ action, actorId }) => ({ action, actorId })),
+    [
+      { action: 'bottle-picked', actorId: 10002 },
+      { action: 'repeat-pick-updated', actorId: 10002 },
+      { action: 'bottle-picked', actorId: 10002 },
+      { action: 'repeat-pick-updated', actorId: 10002 },
+      { action: 'comment-created', actorId: 10002 },
+      { action: 'bottle-created', actorId: 10001 },
+      { action: 'signature-updated', actorId: 10001 },
+    ],
+  );
 });

@@ -1,6 +1,7 @@
 import type { HonoService } from '@fraqjs/plugin-hono';
 
 import type { WebuiAuth } from './auth.js';
+import type { DashboardSnapshot } from './dashboard.js';
 
 import { readFile } from 'node:fs/promises';
 import { extname, isAbsolute, relative, resolve } from 'node:path';
@@ -10,6 +11,7 @@ export interface WebuiRouteOptions {
   basePath?: string;
   directory?: string;
   auth: WebuiAuth;
+  dashboard: () => DashboardSnapshot;
   ownerId?: number;
 }
 
@@ -64,6 +66,12 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
         'Set-Cookie': sessionCookie('', basePath, secure, 0),
       },
     });
+  });
+  service.app.get(`${basePath}/api/dashboard`, (context) => {
+    if (!options.auth.isSessionValid(readSessionCookie(context.req.header('cookie')))) {
+      return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
+    }
+    return context.json(options.dashboard(), 200, { 'Cache-Control': 'no-store' });
   });
   service.app.get(`${basePath}/`, async () => serveWebuiFile(directory, 'index.html'));
   service.app.get(`${basePath}/*`, async (context) => {

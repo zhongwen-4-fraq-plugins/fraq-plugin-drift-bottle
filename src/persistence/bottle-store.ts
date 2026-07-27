@@ -1,6 +1,14 @@
 import type { Disposable } from '@fraqjs/fraq';
 
-import type { BottleComment, BottleSignature, DriftBottle, NewBottleComment, NewDriftBottle } from '../models/index.js';
+import type {
+  BottleComment,
+  BottleOperationRecord,
+  BottleSignature,
+  DriftBottle,
+  NewBottleComment,
+  NewBottleOperationRecord,
+  NewDriftBottle,
+} from '../models/index.js';
 import type { ModerationProcess, ModerationRecord, NewModerationRecord } from '../processing/moderation-records.js';
 
 import { randomUUID } from 'node:crypto';
@@ -37,6 +45,16 @@ interface ModerationRecordRow {
   total_tokens: number | null;
   success: number;
   approved: number | null;
+}
+
+interface OperationRecordRow {
+  id: string;
+  created_at: number;
+  action: BottleOperationRecord['action'];
+  actor_id: number | null;
+  bottle_id: string | null;
+  target_user_id: number | null;
+  detail: string | null;
 }
 
 export class BottleStore implements Disposable {
@@ -126,6 +144,19 @@ export class BottleStore implements Disposable {
         password_hash TEXT NOT NULL,
         created_at INTEGER NOT NULL
       )
+    `);
+    this.database.exec(`
+      CREATE TABLE IF NOT EXISTS bottle_operation_records (
+        id TEXT PRIMARY KEY,
+        created_at INTEGER NOT NULL,
+        action TEXT NOT NULL,
+        actor_id INTEGER,
+        bottle_id TEXT,
+        target_user_id INTEGER,
+        detail TEXT
+      );
+      CREATE INDEX IF NOT EXISTS bottle_operation_records_created_at
+      ON bottle_operation_records (created_at, id);
     `);
   }
 
@@ -274,10 +305,12 @@ export class BottleStore implements Disposable {
     return row.count;
   }
 
-  addModerator(userId: number): void {
-    this.getDatabase()
-      .prepare('INSERT OR IGNORE INTO bottle_moderators (user_id, created_at) VALUES (?, ?)')
-      .run(userId, Date.now());
+  addModerator(userId: number): boolean {
+    return (
+      this.getDatabase()
+        .prepare('INSERT OR IGNORE INTO bottle_moderators (user_id, created_at) VALUES (?, ?)')
+        .run(userId, Date.now()).changes > 0
+    );
   }
 
   removeModerator(userId: number): boolean {
@@ -358,6 +391,52 @@ export class BottleStore implements Disposable {
       totalTokens: row.total_tokens ?? undefined,
       success: Boolean(row.success),
       approved: row.approved === null ? undefined : Boolean(row.approved),
+    }));
+  }
+
+  pendingModerationCount(): number {
+    const row = this.getDatabase()
+      .prepare('SELECT COUNT(*) AS count FROM bottle_moderation_records WHERE success = 0 OR approved = 0')
+      .get() as { count: number };
+    return row.count;
+  }
+
+  addOperationRecord(input: NewBottleOperationRecord): BottleOperationRecord {
+    const record: BottleOperationRecord = {
+      id: randomUUID(),
+      createdAt: Date.now(),
+      ...input,
+    };
+    this.getDatabase()
+      .prepare(`
+        INSERT INTO bottle_operation_records (
+          id, created_at, action, actor_id, bottle_id, target_user_id, detail
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      `)
+      .run(
+        record.id,
+        record.createdAt,
+        record.action,
+        record.actorId ?? null,
+        record.bottleId ?? null,
+        record.targetUserId ?? null,
+        record.detail ?? null,
+      );
+    return record;
+  }
+
+  operationRecords(limit = 100): BottleOperationRecord[] {
+    const rows = this.getDatabase()
+      .prepare('SELECT * FROM bottle_operation_records ORDER BY created_at DESC, rowid DESC LIMIT ?')
+      .all(limit) as unknown as OperationRecordRow[];
+    return rows.map((row) => ({
+      id: row.id,
+      createdAt: row.created_at,
+      action: row.action,
+      ...(row.actor_id === null ? {} : { actorId: row.actor_id }),
+      ...(row.bottle_id === null ? {} : { bottleId: row.bottle_id }),
+      ...(row.target_user_id === null ? {} : { targetUserId: row.target_user_id }),
+      ...(row.detail === null ? {} : { detail: row.detail }),
     }));
   }
 

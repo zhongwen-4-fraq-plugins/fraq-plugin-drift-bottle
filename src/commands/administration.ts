@@ -72,7 +72,7 @@ export function registerAdministrationCommands(ctx: Context, api: DriftBottleApi
         return;
       }
 
-      api.deleteBottle(bottleId);
+      api.deleteBottle(bottleId, session.raw.sender_id);
       await session.reply('漂流瓶已删除。');
     });
 
@@ -101,7 +101,7 @@ export function registerAdministrationCommands(ctx: Context, api: DriftBottleApi
         return;
       }
       for (const userId of userIds) {
-        api.addModerator(userId);
+        api.addModerator(userId, session.raw.sender_id);
       }
       await session.reply(`已允许 ${userIds.join('、')} 删除漂流瓶。`);
     });
@@ -122,7 +122,7 @@ export function registerAdministrationCommands(ctx: Context, api: DriftBottleApi
         await session.reply('请输入有效的 QQ 号或提及用户。');
         return;
       }
-      const removed = userIds.filter((userId) => api.removeModerator(userId));
+      const removed = userIds.filter((userId) => api.removeModerator(userId, session.raw.sender_id));
       await session.reply(
         removed.length > 0 ? `已移除 ${removed.join('、')} 的删除权限。` : '这些用户都不在权限列表中。',
       );

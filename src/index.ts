@@ -9,6 +9,7 @@ import { BottleStore } from './persistence/bottle-store.js';
 import { moderateBottle } from './processing/moderation.js';
 import { withModerationRecords } from './processing/moderation-records.js';
 import { WebuiAuth } from './webui/auth.js';
+import { createDashboardSnapshot } from './webui/dashboard.js';
 import { registerWebuiRoutes } from './webui/routes.js';
 import { buildWebuiUrl } from './webui/url.js';
 
@@ -22,14 +23,18 @@ export type {
 export { DriftBottleApi, DriftBottleApiError } from './api/drift-bottle-api.js';
 export type {
   BottleComment,
+  BottleOperationAction,
+  BottleOperationRecord,
   BottleSegment,
   BottleSignature,
   DriftBottle,
   DriftBottleOptions,
   NewBottleComment,
+  NewBottleOperationRecord,
   NewDriftBottle,
 } from './models/index.js';
 export type { ModerationProcess, ModerationRecord } from './processing/moderation-records.js';
+export type { DashboardOperation, DashboardRelease, DashboardSnapshot } from './webui/dashboard.js';
 
 export default definePlugin({
   name: 'drift-bottle',
@@ -39,6 +44,7 @@ export default definePlugin({
   },
   provides: [DriftBottleApi],
   async apply(ctx, options: DriftBottleOptions = {}) {
+    const instanceStartedAt = Date.now();
     const store = new BottleStore(options.storagePath ?? './data/drift-bottles.db');
     await store.load();
     const webuiAuth = new WebuiAuth(store);
@@ -54,6 +60,7 @@ export default definePlugin({
     const webuiPath = registerWebuiRoutes(ctx.hono, {
       auth: webuiAuth,
       basePath: options.webuiPath,
+      dashboard: () => createDashboardSnapshot(api, instanceStartedAt),
       ownerId: options.ownerIds?.[0],
     });
     ctx.logger.info(`漂流瓶 WebUI：${buildWebuiUrl(ctx.hono, webuiPath)}`);

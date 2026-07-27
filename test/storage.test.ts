@@ -54,6 +54,11 @@ test('漂流瓶会持久化，并可选择捡取后是否删除', async (t) => {
   store.addModerator(20001);
   store.setRepeatPick(30001, true);
   store.setRepeatPick(30002, false);
+  const operation = store.addOperationRecord({
+    action: 'moderator-added',
+    actorId: 10001,
+    targetUserId: 20001,
+  });
   assert.deepEqual(store.signatureFor(10001), { type: 'alias', name: '海风' });
   assert.deepEqual(store.signatureFor(10002), { type: 'original' });
   assert.deepEqual(store.signatureFor(10003), { type: 'alias', name: '旧别名' });
@@ -97,6 +102,7 @@ test('漂流瓶会持久化，并可选择捡取后是否删除', async (t) => {
   assert.deepEqual(reloadedStore.moderators(), [20001]);
   assert.equal(reloadedStore.repeatPickFor(30001), true);
   assert.equal(reloadedStore.repeatPickFor(30002), false);
+  assert.deepEqual(reloadedStore.operationRecords(), [operation]);
   assert.deepEqual(
     reloadedStore.commentsFor(secondBottle.id).map(({ displayName, content }) => ({ displayName, content })),
     [{ displayName: '浪花', content: '写得真好' }],

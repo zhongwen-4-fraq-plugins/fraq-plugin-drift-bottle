@@ -1,6 +1,13 @@
 import type { Disposable, MilkyClient, milky } from '@fraqjs/fraq';
 
-import type { BottleComment, BottleSegment, BottleSignature, DriftBottle, NewDriftBottle } from '../models/index.js';
+import type {
+  BottleComment,
+  BottleOperationRecord,
+  BottleSegment,
+  BottleSignature,
+  DriftBottle,
+  NewDriftBottle,
+} from '../models/index.js';
 import type { BottleStore } from '../persistence/bottle-store.js';
 import {
   hasBottleContent,
@@ -100,11 +107,26 @@ export class DriftBottleApi implements Disposable {
       },
       segments,
     });
+    this.store.addOperationRecord({
+      action: 'bottle-created',
+      actorId: message.sender_id,
+      bottleId: bottle.id,
+    });
     return { status: 'created', bottle };
   }
 
   async pickBottle(userId: number, randomValue?: number): Promise<DriftBottle | undefined> {
-    return this.store.pick(!(this.store.repeatPickFor(userId) ?? false), randomValue);
+    const removeAfterPick = !(this.store.repeatPickFor(userId) ?? false);
+    const bottle = await this.store.pick(removeAfterPick, randomValue);
+    if (bottle) {
+      this.store.addOperationRecord({
+        action: 'bottle-picked',
+        actorId: userId,
+        bottleId: bottle.id,
+        detail: removeAfterPick ? 'removed' : 'retained',
+      });
+    }
+    return bottle;
   }
 
   async outgoingSegments(bottle: DriftBottle, userId = 0): Promise<milky.OutgoingSegment_ZodInput[]> {
@@ -140,6 +162,13 @@ export class DriftBottleApi implements Disposable {
         displayName: signature.displayName,
         content,
       });
+      if (comment) {
+        this.store.addOperationRecord({
+          action: 'comment-created',
+          actorId: message.sender_id,
+          bottleId,
+        });
+      }
       return comment ? { status: 'created', comment } : { status: 'not-found' };
     } catch (cause) {
       throw new DriftBottleApiError('publish-comment', { cause });
@@ -176,6 +205,11 @@ export class DriftBottleApi implements Disposable {
   async updateSignature(message: milky.IncomingMessage, signature: BottleSignature): Promise<UpdateSignatureResult> {
     if (signature.type !== 'alias') {
       this.store.setSignature(message.sender_id, signature);
+      this.store.addOperationRecord({
+        action: 'signature-updated',
+        actorId: message.sender_id,
+        detail: signature.type,
+      });
       return { status: 'updated' };
     }
     if ([...signature.name].length > 20) {
@@ -187,6 +221,11 @@ export class DriftBottleApi implements Disposable {
       return { status: 'rejected', reason: moderation.reason };
     }
     this.store.setSignature(message.sender_id, signature);
+    this.store.addOperationRecord({
+      action: 'signature-updated',
+      actorId: message.sender_id,
+      detail: signature.type,
+    });
     return { status: 'updated' };
   }
 
@@ -202,16 +241,26 @@ export class DriftBottleApi implements Disposable {
     return this.store.isBottleOwner(id, userId);
   }
 
-  deleteBottle(id: string): boolean {
-    return this.store.deleteBottle(id);
+  deleteBottle(id: string, actorId?: number): boolean {
+    const deleted = this.store.deleteBottle(id);
+    if (deleted) {
+      this.store.addOperationRecord({ action: 'bottle-deleted', actorId, bottleId: id });
+    }
+    return deleted;
   }
 
-  addModerator(userId: number): void {
-    this.store.addModerator(userId);
+  addModerator(userId: number, actorId?: number): void {
+    if (this.store.addModerator(userId)) {
+      this.store.addOperationRecord({ action: 'moderator-added', actorId, targetUserId: userId });
+    }
   }
 
-  removeModerator(userId: number): boolean {
-    return this.store.removeModerator(userId);
+  removeModerator(userId: number, actorId?: number): boolean {
+    const removed = this.store.removeModerator(userId);
+    if (removed) {
+      this.store.addOperationRecord({ action: 'moderator-removed', actorId, targetUserId: userId });
+    }
+    return removed;
   }
 
   isModerator(userId: number): boolean {
@@ -224,6 +273,11 @@ export class DriftBottleApi implements Disposable {
 
   setRepeatPick(userId: number, enabled?: boolean): void {
     this.store.setRepeatPick(userId, enabled);
+    this.store.addOperationRecord({
+      action: 'repeat-pick-updated',
+      actorId: userId,
+      detail: enabled === undefined ? 'default' : enabled ? 'enabled' : 'disabled',
+    });
   }
 
   repeatPickFor(userId: number): boolean | undefined {
@@ -234,8 +288,18 @@ export class DriftBottleApi implements Disposable {
     return this.store.moderationRecords(limit);
   }
 
-  add(input: NewDriftBottle): Promise<DriftBottle> {
-    return this.store.add(input);
+  pendingModerationCount(): number {
+    return this.store.pendingModerationCount();
+  }
+
+  operationRecords(limit = 100): BottleOperationRecord[] {
+    return this.store.operationRecords(limit);
+  }
+
+  async add(input: NewDriftBottle): Promise<DriftBottle> {
+    const bottle = await this.store.add(input);
+    this.store.addOperationRecord({ action: 'bottle-created', actorId: input.senderId, bottleId: bottle.id });
+    return bottle;
   }
 
   count(): number {

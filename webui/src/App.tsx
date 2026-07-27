@@ -1,4 +1,6 @@
-import { type FormEvent, useEffect, useRef, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+
+import { Dashboard } from './Dashboard';
 
 type View = 'checking' | 'login' | 'main';
 type Session = { authenticated?: boolean; avatarUrl?: string };
@@ -43,6 +45,14 @@ export function App() {
     }
   }, [view]);
 
+  const handleSessionExpired = useCallback(() => {
+    setPassword('');
+    setPasswordVisible(false);
+    setError('登录已过期，请重新登录');
+    setView('login');
+    syncLocation(false);
+  }, []);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!password || submitting) return;
@@ -83,6 +93,9 @@ export function App() {
   if (view === 'main') {
     return (
       <div className={`app-shell${sidebarCollapsed ? ' app-shell--sidebar-collapsed' : ''}`}>
+        <a className="skip-link" href="#dashboard-main">
+          跳转到主页内容
+        </a>
         <aside className="app-sidebar">
           <div className="app-sidebar-header">
             <div className="sidebar-avatar" aria-hidden="true">
@@ -134,7 +147,9 @@ export function App() {
             </button>
           </nav>
         </aside>
-        <main className="app-main" aria-label="主页" tabIndex={-1} />
+        <main id="dashboard-main" className="app-main" aria-label="主页" tabIndex={-1}>
+          <Dashboard onSessionExpired={handleSessionExpired} />
+        </main>
       </div>
     );
   }

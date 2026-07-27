@@ -31,12 +31,18 @@ test('AI 审核成功和失败都会写入数据库', async (t) => {
     throw new Error('AI unavailable');
   });
   await assert.rejects(failedModerator([inseg.text('审核失败内容')]), /AI unavailable/);
+  store.addModerationRecord({
+    content: [inseg.text('审核通过内容')],
+    process: { result: { approved: true, categories: [], reason: '' } },
+    success: true,
+    approved: true,
+  });
 
   const records = store.moderationRecords();
-  const success = records.find((record) => record.success);
+  const success = records.find((record) => record.success && record.approved === false);
   const failure = records.find((record) => !record.success);
 
-  assert.equal(records.length, 2);
+  assert.equal(records.length, 3);
   assert.ok(success);
   assert.equal(success.approved, false);
   assert.deepEqual(success.content, [inseg.text('待审核内容')]);
@@ -49,5 +55,6 @@ test('AI 审核成功和失败都会写入数据库', async (t) => {
   assert.deepEqual(failure.content, [inseg.text('审核失败内容')]);
   assert.deepEqual(failure.process, { error: { name: 'Error', message: 'AI unavailable' } });
   assert.ok(records.every((record) => record.createdAt > 0));
+  assert.equal(store.pendingModerationCount(), 2);
   assert.deepEqual(logs, ['漂流瓶 AI 审核 Token：输入 120，输出 30，总计 150']);
 });

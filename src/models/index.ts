@@ -44,3 +44,25 @@ export interface BottleComment {
 }
 
 export type NewBottleComment = Pick<BottleComment, 'bottleId' | 'senderId' | 'displayName' | 'content'>;
+
+export type BottleOperationAction =
+  | 'bottle-created'
+  | 'bottle-picked'
+  | 'comment-created'
+  | 'bottle-deleted'
+  | 'signature-updated'
+  | 'moderator-added'
+  | 'moderator-removed'
+  | 'repeat-pick-updated';
+
+export interface BottleOperationRecord {
+  id: string;
+  createdAt: number;
+  action: BottleOperationAction;
+  actorId?: number;
+  bottleId?: string;
+  targetUserId?: number;
+  detail?: string;
+}
+
+export type NewBottleOperationRecord = Omit<BottleOperationRecord, 'id' | 'createdAt'>;

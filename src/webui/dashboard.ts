@@ -1,0 +1,151 @@
+import type { DriftBottleApi } from '../api/drift-bottle-api.js';
+import type { BottleOperationRecord } from '../models/index.js';
+import type { ModerationRecord } from '../processing/moderation-records.js';
+
+export interface DashboardRelease {
+  version: string;
+  items: string[];
+}
+
+export interface DashboardOperation {
+  id: string;
+  createdAt: number;
+  title: string;
+  detail?: string;
+  tone: 'neutral' | 'success' | 'warning' | 'danger';
+}
+
+export interface DashboardSnapshot {
+  generatedAt: number;
+  instanceStartedAt: number;
+  counts: {
+    totalBottles: number;
+    pendingReview: number;
+  };
+  changelog: DashboardRelease[];
+  operations: DashboardOperation[];
+}
+
+const CHANGELOG: DashboardRelease[] = [
+  {
+    version: '0.3.6',
+    items: ['侧边栏左上角新增主人头像，折叠与移动端布局保持清爽。'],
+  },
+  {
+    version: '0.3.5',
+    items: ['侧边栏导航加入统一图标，并支持在桌面端收起。'],
+  },
+  {
+    version: '0.3.4',
+    items: ['主页加入响应式侧边栏，提供主页、待审核、全部瓶子和设置入口。'],
+  },
+];
+
+export function createDashboardSnapshot(api: DriftBottleApi, instanceStartedAt: number): DashboardSnapshot {
+  const operations = [
+    ...api.operationRecords(100).map(formatDomainOperation),
+    ...api.moderationRecords(100).map(formatModerationOperation),
+  ]
+    .sort((left, right) => right.createdAt - left.createdAt)
+    .slice(0, 60);
+
+  return {
+    generatedAt: Date.now(),
+    instanceStartedAt,
+    counts: {
+      totalBottles: api.count(),
+      pendingReview: api.pendingModerationCount(),
+    },
+    changelog: CHANGELOG,
+    operations,
+  };
+}
+
+function formatDomainOperation(record: BottleOperationRecord): DashboardOperation {
+  const actor = record.actorId ? `QQ ${record.actorId}` : '系统';
+  const bottle = record.bottleId ? `瓶子 ${shortId(record.bottleId)}` : undefined;
+
+  switch (record.action) {
+    case 'bottle-created':
+      return operation(record, '投递漂流瓶', joinDetail(actor, bottle), 'success');
+    case 'bottle-picked':
+      return operation(
+        record,
+        record.detail === 'retained' ? '捡取漂流瓶并保留' : '捡取漂流瓶',
+        joinDetail(actor, bottle),
+      );
+    case 'comment-created':
+      return operation(record, '发布漂流瓶评论', joinDetail(actor, bottle), 'success');
+    case 'bottle-deleted':
+      return operation(record, '删除漂流瓶', joinDetail(actor, bottle), 'warning');
+    case 'signature-updated':
+      return operation(record, '更新漂流瓶署名', joinDetail(actor, signatureLabel(record.detail)));
+    case 'moderator-added':
+      return operation(record, '添加管理权限', joinDetail(actor, targetUser(record.targetUserId)), 'success');
+    case 'moderator-removed':
+      return operation(record, '移除管理权限', joinDetail(actor, targetUser(record.targetUserId)), 'warning');
+    case 'repeat-pick-updated':
+      return operation(record, '更新重复捡取设置', joinDetail(actor, repeatPickLabel(record.detail)));
+  }
+}
+
+function formatModerationOperation(record: ModerationRecord): DashboardOperation {
+  if ('error' in record.process) {
+    return {
+      id: `moderation-${record.id}`,
+      createdAt: record.createdAt,
+      title: 'AI 审核执行失败',
+      detail: record.process.error.message,
+      tone: 'danger',
+    };
+  }
+
+  const result = record.process.result;
+  return {
+    id: `moderation-${record.id}`,
+    createdAt: record.createdAt,
+    title: result.approved ? 'AI 审核通过' : 'AI 审核未通过',
+    detail: joinDetail(result.reason || undefined, tokenUsage(record.totalTokens)),
+    tone: result.approved ? 'success' : 'warning',
+  };
+}
+
+function operation(
+  record: BottleOperationRecord,
+  title: string,
+  detail?: string,
+  tone: DashboardOperation['tone'] = 'neutral',
+): DashboardOperation {
+  return { id: record.id, createdAt: record.createdAt, title, detail, tone };
+}
+
+function shortId(id: string): string {
+  return id.slice(0, 8);
+}
+
+function targetUser(userId: number | undefined): string | undefined {
+  return userId ? `目标 QQ ${userId}` : undefined;
+}
+
+function signatureLabel(detail: string | undefined): string | undefined {
+  if (detail === 'anonymous') return '匿名';
+  if (detail === 'original') return '原名';
+  if (detail === 'alias') return '别名';
+  return undefined;
+}
+
+function repeatPickLabel(detail: string | undefined): string | undefined {
+  if (detail === 'enabled') return '开启';
+  if (detail === 'disabled') return '关闭';
+  if (detail === 'default') return '恢复默认';
+  return undefined;
+}
+
+function tokenUsage(totalTokens: number | undefined): string | undefined {
+  return totalTokens === undefined ? undefined : `${totalTokens} Token`;
+}
+
+function joinDetail(...parts: (string | undefined)[]): string | undefined {
+  const detail = parts.filter(Boolean).join(' · ');
+  return detail || undefined;
+}
