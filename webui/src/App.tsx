@@ -16,7 +16,7 @@ export function App() {
   const [avatarUrl, setAvatarUrl] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
   const [succeeded, setSucceeded] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [mainPage, setMainPage] = useState<AppPage>(() => pageFromLocation());
   const inputRef = useRef<HTMLInputElement>(null);
 

@@ -1,6 +1,6 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: 待审核与全部瓶子列表已完成，当前改动尚未发布；所有 Fraq 实例均已关闭。
+Focus: 桌面端侧边栏已改为默认收起，移动端继续显示完整导航标签；当前改动尚未发布，所有 Fraq 实例均已关闭。
 
 ## In flight
 
