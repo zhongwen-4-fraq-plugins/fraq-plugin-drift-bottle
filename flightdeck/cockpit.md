@@ -1,6 +1,6 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: `v0.3.2` 已发布并自动更新 Fraq 宿主；验证完成后所有 Fraq 实例已关闭。
+Focus: 登录页已提供密码查看/隐藏按钮，并与提交箭头和成功动画共存。
 
 ## In flight
 

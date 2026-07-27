@@ -12,6 +12,7 @@ READ WHEN: before any WebUI password, login route, session, cookie, or authentic
 - 会话令牌由服务端随机生成并保存在内存中，因此插件重启后需要重新登录。
 - Cookie 使用 WebUI 挂载路径、`HttpOnly` 和 `SameSite=Strict`；HTTPS 请求额外使用 `Secure`。
 - 前端使用相对 API 地址，以兼容自定义和多层 `webuiPath`。
+- 密码输入框在提交按钮左侧提供查看/隐藏按钮，使用 `aria-pressed` 表达状态；认证失败并清空输入时恢复隐藏。
 
 ## 验证要求
 

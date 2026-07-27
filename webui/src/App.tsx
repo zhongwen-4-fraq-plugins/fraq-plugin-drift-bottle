@@ -6,6 +6,7 @@ type Session = { authenticated?: boolean; avatarUrl?: string };
 export function App() {
   const [view, setView] = useState<View>('checking');
   const [password, setPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [error, setError] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
@@ -57,6 +58,7 @@ export function App() {
         const result = (await response.json().catch(() => undefined)) as { error?: string } | undefined;
         setError(result?.error ?? '登录失败，请稍后重试');
         setPassword('');
+        setPasswordVisible(false);
         return;
       }
       setSucceeded(true);
@@ -96,7 +98,7 @@ export function App() {
           <input
             ref={inputRef}
             id="admin-password"
-            type="password"
+            type={passwordVisible ? 'text' : 'password'}
             value={password}
             onChange={(event) => {
               setPassword(event.target.value);
@@ -108,6 +110,20 @@ export function App() {
             aria-invalid={Boolean(error)}
             disabled={submitting}
           />
+          <button
+            type="button"
+            className="password-toggle"
+            aria-label={passwordVisible ? '隐藏密码' : '查看密码'}
+            aria-pressed={passwordVisible}
+            onClick={() => setPasswordVisible((visible) => !visible)}
+            disabled={submitting}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M2.75 12s3.25-5 9.25-5 9.25 5 9.25 5-3.25 5-9.25 5-9.25-5-9.25-5Z" />
+              <circle cx="12" cy="12" r="2.25" />
+              {passwordVisible ? <path d="m4 4 16 16" /> : null}
+            </svg>
+          </button>
           <button
             type="submit"
             className={succeeded ? 'login-submit login-submit--success' : 'login-submit'}

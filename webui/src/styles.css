@@ -149,23 +149,41 @@ textarea {
   width: 2.75rem;
   height: 2.75rem;
   flex: 0 0 auto;
-  margin-right: 0.375rem;
   place-items: center;
   border: 0;
   border-radius: 0.5rem;
-  background: var(--color-primary);
-  color: white;
   cursor: pointer;
   transition:
     background-color 180ms ease,
+    color 180ms ease,
     transform 180ms ease;
 }
 
-.password-field button:active:not(:disabled) {
+.password-toggle {
+  background: transparent;
+  color: var(--color-muted);
+}
+
+.password-toggle:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.password-toggle:disabled {
+  color: var(--color-border);
+  cursor: wait;
+}
+
+.login-submit {
+  margin-right: 0.375rem;
+  background: var(--color-primary);
+  color: white;
+}
+
+.login-submit:active:not(:disabled) {
   transform: translateX(0.125rem);
 }
 
-.password-field button:disabled {
+.login-submit:disabled {
   background: var(--color-border);
   cursor: not-allowed;
 }
@@ -187,7 +205,7 @@ textarea {
   opacity: 0;
 }
 
-.password-field button.login-submit--success {
+.login-submit.login-submit--success {
   background: oklch(0.48 0.13 155);
   cursor: default;
 }
@@ -248,8 +266,13 @@ textarea {
 }
 
 @media (hover: hover) {
-  .password-field button:hover:not(:disabled) {
+  .login-submit:hover:not(:disabled) {
     background: var(--color-primary-hover);
+  }
+
+  .password-toggle:hover:not(:disabled) {
+    background: var(--color-surface);
+    color: var(--color-ink);
   }
 }
 
@@ -297,11 +320,12 @@ textarea {
     border: 0.0625rem solid CanvasText;
   }
 
-  .password-field button:disabled {
+  .login-submit:disabled,
+  .password-toggle:disabled {
     color: GrayText;
   }
 
-  .password-field button.login-submit--success {
+  .login-submit.login-submit--success {
     color: ButtonText;
   }
 }
