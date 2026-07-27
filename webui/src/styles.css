@@ -49,10 +49,75 @@ textarea {
   min-height: 100%;
 }
 
-.app-shell {
+.checking-page {
   min-height: 100vh;
   padding-block: env(safe-area-inset-top) env(safe-area-inset-bottom);
   padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
+}
+
+.app-shell {
+  display: grid;
+  min-height: 100vh;
+  grid-template-columns: 14rem minmax(0, 1fr);
+  background: var(--color-background);
+}
+
+.app-sidebar {
+  display: flex;
+  min-width: 0;
+  padding-block: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-bottom));
+  padding-inline: max(0.75rem, env(safe-area-inset-left)) 0.75rem;
+  border-inline-end: 0.0625rem solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.sidebar-nav {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.sidebar-nav-button {
+  display: flex;
+  width: 100%;
+  min-height: 2.75rem;
+  align-items: center;
+  border: 0;
+  border-radius: 0.625rem;
+  padding: 0.625rem 0.75rem;
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+  text-align: start;
+  transition:
+    background-color 160ms cubic-bezier(0.25, 1, 0.5, 1),
+    color 160ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.sidebar-nav-button[aria-current="page"] {
+  background: oklch(0.925 0.026 220);
+  color: var(--color-primary);
+  font-weight: 650;
+}
+
+.sidebar-nav-button:active {
+  background: oklch(0.9 0.026 220);
+}
+
+.sidebar-nav-button--settings {
+  margin-top: auto;
+}
+
+.app-main {
+  min-width: 0;
+  min-height: 100%;
+  padding-block: env(safe-area-inset-top) env(safe-area-inset-bottom);
+  padding-inline: 2rem max(2rem, env(safe-area-inset-right));
 }
 
 .login-page {
@@ -259,6 +324,7 @@ textarea {
 
 @supports (height: 100svh) {
   body,
+  .checking-page,
   .app-shell,
   .login-page {
     min-height: 100svh;
@@ -266,6 +332,11 @@ textarea {
 }
 
 @media (hover: hover) {
+  .sidebar-nav-button:hover:not([aria-current="page"]) {
+    background: oklch(0.94 0.009 214);
+    color: var(--color-ink);
+  }
+
   .login-submit:hover:not(:disabled) {
     background: var(--color-primary-hover);
   }
@@ -273,6 +344,45 @@ textarea {
   .password-toggle:hover:not(:disabled) {
     background: var(--color-surface);
     color: var(--color-ink);
+  }
+}
+
+@media (max-width: 47.999rem) {
+  .app-shell {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .app-sidebar {
+    padding-block: max(0.75rem, env(safe-area-inset-top)) 0.75rem;
+    padding-inline: max(0.75rem, env(safe-area-inset-left)) max(0.75rem, env(safe-area-inset-right));
+    border-inline-end: 0;
+    border-block-end: 0.0625rem solid var(--color-border);
+  }
+
+  .sidebar-nav {
+    flex: 0 0 auto;
+    flex-direction: row;
+  }
+
+  .sidebar-nav-button {
+    min-width: 0;
+    flex: 1;
+    justify-content: center;
+    padding-inline: 0.375rem;
+    font-size: 0.875rem;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .sidebar-nav-button--settings {
+    margin-top: 0;
+  }
+
+  .app-main {
+    flex: 1;
+    padding-block: 1.5rem max(1.5rem, env(safe-area-inset-bottom));
+    padding-inline: max(1rem, env(safe-area-inset-left)) max(1rem, env(safe-area-inset-right));
   }
 }
 
@@ -309,6 +419,10 @@ textarea {
 }
 
 @media (pointer: coarse) {
+  .sidebar-nav-button {
+    min-height: 3rem;
+  }
+
   .password-field {
     min-height: 3.75rem;
   }
@@ -318,6 +432,11 @@ textarea {
   .login-avatar,
   .password-field {
     border: 0.0625rem solid CanvasText;
+  }
+
+  .sidebar-nav-button[aria-current="page"] {
+    background: Highlight;
+    color: HighlightText;
   }
 
   .login-submit:disabled,
@@ -332,7 +451,8 @@ textarea {
 
 @media (prefers-reduced-motion: reduce) {
   .password-field,
-  .password-field button {
+  .password-field button,
+  .sidebar-nav-button {
     transition: none;
   }
 

@@ -74,8 +74,32 @@ export function App() {
     }
   }
 
-  if (view === 'checking' || view === 'main') {
-    return <main className="app-shell" aria-label="漂流瓶审核管理后台" tabIndex={-1} />;
+  if (view === 'checking') {
+    return <main className="checking-page" aria-label="正在载入漂流瓶审核管理后台" tabIndex={-1} />;
+  }
+
+  if (view === 'main') {
+    return (
+      <div className="app-shell">
+        <aside className="app-sidebar">
+          <nav className="sidebar-nav" aria-label="主要导航">
+            <button type="button" className="sidebar-nav-button" aria-current="page">
+              主页
+            </button>
+            <button type="button" className="sidebar-nav-button">
+              待审核
+            </button>
+            <button type="button" className="sidebar-nav-button">
+              全部瓶子
+            </button>
+            <button type="button" className="sidebar-nav-button sidebar-nav-button--settings">
+              设置
+            </button>
+          </nav>
+        </aside>
+        <main className="app-main" aria-label="主页" tabIndex={-1} />
+      </div>
+    );
   }
 
   return (
