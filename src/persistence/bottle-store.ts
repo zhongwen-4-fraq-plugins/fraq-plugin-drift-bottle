@@ -235,6 +235,13 @@ export class BottleStore implements Disposable {
     return row.count;
   }
 
+  bottles(limit = 20, offset = 0): DriftBottle[] {
+    const rows = this.getDatabase()
+      .prepare('SELECT * FROM bottles ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?')
+      .all(limit, offset) as unknown as BottleRow[];
+    return rows.map((row) => this.toBottle(row));
+  }
+
   deleteBottle(id: string): boolean {
     const database = this.getDatabase();
     database.exec('BEGIN IMMEDIATE');
@@ -381,17 +388,19 @@ export class BottleStore implements Disposable {
     const rows = this.getDatabase()
       .prepare('SELECT * FROM bottle_moderation_records ORDER BY created_at DESC, rowid DESC LIMIT ?')
       .all(limit) as unknown as ModerationRecordRow[];
-    return rows.map((row) => ({
-      id: row.id,
-      createdAt: row.created_at,
-      content: JSON.parse(row.content) as ModerationRecord['content'],
-      process: JSON.parse(row.process) as ModerationProcess,
-      inputTokens: row.input_tokens ?? undefined,
-      outputTokens: row.output_tokens ?? undefined,
-      totalTokens: row.total_tokens ?? undefined,
-      success: Boolean(row.success),
-      approved: row.approved === null ? undefined : Boolean(row.approved),
-    }));
+    return rows.map((row) => this.toModerationRecord(row));
+  }
+
+  pendingModerationRecords(limit = 20, offset = 0): ModerationRecord[] {
+    const rows = this.getDatabase()
+      .prepare(`
+        SELECT * FROM bottle_moderation_records
+        WHERE success = 0 OR approved = 0
+        ORDER BY created_at DESC, rowid DESC
+        LIMIT ? OFFSET ?
+      `)
+      .all(limit, offset) as unknown as ModerationRecordRow[];
+    return rows.map((row) => this.toModerationRecord(row));
   }
 
   pendingModerationCount(): number {
@@ -517,6 +526,20 @@ export class BottleStore implements Disposable {
       createdAt: row.created_at,
       displayName: row.display_name ?? undefined,
       content: row.content,
+    };
+  }
+
+  private toModerationRecord(row: ModerationRecordRow): ModerationRecord {
+    return {
+      id: row.id,
+      createdAt: row.created_at,
+      content: JSON.parse(row.content) as ModerationRecord['content'],
+      process: JSON.parse(row.process) as ModerationProcess,
+      inputTokens: row.input_tokens ?? undefined,
+      outputTokens: row.output_tokens ?? undefined,
+      totalTokens: row.total_tokens ?? undefined,
+      success: Boolean(row.success),
+      approved: row.approved === null ? undefined : Boolean(row.approved),
     };
   }
 }

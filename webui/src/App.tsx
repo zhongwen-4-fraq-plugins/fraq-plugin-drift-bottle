@@ -1,6 +1,8 @@
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 
+import { AllBottleList, PendingReviewList } from './BottleLists';
 import { Dashboard } from './Dashboard';
+import { type AppPage, pageFromLocation, pageUrl, webuiUrl } from './location';
 
 type View = 'checking' | 'login' | 'main';
 type Session = { authenticated?: boolean; avatarUrl?: string };
@@ -15,18 +17,19 @@ export function App() {
   const [submitting, setSubmitting] = useState(false);
   const [succeeded, setSucceeded] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mainPage, setMainPage] = useState<AppPage>(() => pageFromLocation());
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let active = true;
-    void fetch('./api/session', { credentials: 'same-origin' })
+    void fetch(webuiUrl('api/session'), { credentials: 'same-origin' })
       .then(async (response) => (response.ok ? ((await response.json()) as Session) : undefined))
       .then((session) => {
         if (!active) return;
         const authenticated = Boolean(session?.authenticated);
         setAvatarUrl(session?.avatarUrl);
         setView(authenticated ? 'main' : 'login');
-        syncLocation(authenticated);
+        syncLocation(authenticated, pageFromLocation());
       })
       .catch(() => {
         if (active) {
@@ -40,6 +43,12 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    const updatePageFromHistory = () => setMainPage(pageFromLocation());
+    window.addEventListener('popstate', updatePageFromHistory);
+    return () => window.removeEventListener('popstate', updatePageFromHistory);
+  }, []);
+
+  useEffect(() => {
     if (view === 'login') {
       inputRef.current?.focus();
     }
@@ -50,8 +59,14 @@ export function App() {
     setPasswordVisible(false);
     setError('登录已过期，请重新登录');
     setView('login');
-    syncLocation(false);
+    syncLocation(false, 'home');
   }, []);
+
+  function openMainPage(page: AppPage) {
+    setMainPage(page);
+    syncLocation(true, page, false);
+    window.requestAnimationFrame(() => document.querySelector<HTMLElement>('#app-main')?.focus());
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -60,7 +75,7 @@ export function App() {
     setSubmitting(true);
     setError('');
     try {
-      const response = await fetch('./api/session', {
+      const response = await fetch(webuiUrl('api/session'), {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
@@ -78,7 +93,7 @@ export function App() {
         window.setTimeout(resolve, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 120 : 420),
       );
       setView('main');
-      syncLocation(true);
+      syncLocation(true, mainPage);
     } catch {
       setError('暂时无法连接到管理服务');
     } finally {
@@ -91,10 +106,11 @@ export function App() {
   }
 
   if (view === 'main') {
+    const pageLabel = mainPage === 'pending' ? '待审核' : mainPage === 'bottles' ? '全部瓶子' : '主页';
     return (
       <div className={`app-shell${sidebarCollapsed ? ' app-shell--sidebar-collapsed' : ''}`}>
-        <a className="skip-link" href="#dashboard-main">
-          跳转到主页内容
+        <a className="skip-link" href="#app-main">
+          跳转到当前页面内容
         </a>
         <aside className="app-sidebar">
           <div className="app-sidebar-header">
@@ -123,17 +139,30 @@ export function App() {
             <button
               type="button"
               className="sidebar-nav-button"
-              aria-current="page"
+              aria-current={mainPage === 'home' ? 'page' : undefined}
               title={sidebarCollapsed ? '主页' : undefined}
+              onClick={() => openMainPage('home')}
             >
               <SidebarIcon name="home" />
               <span className="sidebar-nav-label">主页</span>
             </button>
-            <button type="button" className="sidebar-nav-button" title={sidebarCollapsed ? '待审核' : undefined}>
+            <button
+              type="button"
+              className="sidebar-nav-button"
+              aria-current={mainPage === 'pending' ? 'page' : undefined}
+              title={sidebarCollapsed ? '待审核' : undefined}
+              onClick={() => openMainPage('pending')}
+            >
               <SidebarIcon name="review" />
               <span className="sidebar-nav-label">待审核</span>
             </button>
-            <button type="button" className="sidebar-nav-button" title={sidebarCollapsed ? '全部瓶子' : undefined}>
+            <button
+              type="button"
+              className="sidebar-nav-button"
+              aria-current={mainPage === 'bottles' ? 'page' : undefined}
+              title={sidebarCollapsed ? '全部瓶子' : undefined}
+              onClick={() => openMainPage('bottles')}
+            >
               <SidebarIcon name="bottles" />
               <span className="sidebar-nav-label">全部瓶子</span>
             </button>
@@ -147,8 +176,10 @@ export function App() {
             </button>
           </nav>
         </aside>
-        <main id="dashboard-main" className="app-main" aria-label="主页" tabIndex={-1}>
-          <Dashboard onSessionExpired={handleSessionExpired} />
+        <main id="app-main" className="app-main" aria-label={pageLabel} tabIndex={-1}>
+          {mainPage === 'home' ? <Dashboard onSessionExpired={handleSessionExpired} /> : null}
+          {mainPage === 'pending' ? <PendingReviewList onSessionExpired={handleSessionExpired} /> : null}
+          {mainPage === 'bottles' ? <AllBottleList onSessionExpired={handleSessionExpired} /> : null}
         </main>
       </div>
     );
@@ -263,10 +294,8 @@ function SidebarIcon({ name }: { name: SidebarIconName }) {
   );
 }
 
-function syncLocation(authenticated: boolean) {
-  const suffix = authenticated ? 'app' : '';
-  const target = new URL(suffix || '.', window.location.href);
-  if (window.location.pathname !== target.pathname) {
-    window.history.replaceState(null, '', target);
-  }
+function syncLocation(authenticated: boolean, page: AppPage, replace = true) {
+  const target = authenticated ? pageUrl(page) : webuiUrl();
+  if (window.location.pathname === target.pathname) return;
+  window.history[replace ? 'replaceState' : 'pushState'](null, '', target);
 }

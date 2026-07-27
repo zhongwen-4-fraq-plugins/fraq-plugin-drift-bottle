@@ -36,12 +36,23 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
     changelog: [{ version: '0.3.6', items: ['加入主页概览'] }],
     operations: [],
   };
+  const bottles = {
+    generatedAt: 1_700_000_001_000,
+    page: 1,
+    pageSize: 20,
+    total: 1,
+    totalPages: 1,
+    items: [],
+  };
+  const pendingReviews = { ...bottles, total: 2 };
   const basePath = registerWebuiRoutes(hono, {
     auth,
     basePath: '/manage/drift-bottle/',
+    bottles: () => bottles,
     dashboard: () => dashboard,
     directory,
     ownerId: 123456789,
+    pendingReviews: () => pendingReviews,
   });
   assert.equal(basePath, '/manage/drift-bottle');
   assert.equal(buildWebuiUrl(hono, basePath), 'http://127.0.0.1:4649/manage/drift-bottle/');
@@ -78,6 +89,8 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   const anonymousDashboard = await hono.app.request('http://localhost/manage/drift-bottle/api/dashboard');
   assert.equal(anonymousDashboard.status, 401);
   assert.equal(anonymousDashboard.headers.get('cache-control'), 'no-store');
+  assert.equal((await hono.app.request('http://localhost/manage/drift-bottle/api/reviews/pending')).status, 401);
+  assert.equal((await hono.app.request('http://localhost/manage/drift-bottle/api/bottles')).status, 401);
 
   const rejectedLogin = await hono.app.request('http://localhost/manage/drift-bottle/api/session', {
     method: 'POST',
@@ -112,6 +125,20 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   assert.equal(authenticatedDashboard.status, 200);
   assert.deepEqual(await authenticatedDashboard.json(), dashboard);
   assert.equal(authenticatedDashboard.headers.get('cache-control'), 'no-store');
+
+  const authenticatedReviews = await hono.app.request(
+    'http://localhost/manage/drift-bottle/api/reviews/pending?page=1',
+    { headers: { Cookie: cookie } },
+  );
+  assert.equal(authenticatedReviews.status, 200);
+  assert.deepEqual(await authenticatedReviews.json(), pendingReviews);
+  assert.equal(authenticatedReviews.headers.get('cache-control'), 'no-store');
+
+  const authenticatedBottles = await hono.app.request('http://localhost/manage/drift-bottle/api/bottles?page=1', {
+    headers: { Cookie: cookie },
+  });
+  assert.equal(authenticatedBottles.status, 200);
+  assert.deepEqual(await authenticatedBottles.json(), bottles);
 
   const logout = await hono.app.request('http://localhost/manage/drift-bottle/api/session', {
     method: 'DELETE',

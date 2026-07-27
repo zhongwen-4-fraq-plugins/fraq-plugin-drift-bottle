@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+import { webuiUrl } from './location';
+
 type DashboardTone = 'neutral' | 'success' | 'warning' | 'danger';
 
 interface DashboardSnapshot {
@@ -55,7 +57,7 @@ export function Dashboard({ onSessionExpired }: DashboardProps) {
       request?.abort();
       request = new AbortController();
       try {
-        const response = await fetch('./api/dashboard', {
+        const response = await fetch(webuiUrl('api/dashboard'), {
           credentials: 'same-origin',
           signal: request.signal,
         });

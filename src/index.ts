@@ -10,6 +10,7 @@ import { moderateBottle } from './processing/moderation.js';
 import { withModerationRecords } from './processing/moderation-records.js';
 import { WebuiAuth } from './webui/auth.js';
 import { createDashboardSnapshot } from './webui/dashboard.js';
+import { createBottleListPage, createPendingReviewListPage } from './webui/lists.js';
 import { registerWebuiRoutes } from './webui/routes.js';
 import { buildWebuiUrl } from './webui/url.js';
 
@@ -35,6 +36,12 @@ export type {
 } from './models/index.js';
 export type { ModerationProcess, ModerationRecord } from './processing/moderation-records.js';
 export type { DashboardOperation, DashboardRelease, DashboardSnapshot } from './webui/dashboard.js';
+export type {
+  WebuiBottleListItem,
+  WebuiContentSummary,
+  WebuiListPage,
+  WebuiPendingReviewItem,
+} from './webui/lists.js';
 
 export default definePlugin({
   name: 'drift-bottle',
@@ -60,8 +67,10 @@ export default definePlugin({
     const webuiPath = registerWebuiRoutes(ctx.hono, {
       auth: webuiAuth,
       basePath: options.webuiPath,
+      bottles: (page) => createBottleListPage(api, page),
       dashboard: () => createDashboardSnapshot(api, instanceStartedAt),
       ownerId: options.ownerIds?.[0],
+      pendingReviews: (page) => createPendingReviewListPage(api, page),
     });
     ctx.logger.info(`漂流瓶 WebUI：${buildWebuiUrl(ctx.hono, webuiPath)}`);
     buildDriftBottleCommands(ctx, api, options.ownerIds ?? []);

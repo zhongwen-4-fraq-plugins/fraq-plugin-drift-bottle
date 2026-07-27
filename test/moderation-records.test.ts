@@ -56,5 +56,12 @@ test('AI 审核成功和失败都会写入数据库', async (t) => {
   assert.deepEqual(failure.process, { error: { name: 'Error', message: 'AI unavailable' } });
   assert.ok(records.every((record) => record.createdAt > 0));
   assert.equal(store.pendingModerationCount(), 2);
+  assert.deepEqual(
+    store.pendingModerationRecords().map(({ success, approved }) => ({ success, approved })),
+    [
+      { success: false, approved: undefined },
+      { success: true, approved: false },
+    ],
+  );
   assert.deepEqual(logs, ['漂流瓶 AI 审核 Token：输入 120，输出 30，总计 150']);
 });

@@ -288,6 +288,10 @@ export class DriftBottleApi implements Disposable {
     return this.store.moderationRecords(limit);
   }
 
+  pendingModerationRecords(limit = 20, offset = 0): ModerationRecord[] {
+    return this.store.pendingModerationRecords(limit, offset);
+  }
+
   pendingModerationCount(): number {
     return this.store.pendingModerationCount();
   }
@@ -304,6 +308,10 @@ export class DriftBottleApi implements Disposable {
 
   count(): number {
     return this.store.count();
+  }
+
+  bottles(limit = 20, offset = 0): DriftBottle[] {
+    return this.store.bottles(limit, offset);
   }
 
   dispose(): void {

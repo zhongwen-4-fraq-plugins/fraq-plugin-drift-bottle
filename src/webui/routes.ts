@@ -2,6 +2,7 @@ import type { HonoService } from '@fraqjs/plugin-hono';
 
 import type { WebuiAuth } from './auth.js';
 import type { DashboardSnapshot } from './dashboard.js';
+import type { WebuiBottleListItem, WebuiListPage, WebuiPendingReviewItem } from './lists.js';
 
 import { readFile } from 'node:fs/promises';
 import { extname, isAbsolute, relative, resolve } from 'node:path';
@@ -12,6 +13,8 @@ export interface WebuiRouteOptions {
   directory?: string;
   auth: WebuiAuth;
   dashboard: () => DashboardSnapshot;
+  bottles: (page: number) => WebuiListPage<WebuiBottleListItem>;
+  pendingReviews: (page: number) => WebuiListPage<WebuiPendingReviewItem>;
   ownerId?: number;
 }
 
@@ -73,6 +76,20 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
     }
     return context.json(options.dashboard(), 200, { 'Cache-Control': 'no-store' });
   });
+  service.app.get(`${basePath}/api/reviews/pending`, (context) => {
+    if (!options.auth.isSessionValid(readSessionCookie(context.req.header('cookie')))) {
+      return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
+    }
+    return context.json(options.pendingReviews(readPage(context.req.query('page'))), 200, {
+      'Cache-Control': 'no-store',
+    });
+  });
+  service.app.get(`${basePath}/api/bottles`, (context) => {
+    if (!options.auth.isSessionValid(readSessionCookie(context.req.header('cookie')))) {
+      return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
+    }
+    return context.json(options.bottles(readPage(context.req.query('page'))), 200, { 'Cache-Control': 'no-store' });
+  });
   service.app.get(`${basePath}/`, async () => serveWebuiFile(directory, 'index.html'));
   service.app.get(`${basePath}/*`, async (context) => {
     let requestPath: string;
@@ -96,6 +113,11 @@ function readPassword(body: unknown): string | undefined {
     return undefined;
   }
   return body.password;
+}
+
+function readPage(value: string | undefined): number {
+  const page = Number(value);
+  return Number.isSafeInteger(page) && page > 0 ? page : 1;
 }
 
 function ownerAvatarUrl(ownerId: number | undefined): string | undefined {

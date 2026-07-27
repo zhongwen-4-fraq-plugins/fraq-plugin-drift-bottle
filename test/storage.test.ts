@@ -80,6 +80,10 @@ test('漂流瓶会持久化，并可选择捡取后是否删除', async (t) => {
   });
 
   assert.equal(store.count(), 2);
+  assert.deepEqual(
+    store.bottles().map(({ id }) => id),
+    [secondBottle.id, firstBottle.id],
+  );
   store.addComment({
     bottleId: secondBottle.id,
     senderId: 30001,
@@ -108,6 +112,10 @@ test('漂流瓶会持久化，并可选择捡取后是否删除', async (t) => {
     [{ displayName: '浪花', content: '写得真好' }],
   );
   assert.equal(reloadedStore.count(), 1);
+  assert.deepEqual(
+    reloadedStore.bottles().map(({ id }) => id),
+    [firstBottle.id],
+  );
   const bottle = await reloadedStore.pick(false, 0);
   assert.equal(bottle?.senderId, 10001);
   assert.equal(bottle?.displayName, '海风');
