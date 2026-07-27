@@ -56,19 +56,53 @@ textarea {
 }
 
 .app-shell {
+  --sidebar-width: 14rem;
+
   display: grid;
   min-height: 100vh;
-  grid-template-columns: 14rem minmax(0, 1fr);
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   background: var(--color-background);
+  transition: grid-template-columns 180ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.app-shell--sidebar-collapsed {
+  --sidebar-width: 4.5rem;
 }
 
 .app-sidebar {
   display: flex;
   min-width: 0;
+  flex-direction: column;
   padding-block: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-bottom));
   padding-inline: max(0.75rem, env(safe-area-inset-left)) 0.75rem;
   border-inline-end: 0.0625rem solid var(--color-border);
   background: var(--color-surface);
+}
+
+.app-sidebar-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.75rem;
+}
+
+.sidebar-toggle {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 0;
+  border-radius: 0.625rem;
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  transition:
+    background-color 160ms cubic-bezier(0.25, 1, 0.5, 1),
+    color 160ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.app-shell--sidebar-collapsed .app-sidebar-header {
+  justify-content: center;
 }
 
 .sidebar-nav {
@@ -84,6 +118,8 @@ textarea {
   width: 100%;
   min-height: 2.75rem;
   align-items: center;
+  gap: 0.75rem;
+  overflow: hidden;
   border: 0;
   border-radius: 0.625rem;
   padding: 0.625rem 0.75rem;
@@ -97,6 +133,36 @@ textarea {
   transition:
     background-color 160ms cubic-bezier(0.25, 1, 0.5, 1),
     color 160ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.sidebar-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 1.25rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.75;
+}
+
+.sidebar-nav-label {
+  min-width: 0;
+  overflow: hidden;
+  opacity: 1;
+  white-space: nowrap;
+  transition: opacity 100ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.app-shell--sidebar-collapsed .sidebar-nav-button {
+  justify-content: center;
+  gap: 0;
+  padding-inline: 0.75rem;
+}
+
+.app-shell--sidebar-collapsed .sidebar-nav-label {
+  width: 0;
+  opacity: 0;
 }
 
 .sidebar-nav-button[aria-current="page"] {
@@ -332,6 +398,11 @@ textarea {
 }
 
 @media (hover: hover) {
+  .sidebar-toggle:hover {
+    background: oklch(0.94 0.009 214);
+    color: var(--color-ink);
+  }
+
   .sidebar-nav-button:hover:not([aria-current="page"]) {
     background: oklch(0.94 0.009 214);
     color: var(--color-ink);
@@ -360,19 +431,39 @@ textarea {
     border-block-end: 0.0625rem solid var(--color-border);
   }
 
+  .app-sidebar-header {
+    display: none;
+  }
+
   .sidebar-nav {
+    width: 100%;
     flex: 0 0 auto;
     flex-direction: row;
   }
 
   .sidebar-nav-button {
+    width: auto;
     min-width: 0;
+    min-height: 3.5rem;
     flex: 1;
+    flex-direction: column;
+    gap: 0.25rem;
     justify-content: center;
-    padding-inline: 0.375rem;
+    padding: 0.375rem;
     font-size: 0.875rem;
     text-align: center;
     white-space: nowrap;
+  }
+
+  .app-shell--sidebar-collapsed .sidebar-nav-button {
+    gap: 0.25rem;
+    padding: 0.375rem;
+  }
+
+  .app-shell--sidebar-collapsed .sidebar-nav-label {
+    width: auto;
+    overflow: visible;
+    opacity: 1;
   }
 
   .sidebar-nav-button--settings {
@@ -419,7 +510,8 @@ textarea {
 }
 
 @media (pointer: coarse) {
-  .sidebar-nav-button {
+  .sidebar-nav-button,
+  .sidebar-toggle {
     min-height: 3rem;
   }
 
@@ -452,7 +544,10 @@ textarea {
 @media (prefers-reduced-motion: reduce) {
   .password-field,
   .password-field button,
-  .sidebar-nav-button {
+  .app-shell,
+  .sidebar-nav-button,
+  .sidebar-nav-label,
+  .sidebar-toggle {
     transition: none;
   }
 

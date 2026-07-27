@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useRef, useState } from 'react';
 
 type View = 'checking' | 'login' | 'main';
 type Session = { authenticated?: boolean; avatarUrl?: string };
+type SidebarIconName = 'bottles' | 'collapse' | 'expand' | 'home' | 'review' | 'settings';
 
 export function App() {
   const [view, setView] = useState<View>('checking');
@@ -11,6 +12,7 @@ export function App() {
   const [avatarUrl, setAvatarUrl] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
   const [succeeded, setSucceeded] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -80,20 +82,45 @@ export function App() {
 
   if (view === 'main') {
     return (
-      <div className="app-shell">
+      <div className={`app-shell${sidebarCollapsed ? ' app-shell--sidebar-collapsed' : ''}`}>
         <aside className="app-sidebar">
-          <nav className="sidebar-nav" aria-label="主要导航">
-            <button type="button" className="sidebar-nav-button" aria-current="page">
-              主页
+          <div className="app-sidebar-header">
+            <button
+              type="button"
+              className="sidebar-toggle"
+              aria-label={sidebarCollapsed ? '展开侧边导航' : '收起侧边导航'}
+              aria-expanded={!sidebarCollapsed}
+              aria-controls="primary-navigation"
+              onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+            >
+              <SidebarIcon name={sidebarCollapsed ? 'expand' : 'collapse'} />
             </button>
-            <button type="button" className="sidebar-nav-button">
-              待审核
+          </div>
+          <nav id="primary-navigation" className="sidebar-nav" aria-label="主要导航">
+            <button
+              type="button"
+              className="sidebar-nav-button"
+              aria-current="page"
+              title={sidebarCollapsed ? '主页' : undefined}
+            >
+              <SidebarIcon name="home" />
+              <span className="sidebar-nav-label">主页</span>
             </button>
-            <button type="button" className="sidebar-nav-button">
-              全部瓶子
+            <button type="button" className="sidebar-nav-button" title={sidebarCollapsed ? '待审核' : undefined}>
+              <SidebarIcon name="review" />
+              <span className="sidebar-nav-label">待审核</span>
             </button>
-            <button type="button" className="sidebar-nav-button sidebar-nav-button--settings">
-              设置
+            <button type="button" className="sidebar-nav-button" title={sidebarCollapsed ? '全部瓶子' : undefined}>
+              <SidebarIcon name="bottles" />
+              <span className="sidebar-nav-label">全部瓶子</span>
+            </button>
+            <button
+              type="button"
+              className="sidebar-nav-button sidebar-nav-button--settings"
+              title={sidebarCollapsed ? '设置' : undefined}
+            >
+              <SidebarIcon name="settings" />
+              <span className="sidebar-nav-label">设置</span>
             </button>
           </nav>
         </aside>
@@ -170,6 +197,44 @@ export function App() {
         </p>
       </form>
     </main>
+  );
+}
+
+function SidebarIcon({ name }: { name: SidebarIconName }) {
+  return (
+    <svg className="sidebar-icon" viewBox="0 0 24 24" aria-hidden="true">
+      {name === 'home' ? (
+        <>
+          <path d="m3.5 10.5 8.5-7 8.5 7" />
+          <path d="M5.5 9.25V20h13V9.25M9.25 20v-6.25h5.5V20" />
+        </>
+      ) : null}
+      {name === 'review' ? (
+        <>
+          <circle cx="12" cy="12" r="8.5" />
+          <path d="M12 7.5V12l3 2" />
+        </>
+      ) : null}
+      {name === 'bottles' ? (
+        <>
+          <path d="M9.5 3h5M10 3v4.2c0 .8-.38 1.55-1.03 2.02A4.6 4.6 0 0 0 7 13v5.5A2.5 2.5 0 0 0 9.5 21h5a2.5 2.5 0 0 0 2.5-2.5V13a4.6 4.6 0 0 0-1.97-3.78A2.46 2.46 0 0 1 14 7.2V3" />
+          <path d="M7 14h10" />
+        </>
+      ) : null}
+      {name === 'settings' ? (
+        <>
+          <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
+          <circle cx="16" cy="7" r="2" />
+          <circle cx="8" cy="17" r="2" />
+        </>
+      ) : null}
+      {name === 'collapse' || name === 'expand' ? (
+        <>
+          <path d="M4 4.5h16v15H4zM9 4.5v15" />
+          <path d={name === 'collapse' ? 'm15 9-3 3 3 3' : 'm12 9 3 3-3 3'} />
+        </>
+      ) : null}
+    </svg>
   );
 }
 
