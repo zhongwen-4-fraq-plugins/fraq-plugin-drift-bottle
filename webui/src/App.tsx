@@ -85,6 +85,16 @@ export function App() {
       <div className={`app-shell${sidebarCollapsed ? ' app-shell--sidebar-collapsed' : ''}`}>
         <aside className="app-sidebar">
           <div className="app-sidebar-header">
+            <div className="sidebar-avatar" aria-hidden="true">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="" referrerPolicy="no-referrer" onError={() => setAvatarUrl(undefined)} />
+              ) : (
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 12.25a4.25 4.25 0 1 0 0-8.5 4.25 4.25 0 0 0 0 8.5Z" />
+                  <path d="M4.25 20.25c.72-3.36 3.68-5.5 7.75-5.5s7.03 2.14 7.75 5.5" />
+                </svg>
+              )}
+            </div>
             <button
               type="button"
               className="sidebar-toggle"
