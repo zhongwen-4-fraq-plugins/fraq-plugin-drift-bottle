@@ -7,35 +7,69 @@ const HASH_PREFIX = 'scrypt-v1';
 export interface WebuiCredentialStore {
   webuiPasswordHash(): string | undefined;
   setWebuiPasswordHash(hash: string): void;
+  clearWebuiPasswordHash(): void;
+  webuiAccountCount(): number;
+  webuiAccountPasswordHash(userId: number): string | undefined;
+  setWebuiAccount(userId: number, passwordHash: string, approvedBy?: number): void;
+  hasWebuiRegistrationRequest(userId: number): boolean;
+  createWebuiRegistrationRequest(userId: number, passwordHash: string): void;
+  removeWebuiRegistrationRequest(userId: number): void;
+  approveWebuiRegistrationRequest(userId: number, approvedBy: number): boolean;
 }
 
+export type WebuiRegistrationRequestResult = 'account-exists' | 'created' | 'pending';
+
 export class WebuiAuth {
-  private passwordHash?: string;
-  private readonly sessions = new Map<string, number>();
+  private readonly sessions = new Map<string, { expiresAt: number; userId: number }>();
 
   constructor(private readonly store: WebuiCredentialStore) {}
 
-  async initialize(): Promise<string | undefined> {
-    this.passwordHash = this.store.webuiPasswordHash();
-    if (this.passwordHash) {
+  async initialize(ownerId: number | undefined): Promise<{ password: string; userId: number } | undefined> {
+    if (!isValidQqNumber(ownerId) || this.store.webuiAccountCount() > 0) {
+      return undefined;
+    }
+
+    const legacyPasswordHash = this.store.webuiPasswordHash();
+    if (legacyPasswordHash) {
+      this.store.setWebuiAccount(ownerId, legacyPasswordHash, ownerId);
+      this.store.clearWebuiPasswordHash();
       return undefined;
     }
 
     const password = generateInitialPassword();
-    this.passwordHash = await hashPassword(password);
-    this.store.setWebuiPasswordHash(this.passwordHash);
-    return password;
+    this.store.setWebuiAccount(ownerId, await hashPassword(password), ownerId);
+    return { password, userId: ownerId };
   }
 
-  async createSession(password: string): Promise<string | undefined> {
-    if (!this.passwordHash || !(await verifyPassword(password, this.passwordHash))) {
+  async createSession(userId: number, password: string): Promise<string | undefined> {
+    const passwordHash = this.store.webuiAccountPasswordHash(userId);
+    if (!passwordHash || !(await verifyPassword(password, passwordHash))) {
       return undefined;
     }
 
     this.pruneExpiredSessions();
     const token = randomBytes(32).toString('base64url');
-    this.sessions.set(token, Date.now() + SESSION_TTL_MS);
+    this.sessions.set(token, { expiresAt: Date.now() + SESSION_TTL_MS, userId });
     return token;
+  }
+
+  async requestRegistration(userId: number, password: string): Promise<WebuiRegistrationRequestResult> {
+    if (this.store.webuiAccountPasswordHash(userId)) {
+      return 'account-exists';
+    }
+    if (this.store.hasWebuiRegistrationRequest(userId)) {
+      return 'pending';
+    }
+    this.store.createWebuiRegistrationRequest(userId, await hashPassword(password));
+    return 'created';
+  }
+
+  cancelRegistration(userId: number): void {
+    this.store.removeWebuiRegistrationRequest(userId);
+  }
+
+  approveRegistration(userId: number, approvedBy: number): boolean {
+    return this.store.approveWebuiRegistrationRequest(userId, approvedBy);
   }
 
   isSessionValid(token: string | undefined): boolean {
@@ -43,8 +77,8 @@ export class WebuiAuth {
       return false;
     }
 
-    const expiresAt = this.sessions.get(token);
-    if (!expiresAt || expiresAt <= Date.now()) {
+    const session = this.sessions.get(token);
+    if (!session || session.expiresAt <= Date.now()) {
       this.sessions.delete(token);
       return false;
     }
@@ -59,8 +93,8 @@ export class WebuiAuth {
 
   private pruneExpiredSessions(): void {
     const now = Date.now();
-    for (const [token, expiresAt] of this.sessions) {
-      if (expiresAt <= now) {
+    for (const [token, session] of this.sessions) {
+      if (session.expiresAt <= now) {
         this.sessions.delete(token);
       }
     }
@@ -80,6 +114,22 @@ export function generateInitialPassword(): string {
     [characters[index], characters[target]] = [characters[target], characters[index]];
   }
   return characters.join('');
+}
+
+export function parseQqAccount(account: unknown): number | undefined {
+  if (typeof account !== 'string' || !/^[1-9]\d{4,11}$/.test(account)) {
+    return undefined;
+  }
+  const userId = Number(account);
+  return isValidQqNumber(userId) ? userId : undefined;
+}
+
+export function isValidWebuiPassword(password: unknown): password is string {
+  return typeof password === 'string' && /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{6,10}$/.test(password);
+}
+
+function isValidQqNumber(value: number | undefined): value is number {
+  return Number.isSafeInteger(value) && value !== undefined && value >= 10_000 && value <= 999_999_999_999;
 }
 
 async function hashPassword(password: string): Promise<string> {

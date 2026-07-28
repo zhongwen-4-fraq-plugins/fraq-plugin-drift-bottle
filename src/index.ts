@@ -11,6 +11,7 @@ import { withModerationRecords } from './processing/moderation-records.js';
 import { WebuiAuth } from './webui/auth.js';
 import { createDashboardSnapshot } from './webui/dashboard.js';
 import { createBottleListPage, createPendingReviewListPage } from './webui/lists.js';
+import { WebuiRegistration } from './webui/registration.js';
 import { registerWebuiRoutes } from './webui/routes.js';
 import { buildWebuiUrl } from './webui/url.js';
 
@@ -54,11 +55,15 @@ export default definePlugin({
     const instanceStartedAt = Date.now();
     const store = new BottleStore(options.storagePath ?? './data/drift-bottles.db');
     await store.load();
+    const ownerIds = options.ownerIds ?? [];
     const webuiAuth = new WebuiAuth(store);
-    const initialPassword = await webuiAuth.initialize();
-    if (initialPassword) {
-      ctx.logger.warn(`漂流瓶 WebUI 初始密码：${initialPassword}（仅在首次生成时显示，请妥善保存）`);
+    const initialCredential = await webuiAuth.initialize(ownerIds[0]);
+    if (initialCredential) {
+      ctx.logger.warn(
+        `漂流瓶 WebUI 初始账号：${initialCredential.userId}，初始密码：${initialCredential.password}（仅在首次生成时显示，请妥善保存）`,
+      );
     }
+    const webuiRegistration = new WebuiRegistration(webuiAuth, ctx.client, ownerIds, ctx.logger);
     const moderator = withModerationRecords(store, ctx.logger, (segments) =>
       moderateBottle(ctx.ai, segments, options.moderationModel),
     );
@@ -71,8 +76,9 @@ export default definePlugin({
       dashboard: () => createDashboardSnapshot(api, instanceStartedAt),
       ownerId: options.ownerIds?.[0],
       pendingReviews: (page) => createPendingReviewListPage(api, page),
+      registration: webuiRegistration,
     });
     ctx.logger.info(`漂流瓶 WebUI：${buildWebuiUrl(ctx.hono, webuiPath)}`);
-    buildDriftBottleCommands(ctx, api, options.ownerIds ?? []);
+    buildDriftBottleCommands(ctx, api, webuiRegistration, ownerIds);
   },
 });

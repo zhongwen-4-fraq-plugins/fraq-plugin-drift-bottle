@@ -1,5 +1,6 @@
 import { HonoService } from '@fraqjs/plugin-hono';
 
+import { BottleStore } from '../src/persistence/bottle-store.js';
 import { WebuiAuth } from '../src/webui/auth.js';
 import { registerWebuiRoutes } from '../src/webui/routes.js';
 import { buildWebuiUrl } from '../src/webui/url.js';
@@ -15,20 +16,18 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   await mkdir(join(directory, 'assets'));
   await writeFile(join(directory, 'index.html'), '<!doctype html><title>漂流瓶管理后台</title>');
   await writeFile(join(directory, 'assets', 'app.js'), 'export const ready = true;');
+  const store = new BottleStore(join(directory, 'bottles.db'));
+  await store.load();
   t.after(async () => {
+    store.dispose();
     await rm(directory, { recursive: true, force: true });
   });
 
   const hono = new HonoService();
-  let passwordHash: string | undefined;
-  const auth = new WebuiAuth({
-    webuiPasswordHash: () => passwordHash,
-    setWebuiPasswordHash: (hash) => {
-      passwordHash = hash;
-    },
-  });
-  const password = await auth.initialize();
-  assert.ok(password);
+  const auth = new WebuiAuth(store);
+  const initialCredential = await auth.initialize(123456789);
+  assert.ok(initialCredential);
+  const registrations: number[] = [];
   const dashboard = {
     generatedAt: 1_700_000_001_000,
     instanceStartedAt: 1_700_000_000_000,
@@ -53,6 +52,12 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
     directory,
     ownerId: 123456789,
     pendingReviews: () => pendingReviews,
+    registration: {
+      submit: async (userId) => {
+        registrations.push(userId);
+        return 'created';
+      },
+    },
   });
   assert.equal(basePath, '/manage/drift-bottle');
   assert.equal(buildWebuiUrl(hono, basePath), 'http://127.0.0.1:4649/manage/drift-bottle/');
@@ -95,14 +100,14 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   const rejectedLogin = await hono.app.request('http://localhost/manage/drift-bottle/api/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password: 'wrong-password' }),
+    body: JSON.stringify({ account: '123456789', password: 'wrong-password' }),
   });
   assert.equal(rejectedLogin.status, 401);
 
   const acceptedLogin = await hono.app.request('http://localhost/manage/drift-bottle/api/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password }),
+    body: JSON.stringify({ account: '123456789', password: initialCredential.password }),
   });
   assert.equal(acceptedLogin.status, 200);
   const cookie = acceptedLogin.headers.get('set-cookie');
@@ -118,6 +123,21 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
     authenticated: true,
     avatarUrl: 'https://q1.qlogo.cn/g?b=qq&nk=123456789&s=640',
   });
+
+  const invalidRegistration = await hono.app.request('http://localhost/manage/drift-bottle/api/registrations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ account: 'not-qq', password: 'ValidA123' }),
+  });
+  assert.equal(invalidRegistration.status, 400);
+
+  const registration = await hono.app.request('http://localhost/manage/drift-bottle/api/registrations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ account: '987654321', password: 'ValidA123' }),
+  });
+  assert.equal(registration.status, 202);
+  assert.deepEqual(registrations, [987654321]);
 
   const authenticatedDashboard = await hono.app.request('http://localhost/manage/drift-bottle/api/dashboard', {
     headers: { Cookie: cookie },

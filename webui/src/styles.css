@@ -1137,7 +1137,7 @@ textarea {
 
 .login-form {
   display: flex;
-  width: min(100%, 21rem);
+  width: min(100%, 22rem);
   min-width: 0;
   flex-direction: column;
   align-items: center;
@@ -1170,7 +1170,61 @@ textarea {
   object-fit: cover;
 }
 
-.password-field {
+.auth-mode-switch {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2xs);
+  margin-bottom: var(--space-lg);
+  border-radius: 0.75rem;
+  padding: var(--space-2xs);
+  background: var(--color-surface);
+}
+
+.auth-mode-switch button {
+  min-height: 2.5rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--color-muted);
+  font-size: var(--text-ui);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 160ms cubic-bezier(0.25, 1, 0.5, 1),
+    color 160ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.auth-mode-switch button[aria-pressed="true"] {
+  background: var(--color-background);
+  color: var(--color-ink);
+}
+
+.auth-mode-switch button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.auth-fields {
+  display: grid;
+  width: 100%;
+  gap: var(--space-md);
+}
+
+.auth-control {
+  min-width: 0;
+}
+
+.auth-control > label {
+  display: block;
+  margin-bottom: var(--space-xs);
+  color: var(--color-ink);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  line-height: 1.25rem;
+}
+
+.auth-field {
   display: flex;
   width: 100%;
   min-height: 3.5rem;
@@ -1183,16 +1237,16 @@ textarea {
     box-shadow 180ms ease;
 }
 
-.password-field:focus-within {
+.auth-field:focus-within {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 0.1875rem oklch(0.88 0.045 220 / 60%);
 }
 
-.password-field--error {
+.auth-field--error {
   border-color: var(--color-error);
 }
 
-.password-field input {
+.auth-field input {
   min-width: 0;
   height: auto;
   flex: 1;
@@ -1205,16 +1259,16 @@ textarea {
   font-size: var(--text-body);
 }
 
-.password-field input::placeholder {
+.auth-field input::placeholder {
   color: var(--color-muted);
   opacity: 1;
 }
 
-.password-field input:disabled {
+.auth-field input:disabled {
   cursor: wait;
 }
 
-.password-field button {
+.auth-field button {
   position: relative;
   display: grid;
   width: 2.75rem;
@@ -1259,7 +1313,7 @@ textarea {
   cursor: not-allowed;
 }
 
-.password-field button svg {
+.auth-field button svg {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -1270,6 +1324,14 @@ textarea {
   stroke-linejoin: round;
   stroke-width: 1.75;
   transform: translate(-50%, -50%);
+}
+
+.auth-field-hint {
+  margin: var(--space-xs) 0 0;
+  color: var(--color-muted);
+  font-size: var(--text-meta);
+  line-height: 1.4;
+  text-wrap: pretty;
 }
 
 .login-submit-check {
@@ -1348,6 +1410,63 @@ textarea {
   text-wrap: pretty;
 }
 
+.registration-success {
+  display: flex;
+  width: 100%;
+  min-height: 16rem;
+  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+
+.registration-success > svg {
+  width: 3rem;
+  height: 3rem;
+  margin-bottom: var(--space-md);
+  color: var(--color-success);
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+.registration-success strong {
+  color: var(--color-ink);
+  font-size: var(--text-section);
+  font-weight: 600;
+}
+
+.registration-success p {
+  max-width: 36ch;
+  margin: var(--space-xs) 0 0;
+  color: var(--color-muted);
+  font-size: var(--text-meta);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.registration-success button {
+  min-height: 2.75rem;
+  margin-top: var(--space-lg);
+  border: 0;
+  border-radius: 0.625rem;
+  padding-inline: var(--space-md);
+  background: var(--color-primary);
+  color: white;
+  font-size: var(--text-ui);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 160ms cubic-bezier(0.25, 1, 0.5, 1),
+    transform 160ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.registration-success button:active {
+  transform: scale(0.97);
+}
+
 .visually-hidden {
   position: absolute;
   width: 0.0625rem;
@@ -1399,6 +1518,14 @@ textarea {
   .forgot-password-button:hover {
     background: var(--color-surface);
     color: var(--color-primary-hover);
+  }
+
+  .auth-mode-switch button:hover:not([aria-pressed="true"]):not(:disabled) {
+    color: var(--color-ink);
+  }
+
+  .registration-success button:hover {
+    background: var(--color-primary-hover);
   }
 
   .list-state button:hover {
@@ -1523,7 +1650,7 @@ textarea {
   }
 }
 
-@media (max-height: 32rem) {
+@media (max-height: 42rem) {
   .login-page {
     align-items: flex-start;
   }
@@ -1559,8 +1686,13 @@ textarea {
     min-height: 3rem;
   }
 
-  .password-field {
+  .auth-field {
     min-height: 3.75rem;
+  }
+
+  .auth-mode-switch button,
+  .registration-success button {
+    min-height: 3rem;
   }
 
   .forgot-password-button {
@@ -1579,7 +1711,8 @@ textarea {
 
 @media (forced-colors: active) {
   .login-avatar,
-  .password-field,
+  .auth-field,
+  .auth-mode-switch,
   .dashboard-panel,
   .list-surface,
   .list-pagination button {
@@ -1608,8 +1741,10 @@ textarea {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .password-field,
-  .password-field button,
+  .auth-field,
+  .auth-field button,
+  .auth-mode-switch button,
+  .registration-success button,
   .app-shell,
   .sidebar-nav-button,
   .sidebar-nav-label,

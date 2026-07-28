@@ -1,8 +1,9 @@
 import type { HonoService } from '@fraqjs/plugin-hono';
 
-import type { WebuiAuth } from './auth.js';
+import { isValidWebuiPassword, parseQqAccount, type WebuiAuth } from './auth.js';
 import type { DashboardSnapshot } from './dashboard.js';
 import type { WebuiBottleListItem, WebuiListPage, WebuiPendingReviewItem } from './lists.js';
+import type { WebuiRegistration } from './registration.js';
 
 import { readFile } from 'node:fs/promises';
 import { extname, isAbsolute, relative, resolve } from 'node:path';
@@ -15,6 +16,7 @@ export interface WebuiRouteOptions {
   dashboard: () => DashboardSnapshot;
   bottles: (page: number) => WebuiListPage<WebuiBottleListItem>;
   pendingReviews: (page: number) => WebuiListPage<WebuiPendingReviewItem>;
+  registration: Pick<WebuiRegistration, 'submit'>;
   ownerId?: number;
 }
 
@@ -43,14 +45,15 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
       return context.json({ error: '请求格式无效' }, 400, { 'Cache-Control': 'no-store' });
     }
 
-    const password = readPassword(body);
-    if (!password) {
-      return context.json({ error: '请输入密码' }, 400, { 'Cache-Control': 'no-store' });
+    const credentials = readCredentials(body);
+    if (!credentials) {
+      return context.json({ error: '请输入 QQ 号和密码' }, 400, { 'Cache-Control': 'no-store' });
     }
 
-    const token = await options.auth.createSession(password);
+    const userId = parseQqAccount(credentials.account);
+    const token = userId ? await options.auth.createSession(userId, credentials.password) : undefined;
     if (!token) {
-      return context.json({ error: '密码不正确' }, 401, { 'Cache-Control': 'no-store' });
+      return context.json({ error: '账号或密码不正确' }, 401, { 'Cache-Control': 'no-store' });
     }
 
     const secure = new URL(context.req.url).protocol === 'https:';
@@ -58,6 +61,44 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
       'Cache-Control': 'no-store',
       'Set-Cookie': sessionCookie(token, basePath, secure),
     });
+  });
+  service.app.post(`${basePath}/api/registrations`, async (context) => {
+    let body: unknown;
+    try {
+      body = await context.req.json();
+    } catch {
+      return context.json({ error: '请求格式无效' }, 400, { 'Cache-Control': 'no-store' });
+    }
+
+    const credentials = readCredentials(body);
+    if (!credentials) {
+      return context.json({ error: '请输入 QQ 号和密码' }, 400, { 'Cache-Control': 'no-store' });
+    }
+    const userId = parseQqAccount(credentials.account);
+    if (!userId) {
+      return context.json({ error: '账号必须是 5–12 位 QQ 号' }, 400, { 'Cache-Control': 'no-store' });
+    }
+    if (!isValidWebuiPassword(credentials.password)) {
+      return context.json({ error: '密码必须为 6–10 位，并同时包含大写字母、小写字母和数字' }, 400, {
+        'Cache-Control': 'no-store',
+      });
+    }
+
+    const result = await options.registration.submit(userId, credentials.password);
+    if (result === 'account-exists') {
+      return context.json({ error: '该 QQ 已有账号，请直接登录' }, 409, { 'Cache-Control': 'no-store' });
+    }
+    if (result === 'notification-unavailable') {
+      return context.json({ error: '暂时无法联系插件主人，请稍后重试' }, 503, { 'Cache-Control': 'no-store' });
+    }
+    return context.json(
+      {
+        status: 'pending',
+        message: result === 'created' ? '申请已发送，请等待插件主人同意' : '该 QQ 的申请正在等待主人同意',
+      },
+      202,
+      { 'Cache-Control': 'no-store' },
+    );
   });
   service.app.delete(`${basePath}/api/session`, (context) => {
     options.auth.revokeSession(readSessionCookie(context.req.header('cookie')));
@@ -108,11 +149,18 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
   return basePath;
 }
 
-function readPassword(body: unknown): string | undefined {
-  if (!body || typeof body !== 'object' || !('password' in body) || typeof body.password !== 'string') {
+function readCredentials(body: unknown): { account: string; password: string } | undefined {
+  if (
+    !body ||
+    typeof body !== 'object' ||
+    !('account' in body) ||
+    typeof body.account !== 'string' ||
+    !('password' in body) ||
+    typeof body.password !== 'string'
+  ) {
     return undefined;
   }
-  return body.password;
+  return { account: body.account, password: body.password };
 }
 
 function readPage(value: string | undefined): number {

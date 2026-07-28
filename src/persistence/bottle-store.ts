@@ -146,6 +146,19 @@ export class BottleStore implements Disposable {
       )
     `);
     this.database.exec(`
+      CREATE TABLE IF NOT EXISTS bottle_webui_accounts (
+        user_id INTEGER PRIMARY KEY,
+        password_hash TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        approved_by INTEGER
+      );
+      CREATE TABLE IF NOT EXISTS bottle_webui_registration_requests (
+        user_id INTEGER PRIMARY KEY,
+        password_hash TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    `);
+    this.database.exec(`
       CREATE TABLE IF NOT EXISTS bottle_operation_records (
         id TEXT PRIMARY KEY,
         created_at INTEGER NOT NULL,
@@ -464,6 +477,80 @@ export class BottleStore implements Disposable {
         ON CONFLICT(id) DO UPDATE SET password_hash = excluded.password_hash
       `)
       .run(hash, Date.now());
+  }
+
+  clearWebuiPasswordHash(): void {
+    this.getDatabase().prepare('DELETE FROM bottle_webui_credentials WHERE id = 1').run();
+  }
+
+  webuiAccountCount(): number {
+    const row = this.getDatabase().prepare('SELECT COUNT(*) AS count FROM bottle_webui_accounts').get() as {
+      count: number;
+    };
+    return row.count;
+  }
+
+  webuiAccountPasswordHash(userId: number): string | undefined {
+    const row = this.getDatabase()
+      .prepare('SELECT password_hash FROM bottle_webui_accounts WHERE user_id = ?')
+      .get(userId) as { password_hash: string } | undefined;
+    return row?.password_hash;
+  }
+
+  setWebuiAccount(userId: number, passwordHash: string, approvedBy?: number): void {
+    this.getDatabase()
+      .prepare(`
+        INSERT INTO bottle_webui_accounts (user_id, password_hash, created_at, approved_by)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET password_hash = excluded.password_hash
+      `)
+      .run(userId, passwordHash, Date.now(), approvedBy ?? null);
+  }
+
+  hasWebuiRegistrationRequest(userId: number): boolean {
+    return Boolean(
+      this.getDatabase().prepare('SELECT 1 FROM bottle_webui_registration_requests WHERE user_id = ?').get(userId),
+    );
+  }
+
+  createWebuiRegistrationRequest(userId: number, passwordHash: string): void {
+    this.getDatabase()
+      .prepare(`
+        INSERT INTO bottle_webui_registration_requests (user_id, password_hash, created_at)
+        VALUES (?, ?, ?)
+      `)
+      .run(userId, passwordHash, Date.now());
+  }
+
+  removeWebuiRegistrationRequest(userId: number): void {
+    this.getDatabase().prepare('DELETE FROM bottle_webui_registration_requests WHERE user_id = ?').run(userId);
+  }
+
+  approveWebuiRegistrationRequest(userId: number, approvedBy: number): boolean {
+    const database = this.getDatabase();
+    database.exec('BEGIN IMMEDIATE');
+    try {
+      const request = database
+        .prepare('SELECT password_hash FROM bottle_webui_registration_requests WHERE user_id = ?')
+        .get(userId) as { password_hash: string } | undefined;
+      if (!request) {
+        database.exec('ROLLBACK');
+        return false;
+      }
+      database
+        .prepare(`
+          INSERT INTO bottle_webui_accounts (user_id, password_hash, created_at, approved_by)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(user_id) DO NOTHING
+        `)
+        .run(userId, request.password_hash, Date.now(), approvedBy);
+      database.prepare('DELETE FROM bottle_webui_registration_requests WHERE user_id = ?').run(userId);
+      database.exec('COMMIT');
+      return true;
+    } catch (error) {
+      database.exec('ROLLBACK');
+      throw error;
+    }
   }
 
   setSignature(senderId: number, signature: BottleSignature): void {
