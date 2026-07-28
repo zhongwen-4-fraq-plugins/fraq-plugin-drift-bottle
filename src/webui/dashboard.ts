@@ -28,6 +28,10 @@ export interface DashboardSnapshot {
 
 const CHANGELOG: DashboardRelease[] = [
   {
+    version: '0.3.9',
+    items: ['登录页新增“忘记密码”入口，提供安全、明确的密码恢复指引。'],
+  },
+  {
     version: '0.3.6',
     items: ['侧边栏左上角新增主人头像，折叠与移动端布局保持清爽。'],
   },

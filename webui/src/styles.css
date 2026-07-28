@@ -1242,6 +1242,36 @@ textarea {
   text-align: center;
 }
 
+.forgot-password-button {
+  min-height: 2.75rem;
+  border: 0;
+  border-radius: 0.5rem;
+  padding-inline: var(--space-sm);
+  background: transparent;
+  color: var(--color-primary);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 160ms cubic-bezier(0.25, 1, 0.5, 1),
+    color 160ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.forgot-password-button:active {
+  color: var(--color-primary-hover);
+}
+
+.password-recovery-help {
+  width: 100%;
+  max-width: 36ch;
+  margin: var(--space-xs) 0 0;
+  color: var(--color-muted);
+  font-size: var(--text-meta);
+  line-height: 1.5;
+  text-align: center;
+  text-wrap: pretty;
+}
+
 .visually-hidden {
   position: absolute;
   width: 0.0625rem;
@@ -1283,6 +1313,11 @@ textarea {
   .password-toggle:hover:not(:disabled) {
     background: var(--color-surface);
     color: var(--color-ink);
+  }
+
+  .forgot-password-button:hover {
+    background: var(--color-surface);
+    color: var(--color-primary-hover);
   }
 
   .list-state button:hover {
@@ -1447,6 +1482,10 @@ textarea {
     min-height: 3.75rem;
   }
 
+  .forgot-password-button {
+    min-height: 3rem;
+  }
+
   .list-state button,
   .list-pagination button {
     min-height: 3rem;
@@ -1491,7 +1530,8 @@ textarea {
   .sidebar-nav-label,
   .sidebar-toggle,
   .sidebar-avatar,
-  .skip-link {
+  .skip-link,
+  .forgot-password-button {
     transition: none;
   }
 

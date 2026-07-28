@@ -12,6 +12,7 @@ export function App() {
   const [view, setView] = useState<View>('checking');
   const [password, setPassword] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const [passwordHelpVisible, setPasswordHelpVisible] = useState(false);
   const [error, setError] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
@@ -251,6 +252,20 @@ export function App() {
         <p id="login-error" className="login-error" aria-live="polite">
           {error || '\u00a0'}
         </p>
+        <button
+          type="button"
+          className="forgot-password-button"
+          aria-expanded={passwordHelpVisible}
+          aria-controls="password-recovery-help"
+          onClick={() => setPasswordHelpVisible((visible) => !visible)}
+        >
+          忘记密码？
+        </button>
+        {passwordHelpVisible ? (
+          <p id="password-recovery-help" className="password-recovery-help">
+            密码无法直接找回，请联系插件主人重置。新的初始密码会在插件重启时显示在启动日志中。
+          </p>
+        ) : null}
       </form>
     </main>
   );
