@@ -92,7 +92,6 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
     account: null,
     authenticated: false,
     isOwner: false,
-    avatarUrl: 'https://q1.qlogo.cn/g?b=qq&nk=123456789&s=640',
   });
   assert.equal(anonymousSession.headers.get('cache-control'), 'no-store');
 
@@ -112,7 +111,12 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   });
   const memberCookie = memberLogin.headers.get('set-cookie');
   assert.ok(memberCookie);
-  assert.deepEqual(await memberLogin.json(), { account: '222222222', authenticated: true, isOwner: false });
+  assert.deepEqual(await memberLogin.json(), {
+    account: '222222222',
+    authenticated: true,
+    avatarUrl: 'https://q1.qlogo.cn/g?b=qq&nk=222222222&s=640',
+    isOwner: false,
+  });
   assert.equal(
     (
       await hono.app.request('http://localhost/manage/drift-bottle/api/registrations/pending', {

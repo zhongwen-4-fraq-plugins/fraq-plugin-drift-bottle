@@ -16,6 +16,7 @@ READ WHEN: before any WebUI password, login route, session, cookie, or authentic
 - 至少一位主人成功收到注册请求后，WebUI 才能向申请人显示“申请已发送”；全部发送失败时撤销待审批记录。
 - 会话令牌由服务端随机生成并保存在内存中，因此插件重启后需要重新登录。
 - 会话查询和登录响应同时返回当前 QQ 账号与 `isOwner`，使前端可以隐藏主人专属入口；主人专属 API 仍必须从服务端会话解析 QQ，并与完整 `ownerIds` 比对，匿名返回 401、非主人返回 403。
+- 登录页头像跟随输入的有效 QQ 账号；登录后会话头像使用当前登录账号，不再固定使用首位主人头像。
 - 待审批账号列表只查询和返回 QQ 号、申请时间，不能读取或序列化 `password_hash`。
 - Cookie 使用 WebUI 挂载路径、`HttpOnly` 和 `SameSite=Strict`；HTTPS 请求额外使用 `Secure`。
 - 前端从 WebUI 挂载根构建 API 地址，以兼容自定义和多层 `webuiPath`。

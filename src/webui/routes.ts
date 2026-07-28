@@ -40,7 +40,7 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
         account: userId ? String(userId) : null,
         authenticated: userId !== undefined,
         isOwner: userId !== undefined && options.ownerIds.includes(userId),
-        avatarUrl: ownerAvatarUrl(options.ownerIds[0]),
+        avatarUrl: qqAvatarUrl(userId),
       },
       200,
       { 'Cache-Control': 'no-store' },
@@ -70,7 +70,12 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
 
     const secure = new URL(context.req.url).protocol === 'https:';
     return context.json(
-      { account: String(userId), authenticated: true, isOwner: options.ownerIds.includes(userId) },
+      {
+        account: String(userId),
+        authenticated: true,
+        avatarUrl: qqAvatarUrl(userId),
+        isOwner: options.ownerIds.includes(userId),
+      },
       200,
       {
         'Cache-Control': 'no-store',
@@ -196,11 +201,11 @@ function readPage(value: string | undefined): number {
   return Number.isSafeInteger(page) && page > 0 ? page : 1;
 }
 
-function ownerAvatarUrl(ownerId: number | undefined): string | undefined {
-  if (!Number.isSafeInteger(ownerId) || !ownerId || ownerId < 1) {
+function qqAvatarUrl(userId: number | undefined): string | undefined {
+  if (!Number.isSafeInteger(userId) || !userId || userId < 1) {
     return undefined;
   }
-  return `https://q1.qlogo.cn/g?b=qq&nk=${ownerId}&s=640`;
+  return `https://q1.qlogo.cn/g?b=qq&nk=${userId}&s=640`;
 }
 
 function readSessionCookie(header: string | undefined): string | undefined {

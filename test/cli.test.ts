@@ -61,7 +61,6 @@ test('Fraq CLI 的 JSON 配置对象可以安装默认导出', async (t) => {
   assert.deepEqual(await session.json(), {
     account: null,
     authenticated: false,
-    avatarUrl: 'https://q1.qlogo.cn/g?b=qq&nk=123456789&s=640',
     isOwner: false,
   });
 });

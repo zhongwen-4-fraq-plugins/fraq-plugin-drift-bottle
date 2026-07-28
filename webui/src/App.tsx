@@ -21,6 +21,7 @@ export function App() {
   const [registrationMessage, setRegistrationMessage] = useState('');
   const [error, setError] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string>();
+  const [loginAvatarFailed, setLoginAvatarFailed] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [succeeded, setSucceeded] = useState(false);
@@ -123,7 +124,7 @@ export function App() {
         body: JSON.stringify({ account, password }),
       });
       const result = (await response.json().catch(() => undefined)) as
-        | { error?: string; isOwner?: boolean; message?: string }
+        | { avatarUrl?: string; error?: string; isOwner?: boolean; message?: string }
         | undefined;
       if (!response.ok) {
         setError(result?.error ?? (authMode === 'login' ? '登录失败，请稍后重试' : '申请提交失败，请稍后重试'));
@@ -141,6 +142,7 @@ export function App() {
       }
       setSucceeded(true);
       const owner = Boolean(result?.isOwner);
+      setAvatarUrl(result?.avatarUrl ?? qqAvatarUrl(account));
       setIsOwner(owner);
       await new Promise((resolve) =>
         window.setTimeout(resolve, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 120 : 420),
@@ -275,6 +277,7 @@ export function App() {
   }
 
   const isRegistration = authMode === 'register';
+  const accountAvatarUrl = loginAvatarFailed ? undefined : qqAvatarUrl(account);
   const submitDisabled =
     !account || !password || submitting || (isRegistration && (!confirmPassword || Boolean(registrationMessage)));
 
@@ -282,8 +285,13 @@ export function App() {
     <main className="login-page">
       <form className="login-form" onSubmit={handleSubmit} aria-busy={submitting}>
         <div className="login-avatar" aria-hidden="true">
-          {avatarUrl ? (
-            <img src={avatarUrl} alt="" referrerPolicy="no-referrer" onError={() => setAvatarUrl(undefined)} />
+          {accountAvatarUrl ? (
+            <img
+              src={accountAvatarUrl}
+              alt=""
+              referrerPolicy="no-referrer"
+              onError={() => setLoginAvatarFailed(true)}
+            />
           ) : (
             <svg viewBox="0 0 24 24">
               <path d="M12 12.25a4.25 4.25 0 1 0 0-8.5 4.25 4.25 0 0 0 0 8.5Z" />
@@ -338,6 +346,7 @@ export function App() {
                     maxLength={12}
                     onChange={(event) => {
                       setAccount(event.target.value.replace(/\D/g, '').slice(0, 12));
+                      setLoginAvatarFailed(false);
                       if (error) setError('');
                     }}
                     placeholder="请输入 QQ 号"
@@ -530,4 +539,9 @@ function syncLocation(authenticated: boolean, page: AppPage, replace = true) {
   const target = authenticated ? pageUrl(page) : webuiUrl();
   if (window.location.pathname === target.pathname) return;
   window.history[replace ? 'replaceState' : 'pushState'](null, '', target);
+}
+
+function qqAvatarUrl(account: string): string | undefined {
+  if (!/^[1-9]\d{4,11}$/.test(account)) return undefined;
+  return `https://q1.qlogo.cn/g?b=qq&nk=${account}&s=640`;
 }
