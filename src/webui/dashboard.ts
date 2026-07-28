@@ -37,6 +37,10 @@ export interface DashboardSnapshot {
 
 const CHANGELOG: DashboardRelease[] = [
   {
+    version: '0.3.12',
+    items: ['关于区域改为两列布局，集中展示项目入口与运行环境信息。', '新增实际 Fraq 版本及协议端名称、版本展示。'],
+  },
+  {
     version: '0.3.11',
     items: [
       '登录页头像会跟随当前输入的 QQ 账号更新。',
