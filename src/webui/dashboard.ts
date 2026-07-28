@@ -28,6 +28,15 @@ export interface DashboardSnapshot {
 
 const CHANGELOG: DashboardRelease[] = [
   {
+    version: '0.3.10',
+    items: [
+      'WebUI 登录改为 QQ 账号与密码，并加入主人审批注册流程。',
+      '主人侧边栏新增响应式账号请求列表，集中查看待审批申请。',
+      '账号审批改为回复机器人注册请求并发送“同意”，同时校验引用来源。',
+      '主页新增项目地址、问题反馈、帮助入口和当前版本信息。',
+    ],
+  },
+  {
     version: '0.3.9',
     items: ['登录页新增“忘记密码”入口，提供安全、明确的密码恢复指引。'],
   },

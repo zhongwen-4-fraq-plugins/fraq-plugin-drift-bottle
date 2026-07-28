@@ -41,7 +41,7 @@ test('主页概览汇总瓶子、待审核、更新日志和完整操作记录',
 
   assert.equal(snapshot.instanceStartedAt, instanceStartedAt);
   assert.deepEqual(snapshot.counts, { totalBottles: 1, pendingReview: 1 });
-  assert.equal(snapshot.changelog[0]?.version, '0.3.9');
+  assert.equal(snapshot.changelog[0]?.version, '0.3.10');
   assert.ok(snapshot.operations.some((operation) => operation.title === '投递漂流瓶'));
   assert.ok(snapshot.operations.some((operation) => operation.title === 'AI 审核未通过'));
   assert.ok(snapshot.operations.every((operation) => operation.createdAt > 0));
