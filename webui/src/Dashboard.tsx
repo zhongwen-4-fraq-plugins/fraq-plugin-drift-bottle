@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 
 import { webuiUrl } from './location';
 
+declare const __PLUGIN_VERSION__: string;
+
 type DashboardTone = 'neutral' | 'success' | 'warning' | 'danger';
 
 interface DashboardSnapshot {
@@ -129,19 +131,51 @@ export function Dashboard({ onSessionExpired }: DashboardProps) {
         </section>
 
         <div className="dashboard-status-column">
-          <section className="dashboard-panel dashboard-uptime" aria-labelledby="uptime-title">
-            <div className="dashboard-section-heading">
-              <DashboardIcon name="uptime" />
-              <div className="connection-label">
-                <h2 id="uptime-title">实例连接时长</h2>
-                <span className="connection-dot" aria-hidden="true" />
+          <div className="dashboard-status-top">
+            <section className="dashboard-panel dashboard-uptime" aria-labelledby="uptime-title">
+              <div className="dashboard-section-heading">
+                <DashboardIcon name="uptime" />
+                <div className="connection-label">
+                  <h2 id="uptime-title">实例连接时长</h2>
+                  <span className="connection-dot" aria-hidden="true" />
+                </div>
               </div>
-            </div>
-            <time className="uptime-value" dateTime={durationDateTime(now - (snapshot?.instanceStartedAt ?? now))}>
-              {snapshot ? uptime : '—'}
-            </time>
-            <p>从本次插件实例载入开始计算</p>
-          </section>
+              <time className="uptime-value" dateTime={durationDateTime(now - (snapshot?.instanceStartedAt ?? now))}>
+                {snapshot ? uptime : '—'}
+              </time>
+              <p>从本次插件实例载入开始计算</p>
+            </section>
+
+            <section className="dashboard-panel dashboard-about" aria-labelledby="about-title">
+              <header className="dashboard-panel-header">
+                <div className="dashboard-section-heading">
+                  <DashboardIcon name="about" />
+                  <h2 id="about-title">关于</h2>
+                </div>
+              </header>
+              <ul className="about-link-list">
+                <li>
+                  <AboutLink href="https://github.com/zhongwen-4-fraq-plugins/fraq-plugin-drift-bottle">
+                    GitHub 项目
+                  </AboutLink>
+                </li>
+                <li>
+                  <AboutLink href="https://github.com/zhongwen-4-fraq-plugins/fraq-plugin-drift-bottle/issues/new?labels=bug&amp;title=%5BBug%5D%20">
+                    提交 Bug
+                  </AboutLink>
+                </li>
+                <li>
+                  <AboutLink href="https://github.com/zhongwen-4-fraq-plugins/fraq-plugin-drift-bottle/issues/new?labels=question&amp;title=%5BHelp%5D%20">
+                    需要帮助
+                  </AboutLink>
+                </li>
+              </ul>
+              <p className="about-version">
+                <span>当前版本</span>
+                <strong>v{__PLUGIN_VERSION__}</strong>
+              </p>
+            </section>
+          </div>
 
           <section className="dashboard-panel dashboard-counts" aria-label="漂流瓶数量概览">
             <div className="dashboard-metric">
@@ -203,7 +237,7 @@ export function Dashboard({ onSessionExpired }: DashboardProps) {
   );
 }
 
-type DashboardIconName = 'activity' | 'bottle' | 'release' | 'review' | 'uptime';
+type DashboardIconName = 'about' | 'activity' | 'bottle' | 'release' | 'review' | 'uptime';
 
 function DashboardIcon({ name }: { name: DashboardIconName }) {
   return (
@@ -212,6 +246,12 @@ function DashboardIcon({ name }: { name: DashboardIconName }) {
         <>
           <path d="M6 3.5h8.5l3.5 3.5v13.5H6z" />
           <path d="M14.5 3.5V7H18M9 11h6M9 15h6" />
+        </>
+      ) : null}
+      {name === 'about' ? (
+        <>
+          <circle cx="12" cy="12" r="8.5" />
+          <path d="M12 10.5v6M12 7.25v.25" />
         </>
       ) : null}
       {name === 'uptime' ? (
@@ -242,6 +282,17 @@ function DashboardIcon({ name }: { name: DashboardIconName }) {
         </>
       ) : null}
     </svg>
+  );
+}
+
+function AboutLink({ href, children }: { href: string; children: string }) {
+  return (
+    <a href={href} target="_blank" rel="noreferrer" aria-label={`${children}（在新标签页打开）`}>
+      <span>{children}</span>
+      <svg className="external-link-icon" viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M6 3.5H3.5v9h9V10M9 3.5h3.5V7M12.25 3.75 7 9" />
+      </svg>
+    </a>
   );
 }
 
