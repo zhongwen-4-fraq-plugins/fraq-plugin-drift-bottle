@@ -1,10 +1,10 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: 主页“关于”栏的 GitHub、Bug 和帮助入口已改为底部图标操作；检查、31 项测试与生产构建通过。
+Focus: 正在发布 `v0.3.13`；检查、31 项测试与生产构建通过，等待提交并推送 Tag。
 
 ## In flight
 
-无（`webui-registration-requests` 已完成并归档）。
+- `release-v0.3.13` — 验证通过，等待推送 Tag、npm 发布与宿主更新。
 
 ## Next
 

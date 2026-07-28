@@ -37,6 +37,10 @@ export interface DashboardSnapshot {
 
 const CHANGELOG: DashboardRelease[] = [
   {
+    version: '0.3.13',
+    items: ['关于区域的 GitHub、Bug 和帮助入口改为底部图标操作，并完善键盘提示与触控尺寸。'],
+  },
+  {
     version: '0.3.12',
     items: ['关于区域改为两列布局，集中展示项目入口与运行环境信息。', '新增实际 Fraq 版本及协议端名称、版本展示。'],
   },
