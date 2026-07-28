@@ -1,6 +1,6 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: 主人专属账号请求列表已经完成并验证，等待发布新版本。
+Focus: WebUI 账号审批已改为回复注册请求消息，等待发布新版本。
 
 ## In flight
 

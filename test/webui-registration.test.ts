@@ -51,10 +51,24 @@ test('WebUI 注册申请通知所有主人，任一主人同意后广播审批�
     requestNotices.map((notice) => notice.userId),
     [10001, 10002],
   );
-  assert.ok(requestNotices.every((notice) => notice.text.includes('漂流瓶账号 同意 987654321')));
+  assert.ok(requestNotices.every((notice) => notice.text.includes('回复本消息并发送“同意”即可审批')));
 
   client.apiCalls.splice(0);
-  const approval = client.inbox.friend({ userId: 10002 }, [inseg.text('漂流瓶账号 同意 987654321')]);
+  const requestNotice = client.inbox.friend({ peerId: 10002, senderId: client.inbox.selfId, userId: 10002 }, [
+    inseg.text('收到 WebUI 账号注册请求：987654321\n回复本消息并发送“同意”即可审批。'),
+  ]);
+  const rejectedApproval = client.inbox.friend({ userId: 10003 }, [inseg.reply(requestNotice), inseg.text('同意')]);
+  await ctx.router.dispatch(ctx.createSession(client.inbox.selfId, rejectedApproval), rejectedApproval);
+  assert.equal(await auth.createSession(987654321, 'ValidA123'), undefined);
+
+  const forgedNotice = client.inbox.friend({ userId: 10002 }, requestNotice.segments);
+  const forgedApproval = client.inbox.friend({ userId: 10002 }, [inseg.reply(forgedNotice), inseg.text('同意')]);
+  await ctx.router.dispatch(ctx.createSession(client.inbox.selfId, forgedApproval), forgedApproval);
+  assert.equal(await auth.createSession(987654321, 'ValidA123'), undefined);
+
+  const approvalReply = inseg.reply(requestNotice);
+  approvalReply.data.segments = [];
+  const approval = client.inbox.friend({ userId: 10002 }, [approvalReply, inseg.text('同意')]);
   await ctx.router.dispatch(ctx.createSession(client.inbox.selfId, approval), approval);
 
   const approvalNotices = privateMessages(client.apiCalls).filter((notice) => notice.text.includes('该请求已由'));

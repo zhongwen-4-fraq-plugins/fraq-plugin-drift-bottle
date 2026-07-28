@@ -16,7 +16,7 @@ export function RegistrationRequests({ onSessionExpired }: RegistrationRequestsP
     <ListPageFrame
       {...list}
       title="账号请求"
-      description="查看等待主人处理的 WebUI 注册申请。审批请通过机器人命令完成。"
+      description="查看等待主人处理的 WebUI 注册申请。请在机器人私聊中回复对应请求并发送“同意”完成审批。"
       emptyTitle="没有待处理的账号请求"
       emptyDescription="新的注册申请会显示在这里。"
     >

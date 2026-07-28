@@ -1,6 +1,6 @@
-import { type Logger, type MilkyClient, msg } from '@fraqjs/fraq';
+import { type Logger, type MilkyClient, type milky, msg } from '@fraqjs/fraq';
 
-import type { WebuiAuth, WebuiRegistrationRequestResult } from './auth.js';
+import { parseQqAccount, type WebuiAuth, type WebuiRegistrationRequestResult } from './auth.js';
 
 export type RegistrationSubmissionResult = WebuiRegistrationRequestResult | 'notification-unavailable';
 
@@ -25,7 +25,7 @@ export class WebuiRegistration {
       return result;
     }
 
-    const message = `收到 WebUI 账号注册请求：${userId}\n同意请发送：漂流瓶账号 同意 ${userId}`;
+    const message = `收到 WebUI 账号注册请求：${userId}\n回复本消息并发送“同意”即可审批。`;
     if ((await this.notifyOwners(message)) === 0) {
       this.auth.cancelRegistration(userId);
       return 'notification-unavailable';
@@ -41,6 +41,31 @@ export class WebuiRegistration {
     const nickname = await this.resolveNickname(approvedBy);
     await this.notifyOwners(`WebUI 账号 ${userId} 注册成功。\n该请求已由"${nickname} [${approvedBy}]"同意。`);
     return true;
+  }
+
+  async userIdFromReply(
+    reply: Extract<milky.IncomingSegment, { type: 'reply' }>,
+    message: milky.IncomingMessage,
+    selfId: number,
+  ): Promise<number | undefined> {
+    if (reply.data.sender_id !== selfId) {
+      return undefined;
+    }
+
+    const embeddedUserId = registrationUserId(reply.data.segments);
+    if (embeddedUserId) {
+      return embeddedUserId;
+    }
+
+    const result = await this.client.get_message({
+      message_scene: message.message_scene,
+      peer_id: message.peer_id,
+      message_seq: reply.data.message_seq,
+    });
+    if (result.message.sender_id !== selfId) {
+      return undefined;
+    }
+    return registrationUserId(result.message.segments);
   }
 
   private async notifyOwners(text: string): Promise<number> {
@@ -67,4 +92,13 @@ export class WebuiRegistration {
       return '未知昵称';
     }
   }
+}
+
+function registrationUserId(segments: milky.IncomingSegment[]): number | undefined {
+  const text = segments
+    .filter((segment) => segment.type === 'text')
+    .map((segment) => segment.data.text)
+    .join('');
+  const match = text.match(/^收到 WebUI 账号注册请求：([1-9]\d{4,11})(?:\n|$)/);
+  return parseQqAccount(match?.[1]);
 }

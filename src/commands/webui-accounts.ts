@@ -1,6 +1,5 @@
 import { type Context, param, type Session } from '@fraqjs/fraq';
 
-import { parseQqAccount } from '../webui/auth.js';
 import type { WebuiRegistration } from '../webui/registration.js';
 
 export function registerWebuiAccountCommands(ctx: Context, registration: WebuiRegistration, ownerIds: number[]): void {
@@ -8,21 +7,26 @@ export function registerWebuiAccountCommands(ctx: Context, registration: WebuiRe
     return ownerIds.includes(session.raw.sender_id);
   }
 
-  const accounts = ctx.router.group('漂流瓶账号');
-  accounts.command('同意').execute(async (session) => {
-    await session.reply('请使用“漂流瓶账号 同意 <QQ号>”。');
-  });
-  accounts
-    .command('同意')
-    .arg('account', param.greedy())
-    .execute(async (session, { account }) => {
+  ctx.router
+    .rawPattern()
+    .arg('reply', param.segment('reply'))
+    .arg('approval', param.literal('同意'))
+    .execute(async (session, { reply }) => {
       if (!isOwner(session)) {
         await session.reply('只有插件主人可以审批 WebUI 账号。');
         return;
       }
-      const userId = parseQqAccount(account.trim());
+
+      let userId: number | undefined;
+      try {
+        userId = await registration.userIdFromReply(reply, session.raw, session.selfId);
+      } catch (error) {
+        ctx.logger.error('读取 WebUI 账号注册请求失败', error);
+        await session.reply('无法读取被回复的账号请求，请稍后再试。');
+        return;
+      }
       if (!userId) {
-        await session.reply('请输入有效的 QQ 号。');
+        await session.reply('被回复的消息不是 WebUI 账号注册请求。');
         return;
       }
       if (!(await registration.approve(userId, session.raw.sender_id))) {
