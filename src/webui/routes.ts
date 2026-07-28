@@ -2,7 +2,12 @@ import type { HonoService } from '@fraqjs/plugin-hono';
 
 import { isValidWebuiPassword, parseQqAccount, type WebuiAuth } from './auth.js';
 import type { DashboardSnapshot } from './dashboard.js';
-import type { WebuiBottleListItem, WebuiListPage, WebuiPendingReviewItem } from './lists.js';
+import type {
+  WebuiBottleListItem,
+  WebuiListPage,
+  WebuiPendingReviewItem,
+  WebuiRegistrationRequestItem,
+} from './lists.js';
 import type { WebuiRegistration } from './registration.js';
 
 import { readFile } from 'node:fs/promises';
@@ -17,7 +22,8 @@ export interface WebuiRouteOptions {
   bottles: (page: number) => WebuiListPage<WebuiBottleListItem>;
   pendingReviews: (page: number) => WebuiListPage<WebuiPendingReviewItem>;
   registration: Pick<WebuiRegistration, 'submit'>;
-  ownerId?: number;
+  registrationRequests: (page: number) => WebuiListPage<WebuiRegistrationRequestItem>;
+  ownerIds: number[];
 }
 
 const SESSION_COOKIE = 'drift_bottle_session';
@@ -27,16 +33,19 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
   const directory = options.directory ?? fileURLToPath(new URL('./webui/', import.meta.url));
 
   service.app.get(basePath, (context) => context.redirect(`${basePath}/`, 308));
-  service.app.get(`${basePath}/api/session`, (context) =>
-    context.json(
+  service.app.get(`${basePath}/api/session`, (context) => {
+    const userId = options.auth.sessionUserId(readSessionCookie(context.req.header('cookie')));
+    return context.json(
       {
-        authenticated: options.auth.isSessionValid(readSessionCookie(context.req.header('cookie'))),
-        avatarUrl: ownerAvatarUrl(options.ownerId),
+        account: userId ? String(userId) : null,
+        authenticated: userId !== undefined,
+        isOwner: userId !== undefined && options.ownerIds.includes(userId),
+        avatarUrl: ownerAvatarUrl(options.ownerIds[0]),
       },
       200,
       { 'Cache-Control': 'no-store' },
-    ),
-  );
+    );
+  });
   service.app.post(`${basePath}/api/session`, async (context) => {
     let body: unknown;
     try {
@@ -51,16 +60,23 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
     }
 
     const userId = parseQqAccount(credentials.account);
-    const token = userId ? await options.auth.createSession(userId, credentials.password) : undefined;
+    if (!userId) {
+      return context.json({ error: '账号或密码不正确' }, 401, { 'Cache-Control': 'no-store' });
+    }
+    const token = await options.auth.createSession(userId, credentials.password);
     if (!token) {
       return context.json({ error: '账号或密码不正确' }, 401, { 'Cache-Control': 'no-store' });
     }
 
     const secure = new URL(context.req.url).protocol === 'https:';
-    return context.json({ authenticated: true }, 200, {
-      'Cache-Control': 'no-store',
-      'Set-Cookie': sessionCookie(token, basePath, secure),
-    });
+    return context.json(
+      { account: String(userId), authenticated: true, isOwner: options.ownerIds.includes(userId) },
+      200,
+      {
+        'Cache-Control': 'no-store',
+        'Set-Cookie': sessionCookie(token, basePath, secure),
+      },
+    );
   });
   service.app.post(`${basePath}/api/registrations`, async (context) => {
     let body: unknown;
@@ -130,6 +146,18 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
       return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
     }
     return context.json(options.bottles(readPage(context.req.query('page'))), 200, { 'Cache-Control': 'no-store' });
+  });
+  service.app.get(`${basePath}/api/registrations/pending`, (context) => {
+    const userId = options.auth.sessionUserId(readSessionCookie(context.req.header('cookie')));
+    if (userId === undefined) {
+      return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
+    }
+    if (!options.ownerIds.includes(userId)) {
+      return context.json({ error: '仅插件主人可以查看账号请求' }, 403, { 'Cache-Control': 'no-store' });
+    }
+    return context.json(options.registrationRequests(readPage(context.req.query('page'))), 200, {
+      'Cache-Control': 'no-store',
+    });
   });
   service.app.get(`${basePath}/`, async () => serveWebuiFile(directory, 'index.html'));
   service.app.get(`${basePath}/*`, async (context) => {

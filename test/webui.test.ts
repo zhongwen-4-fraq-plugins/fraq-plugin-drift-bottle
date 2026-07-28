@@ -2,6 +2,7 @@ import { HonoService } from '@fraqjs/plugin-hono';
 
 import { BottleStore } from '../src/persistence/bottle-store.js';
 import { WebuiAuth } from '../src/webui/auth.js';
+import { createRegistrationRequestListPage } from '../src/webui/lists.js';
 import { registerWebuiRoutes } from '../src/webui/routes.js';
 import { buildWebuiUrl } from '../src/webui/url.js';
 
@@ -50,14 +51,15 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
     bottles: () => bottles,
     dashboard: () => dashboard,
     directory,
-    ownerId: 123456789,
+    ownerIds: [123456789],
     pendingReviews: () => pendingReviews,
     registration: {
-      submit: async (userId) => {
+      submit: async (userId, password) => {
         registrations.push(userId);
-        return 'created';
+        return auth.requestRegistration(userId, password);
       },
     },
+    registrationRequests: (requestPage) => createRegistrationRequestListPage(store, requestPage),
   });
   assert.equal(basePath, '/manage/drift-bottle');
   assert.equal(buildWebuiUrl(hono, basePath), 'http://127.0.0.1:4649/manage/drift-bottle/');
@@ -79,6 +81,7 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   const frontendRoute = await hono.app.request('http://localhost/manage/drift-bottle/reviews/pending');
   assert.equal(frontendRoute.status, 200);
   assert.match(await frontendRoute.text(), /漂流瓶管理后台/);
+  assert.equal((await hono.app.request('http://localhost/manage/drift-bottle/accounts/requests')).status, 200);
 
   const missingAsset = await hono.app.request('http://localhost/manage/drift-bottle/assets/missing.js');
   assert.equal(missingAsset.status, 404);
@@ -86,7 +89,9 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   const anonymousSession = await hono.app.request('http://localhost/manage/drift-bottle/api/session');
   assert.equal(anonymousSession.status, 200);
   assert.deepEqual(await anonymousSession.json(), {
+    account: null,
     authenticated: false,
+    isOwner: false,
     avatarUrl: 'https://q1.qlogo.cn/g?b=qq&nk=123456789&s=640',
   });
   assert.equal(anonymousSession.headers.get('cache-control'), 'no-store');
@@ -96,6 +101,26 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   assert.equal(anonymousDashboard.headers.get('cache-control'), 'no-store');
   assert.equal((await hono.app.request('http://localhost/manage/drift-bottle/api/reviews/pending')).status, 401);
   assert.equal((await hono.app.request('http://localhost/manage/drift-bottle/api/bottles')).status, 401);
+  assert.equal((await hono.app.request('http://localhost/manage/drift-bottle/api/registrations/pending')).status, 401);
+
+  assert.equal(await auth.requestRegistration(222222222, 'MemberA123'), 'created');
+  assert.equal(auth.approveRegistration(222222222, 123456789), true);
+  const memberLogin = await hono.app.request('http://localhost/manage/drift-bottle/api/session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ account: '222222222', password: 'MemberA123' }),
+  });
+  const memberCookie = memberLogin.headers.get('set-cookie');
+  assert.ok(memberCookie);
+  assert.deepEqual(await memberLogin.json(), { account: '222222222', authenticated: true, isOwner: false });
+  assert.equal(
+    (
+      await hono.app.request('http://localhost/manage/drift-bottle/api/registrations/pending', {
+        headers: { Cookie: memberCookie },
+      })
+    ).status,
+    403,
+  );
 
   const rejectedLogin = await hono.app.request('http://localhost/manage/drift-bottle/api/session', {
     method: 'POST',
@@ -120,7 +145,9 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
     headers: { Cookie: cookie },
   });
   assert.deepEqual(await authenticatedSession.json(), {
+    account: '123456789',
     authenticated: true,
+    isOwner: true,
     avatarUrl: 'https://q1.qlogo.cn/g?b=qq&nk=123456789&s=640',
   });
 
@@ -138,6 +165,19 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   });
   assert.equal(registration.status, 202);
   assert.deepEqual(registrations, [987654321]);
+
+  const registrationRequests = await hono.app.request(
+    'http://localhost/manage/drift-bottle/api/registrations/pending?page=1',
+    { headers: { Cookie: cookie } },
+  );
+  assert.equal(registrationRequests.status, 200);
+  const requestPage = (await registrationRequests.json()) as { items: { userId: number }[]; total: number };
+  assert.equal(requestPage.total, 1);
+  assert.deepEqual(
+    requestPage.items.map((item) => item.userId),
+    [987654321],
+  );
+  assert.doesNotMatch(JSON.stringify(requestPage), /password|hash/i);
 
   const authenticatedDashboard = await hono.app.request('http://localhost/manage/drift-bottle/api/dashboard', {
     headers: { Cookie: cookie },

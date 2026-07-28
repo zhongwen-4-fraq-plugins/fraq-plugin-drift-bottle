@@ -1,5 +1,6 @@
 import type { DriftBottleApi } from '../api/drift-bottle-api.js';
 import type { BottleSegment, DriftBottle } from '../models/index.js';
+import type { BottleStore } from '../persistence/bottle-store.js';
 import type { ModerationRecord } from '../processing/moderation-records.js';
 
 export interface WebuiContentSummary {
@@ -27,6 +28,11 @@ export interface WebuiBottleListItem {
     scene: string;
     peerId: number;
   };
+}
+
+export interface WebuiRegistrationRequestItem {
+  userId: number;
+  createdAt: number;
 }
 
 export interface WebuiListPage<T> {
@@ -57,6 +63,15 @@ export function createBottleListPage(api: DriftBottleApi, requestedPage: number)
   const total = api.count();
   const page = boundedPage(requestedPage, total);
   return createPage(page, total, api.bottles(PAGE_SIZE, (page - 1) * PAGE_SIZE).map(formatBottle));
+}
+
+export function createRegistrationRequestListPage(
+  store: Pick<BottleStore, 'webuiRegistrationRequestCount' | 'webuiRegistrationRequests'>,
+  requestedPage: number,
+): WebuiListPage<WebuiRegistrationRequestItem> {
+  const total = store.webuiRegistrationRequestCount();
+  const page = boundedPage(requestedPage, total);
+  return createPage(page, total, store.webuiRegistrationRequests(PAGE_SIZE, (page - 1) * PAGE_SIZE));
 }
 
 function createPage<T>(page: number, total: number, items: T[]): WebuiListPage<T> {

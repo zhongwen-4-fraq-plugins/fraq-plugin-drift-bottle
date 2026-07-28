@@ -1,15 +1,17 @@
-export type AppPage = 'bottles' | 'home' | 'pending';
+export type AppPage = 'bottles' | 'home' | 'pending' | 'registrations';
 
 const pagePaths: Record<AppPage, string> = {
   bottles: 'bottles',
   home: 'app',
   pending: 'reviews/pending',
+  registrations: 'accounts/requests',
 };
 
 export function pageFromLocation(): AppPage {
   const path = window.location.pathname.replace(/\/+$/, '');
   if (path.endsWith('/reviews/pending')) return 'pending';
   if (path.endsWith('/bottles')) return 'bottles';
+  if (path.endsWith('/accounts/requests')) return 'registrations';
   return 'home';
 }
 

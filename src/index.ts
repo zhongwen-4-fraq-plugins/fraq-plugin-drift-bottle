@@ -10,7 +10,7 @@ import { moderateBottle } from './processing/moderation.js';
 import { withModerationRecords } from './processing/moderation-records.js';
 import { WebuiAuth } from './webui/auth.js';
 import { createDashboardSnapshot } from './webui/dashboard.js';
-import { createBottleListPage, createPendingReviewListPage } from './webui/lists.js';
+import { createBottleListPage, createPendingReviewListPage, createRegistrationRequestListPage } from './webui/lists.js';
 import { WebuiRegistration } from './webui/registration.js';
 import { registerWebuiRoutes } from './webui/routes.js';
 import { buildWebuiUrl } from './webui/url.js';
@@ -42,6 +42,7 @@ export type {
   WebuiContentSummary,
   WebuiListPage,
   WebuiPendingReviewItem,
+  WebuiRegistrationRequestItem,
 } from './webui/lists.js';
 
 export default definePlugin({
@@ -74,9 +75,10 @@ export default definePlugin({
       basePath: options.webuiPath,
       bottles: (page) => createBottleListPage(api, page),
       dashboard: () => createDashboardSnapshot(api, instanceStartedAt),
-      ownerId: options.ownerIds?.[0],
+      ownerIds,
       pendingReviews: (page) => createPendingReviewListPage(api, page),
       registration: webuiRegistration,
+      registrationRequests: (page) => createRegistrationRequestListPage(store, page),
     });
     ctx.logger.info(`漂流瓶 WebUI：${buildWebuiUrl(ctx.hono, webuiPath)}`);
     buildDriftBottleCommands(ctx, api, webuiRegistration, ownerIds);

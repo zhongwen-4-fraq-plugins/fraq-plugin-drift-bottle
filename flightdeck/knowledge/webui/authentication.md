@@ -15,6 +15,8 @@ READ WHEN: before any WebUI password, login route, session, cookie, or authentic
 - 任一主人发送 `漂流瓶账号 同意 <QQ号>` 后创建账号；随后尝试通知所有主人，并标明审批者的 QQ 昵称和 QQ 号。
 - 至少一位主人成功收到注册请求后，WebUI 才能向申请人显示“申请已发送”；全部发送失败时撤销待审批记录。
 - 会话令牌由服务端随机生成并保存在内存中，因此插件重启后需要重新登录。
+- 会话查询和登录响应同时返回当前 QQ 账号与 `isOwner`，使前端可以隐藏主人专属入口；主人专属 API 仍必须从服务端会话解析 QQ，并与完整 `ownerIds` 比对，匿名返回 401、非主人返回 403。
+- 待审批账号列表只查询和返回 QQ 号、申请时间，不能读取或序列化 `password_hash`。
 - Cookie 使用 WebUI 挂载路径、`HttpOnly` 和 `SameSite=Strict`；HTTPS 请求额外使用 `Secure`。
 - 前端从 WebUI 挂载根构建 API 地址，以兼容自定义和多层 `webuiPath`。
 - 密码输入框提供查看/隐藏按钮并使用 `aria-pressed`；认证失败清空输入时恢复隐藏。
@@ -23,4 +25,5 @@ READ WHEN: before any WebUI password, login route, session, cookie, or authentic
 
 - 覆盖初始账号、旧凭据迁移、密码字符组成、错误账号或密码、登录、会话查询和退出登录。
 - 覆盖注册申请持久化、重复申请、主人权限、批准后登录、审批者昵称以及向全部主人发送通知。
+- 覆盖主人可查看待审批列表、普通账号被拒绝、匿名会话过期以及响应中不包含密码哈希。
 - 确认登录后前端地址进入 `<webuiPath>/app`，深层页面与注册 API 都从挂载根解析。

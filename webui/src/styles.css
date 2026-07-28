@@ -859,6 +859,40 @@ textarea {
   width: 7rem;
 }
 
+.data-table--registrations {
+  min-width: 38rem;
+}
+
+.data-table--registrations th:first-child,
+.data-table--registrations td:first-child {
+  width: auto;
+}
+
+.data-table--registrations th:nth-child(2),
+.data-table--registrations td:nth-child(2) {
+  width: 14rem;
+}
+
+.data-table--registrations th:nth-child(3),
+.data-table--registrations td:nth-child(3) {
+  width: 8rem;
+  text-align: end;
+}
+
+.registration-status {
+  display: inline-flex;
+  min-height: 1.75rem;
+  align-items: center;
+  border-radius: 999rem;
+  padding-inline: var(--space-sm);
+  background: oklch(0.95 0.035 78);
+  color: var(--color-warning);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  line-height: 1.25rem;
+  white-space: nowrap;
+}
+
 .content-summary,
 .review-reason,
 .record-person,
@@ -1715,7 +1749,8 @@ textarea {
   .auth-mode-switch,
   .dashboard-panel,
   .list-surface,
-  .list-pagination button {
+  .list-pagination button,
+  .registration-status {
     border: 0.0625rem solid CanvasText;
   }
 

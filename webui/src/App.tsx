@@ -3,11 +3,12 @@ import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { AllBottleList, PendingReviewList } from './BottleLists';
 import { Dashboard } from './Dashboard';
 import { type AppPage, pageFromLocation, pageUrl, webuiUrl } from './location';
+import { RegistrationRequests } from './RegistrationRequests';
 
 type View = 'checking' | 'login' | 'main';
 type AuthMode = 'login' | 'register';
-type Session = { authenticated?: boolean; avatarUrl?: string };
-type SidebarIconName = 'bottles' | 'collapse' | 'expand' | 'home' | 'review' | 'settings';
+type Session = { account?: string | null; authenticated?: boolean; avatarUrl?: string; isOwner?: boolean };
+type SidebarIconName = 'accounts' | 'bottles' | 'collapse' | 'expand' | 'home' | 'review' | 'settings';
 
 export function App() {
   const [view, setView] = useState<View>('checking');
@@ -20,6 +21,7 @@ export function App() {
   const [registrationMessage, setRegistrationMessage] = useState('');
   const [error, setError] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string>();
+  const [isOwner, setIsOwner] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [succeeded, setSucceeded] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
@@ -33,9 +35,14 @@ export function App() {
       .then((session) => {
         if (!active) return;
         const authenticated = Boolean(session?.authenticated);
+        const owner = Boolean(session?.isOwner);
+        const requestedPage = pageFromLocation();
+        const page = requestedPage === 'registrations' && !owner ? 'home' : requestedPage;
         setAvatarUrl(session?.avatarUrl);
+        setIsOwner(owner);
+        setMainPage(page);
         setView(authenticated ? 'main' : 'login');
-        syncLocation(authenticated, pageFromLocation());
+        syncLocation(authenticated, page);
       })
       .catch(() => {
         if (active) {
@@ -49,10 +56,18 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    const updatePageFromHistory = () => setMainPage(pageFromLocation());
+    const updatePageFromHistory = () => {
+      const page = pageFromLocation();
+      if (page === 'registrations' && !isOwner) {
+        setMainPage('home');
+        syncLocation(view === 'main', 'home');
+        return;
+      }
+      setMainPage(page);
+    };
     window.addEventListener('popstate', updatePageFromHistory);
     return () => window.removeEventListener('popstate', updatePageFromHistory);
-  }, []);
+  }, [isOwner, view]);
 
   useEffect(() => {
     if (view === 'login') {
@@ -67,6 +82,7 @@ export function App() {
     setAuthMode('login');
     setRegistrationMessage('');
     setSucceeded(false);
+    setIsOwner(false);
     setError('登录已过期，请重新登录');
     setView('login');
     syncLocation(false, 'home');
@@ -106,7 +122,9 @@ export function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ account, password }),
       });
-      const result = (await response.json().catch(() => undefined)) as { error?: string; message?: string } | undefined;
+      const result = (await response.json().catch(() => undefined)) as
+        | { error?: string; isOwner?: boolean; message?: string }
+        | undefined;
       if (!response.ok) {
         setError(result?.error ?? (authMode === 'login' ? '登录失败，请稍后重试' : '申请提交失败，请稍后重试'));
         setPassword('');
@@ -122,11 +140,15 @@ export function App() {
         return;
       }
       setSucceeded(true);
+      const owner = Boolean(result?.isOwner);
+      setIsOwner(owner);
       await new Promise((resolve) =>
         window.setTimeout(resolve, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 120 : 420),
       );
       setView('main');
-      syncLocation(true, mainPage);
+      const page = mainPage === 'registrations' && !owner ? 'home' : mainPage;
+      setMainPage(page);
+      syncLocation(true, page);
     } catch {
       setError('暂时无法连接到管理服务');
     } finally {
@@ -151,7 +173,14 @@ export function App() {
   }
 
   if (view === 'main') {
-    const pageLabel = mainPage === 'pending' ? '待审核' : mainPage === 'bottles' ? '全部瓶子' : '主页';
+    const pageLabel =
+      mainPage === 'pending'
+        ? '待审核'
+        : mainPage === 'bottles'
+          ? '全部瓶子'
+          : mainPage === 'registrations'
+            ? '账号请求'
+            : '主页';
     return (
       <div className={`app-shell${sidebarCollapsed ? ' app-shell--sidebar-collapsed' : ''}`}>
         <a className="skip-link" href="#app-main">
@@ -211,6 +240,18 @@ export function App() {
               <SidebarIcon name="bottles" />
               <span className="sidebar-nav-label">全部瓶子</span>
             </button>
+            {isOwner ? (
+              <button
+                type="button"
+                className="sidebar-nav-button"
+                aria-current={mainPage === 'registrations' ? 'page' : undefined}
+                title={sidebarCollapsed ? '账号请求' : undefined}
+                onClick={() => openMainPage('registrations')}
+              >
+                <SidebarIcon name="accounts" />
+                <span className="sidebar-nav-label">账号请求</span>
+              </button>
+            ) : null}
             <button
               type="button"
               className="sidebar-nav-button sidebar-nav-button--settings"
@@ -225,6 +266,9 @@ export function App() {
           {mainPage === 'home' ? <Dashboard onSessionExpired={handleSessionExpired} /> : null}
           {mainPage === 'pending' ? <PendingReviewList onSessionExpired={handleSessionExpired} /> : null}
           {mainPage === 'bottles' ? <AllBottleList onSessionExpired={handleSessionExpired} /> : null}
+          {mainPage === 'registrations' && isOwner ? (
+            <RegistrationRequests onSessionExpired={handleSessionExpired} />
+          ) : null}
         </main>
       </div>
     );
@@ -463,6 +507,13 @@ function SidebarIcon({ name }: { name: SidebarIconName }) {
           <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
           <circle cx="16" cy="7" r="2" />
           <circle cx="8" cy="17" r="2" />
+        </>
+      ) : null}
+      {name === 'accounts' ? (
+        <>
+          <circle cx="9" cy="8" r="3" />
+          <path d="M3.5 19c.45-3.2 2.3-5 5.5-5 1.8 0 3.2.57 4.14 1.64" />
+          <path d="m15 18 2 2 4-4" />
         </>
       ) : null}
       {name === 'collapse' || name === 'expand' ? (

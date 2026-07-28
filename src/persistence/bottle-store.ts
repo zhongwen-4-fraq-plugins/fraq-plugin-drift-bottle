@@ -57,6 +57,11 @@ interface OperationRecordRow {
   detail: string | null;
 }
 
+export interface WebuiRegistrationRequestRecord {
+  userId: number;
+  createdAt: number;
+}
+
 export class BottleStore implements Disposable {
   private database?: DatabaseSync;
 
@@ -551,6 +556,27 @@ export class BottleStore implements Disposable {
       database.exec('ROLLBACK');
       throw error;
     }
+  }
+
+  webuiRegistrationRequestCount(): number {
+    const row = this.getDatabase()
+      .prepare('SELECT COUNT(*) AS count FROM bottle_webui_registration_requests')
+      .get() as {
+      count: number;
+    };
+    return row.count;
+  }
+
+  webuiRegistrationRequests(limit: number, offset: number): WebuiRegistrationRequestRecord[] {
+    const rows = this.getDatabase()
+      .prepare(`
+        SELECT user_id, created_at
+        FROM bottle_webui_registration_requests
+        ORDER BY created_at DESC, user_id DESC
+        LIMIT ? OFFSET ?
+      `)
+      .all(limit, offset) as { user_id: number; created_at: number }[];
+    return rows.map((row) => ({ userId: row.user_id, createdAt: row.created_at }));
   }
 
   setSignature(senderId: number, signature: BottleSignature): void {

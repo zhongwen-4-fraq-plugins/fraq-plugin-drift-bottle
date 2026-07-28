@@ -72,17 +72,21 @@ export class WebuiAuth {
     return this.store.approveWebuiRegistrationRequest(userId, approvedBy);
   }
 
-  isSessionValid(token: string | undefined): boolean {
+  sessionUserId(token: string | undefined): number | undefined {
     if (!token) {
-      return false;
+      return undefined;
     }
 
     const session = this.sessions.get(token);
     if (!session || session.expiresAt <= Date.now()) {
       this.sessions.delete(token);
-      return false;
+      return undefined;
     }
-    return true;
+    return session.userId;
+  }
+
+  isSessionValid(token: string | undefined): boolean {
+    return this.sessionUserId(token) !== undefined;
   }
 
   revokeSession(token: string | undefined): void {
