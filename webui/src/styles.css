@@ -419,10 +419,21 @@ textarea {
   margin-bottom: var(--space-sm);
 }
 
+.about-columns {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: var(--space-md);
+}
+
 .about-link-list {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2xs) var(--space-xs);
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2xs);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -456,22 +467,35 @@ textarea {
   stroke-width: 1.4;
 }
 
-.about-version {
+.about-runtime-list {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  min-width: 0;
+  flex-direction: column;
   gap: var(--space-sm);
-  margin: auto 0 0;
-  padding: var(--space-sm) var(--space-xs) 0;
-  color: var(--color-muted);
+  margin: 0;
+  padding: var(--space-xs) 0;
+}
+
+.about-runtime-entry {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  color: var(--color-ink);
   font-size: var(--text-meta);
   line-height: 1.25rem;
 }
 
-.about-version strong {
-  color: var(--color-ink);
-  font-variant-numeric: tabular-nums;
+.about-runtime-entry dt {
+  overflow-wrap: anywhere;
   font-weight: 600;
+}
+
+.about-runtime-entry dd {
+  margin: 0;
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .connection-label {

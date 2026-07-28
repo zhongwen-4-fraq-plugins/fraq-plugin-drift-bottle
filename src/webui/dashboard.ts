@@ -15,6 +15,14 @@ export interface DashboardOperation {
   tone: 'neutral' | 'success' | 'warning' | 'danger';
 }
 
+export interface DashboardRuntimeInfo {
+  fraqVersion: string;
+  protocolEndpoint?: {
+    name: string;
+    version: string;
+  };
+}
+
 export interface DashboardSnapshot {
   generatedAt: number;
   instanceStartedAt: number;
@@ -24,6 +32,7 @@ export interface DashboardSnapshot {
   };
   changelog: DashboardRelease[];
   operations: DashboardOperation[];
+  runtime: DashboardRuntimeInfo;
 }
 
 const CHANGELOG: DashboardRelease[] = [
@@ -62,7 +71,11 @@ const CHANGELOG: DashboardRelease[] = [
   },
 ];
 
-export function createDashboardSnapshot(api: DriftBottleApi, instanceStartedAt: number): DashboardSnapshot {
+export function createDashboardSnapshot(
+  api: DriftBottleApi,
+  instanceStartedAt: number,
+  runtime: DashboardRuntimeInfo = { fraqVersion: '未知' },
+): DashboardSnapshot {
   const operations = [
     ...api.operationRecords(100).map(formatDomainOperation),
     ...api.moderationRecords(100).map(formatModerationOperation),
@@ -79,6 +92,10 @@ export function createDashboardSnapshot(api: DriftBottleApi, instanceStartedAt: 
     },
     changelog: CHANGELOG,
     operations,
+    runtime: {
+      fraqVersion: runtime.fraqVersion,
+      protocolEndpoint: runtime.protocolEndpoint ? { ...runtime.protocolEndpoint } : undefined,
+    },
   };
 }
 

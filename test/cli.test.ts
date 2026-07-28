@@ -27,6 +27,13 @@ test('Fraq CLI 的 JSON 配置对象可以安装默认导出', async (t) => {
   const messages: LogMessage[] = [];
   const client = createMockMilkyClient();
   let messageSeq = 1;
+  client.stubApi('get_impl_info', () => ({
+    impl_name: 'Lagrange.Core',
+    impl_version: '1.2.3',
+    milky_version: '1.3',
+    qq_protocol_type: 'linux',
+    qq_protocol_version: '9.9.15',
+  }));
   client.stubApi('send_private_message', () => ({ message_seq: messageSeq++, time: 1_700_000_000 }));
   const ctx = Context.fromClient(client, {
     logHandler: (message) => messages.push(message),
@@ -59,6 +66,7 @@ test('Fraq CLI 的 JSON 配置对象可以安装默认导出', async (t) => {
   await ctx.start();
 
   assert.equal(ctx.isProvided(DriftBottleApi), true);
+  assert.ok(client.apiCalls.some((call) => call.endpoint === 'get_impl_info'));
   assert.ok(messages.some((message) => message.message === '漂流瓶 WebUI：http://127.0.0.1:4649/manage/drift-bottle/'));
   const passwordMessages = client.apiCalls
     .filter((call) => call.endpoint === 'send_private_message')
@@ -78,6 +86,24 @@ test('Fraq CLI 的 JSON 配置对象可以安装默认导出', async (t) => {
       ),
     ),
   );
+  const initialPasswordText = passwordMessages[0]?.message.find((segment) => segment.type === 'text')?.data.text;
+  const initialPassword = initialPasswordText?.match(/^您的密码是：([A-Za-z\d]{6,10})，/)?.[1];
+  assert.ok(initialPassword);
+  const login = await hono.app.request('http://localhost/manage/drift-bottle/api/session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ account: '123456789', password: initialPassword }),
+  });
+  const cookie = login.headers.get('set-cookie');
+  assert.ok(cookie);
+  const dashboard = await hono.app.request('http://localhost/manage/drift-bottle/api/dashboard', {
+    headers: { Cookie: cookie },
+  });
+  const dashboardBody = (await dashboard.json()) as { runtime: unknown };
+  assert.deepEqual(dashboardBody.runtime, {
+    fraqVersion: '0.14.0',
+    protocolEndpoint: { name: 'Lagrange.Core', version: '1.2.3' },
+  });
   const session = await hono.app.request('http://localhost/manage/drift-bottle/api/session');
   assert.deepEqual(await session.json(), {
     account: null,

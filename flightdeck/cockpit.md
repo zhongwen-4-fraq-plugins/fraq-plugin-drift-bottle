@@ -1,6 +1,6 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: `v0.3.11` 已发布，Fraq 宿主已更新到 `0.3.11`，所有 Fraq 实例均已关闭。
+Focus: WebUI 关于区域已分列展示项目链接、Fraq 与协议端版本，等待发布新版本。
 
 ## In flight
 

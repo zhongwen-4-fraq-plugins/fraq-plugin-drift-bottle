@@ -24,6 +24,13 @@ interface DashboardSnapshot {
     detail?: string;
     tone: DashboardTone;
   }[];
+  runtime: {
+    fraqVersion: string;
+    protocolEndpoint?: {
+      name: string;
+      version: string;
+    };
+  };
 }
 
 interface DashboardProps {
@@ -153,27 +160,33 @@ export function Dashboard({ onSessionExpired }: DashboardProps) {
                   <h2 id="about-title">关于</h2>
                 </div>
               </header>
-              <ul className="about-link-list">
-                <li>
-                  <AboutLink href="https://github.com/zhongwen-4-fraq-plugins/fraq-plugin-drift-bottle">
-                    GitHub 项目
-                  </AboutLink>
-                </li>
-                <li>
-                  <AboutLink href="https://github.com/zhongwen-4-fraq-plugins/fraq-plugin-drift-bottle/issues/new?labels=bug&amp;title=%5BBug%5D%20">
-                    提交 Bug
-                  </AboutLink>
-                </li>
-                <li>
-                  <AboutLink href="https://github.com/zhongwen-4-fraq-plugins/fraq-plugin-drift-bottle/issues/new?labels=question&amp;title=%5BHelp%5D%20">
-                    需要帮助
-                  </AboutLink>
-                </li>
-              </ul>
-              <p className="about-version">
-                <span>当前版本</span>
-                <strong>v{__PLUGIN_VERSION__}</strong>
-              </p>
+              <div className="about-columns">
+                <ul className="about-link-list" aria-label="项目链接">
+                  <li>
+                    <AboutLink href="https://github.com/zhongwen-4-fraq-plugins/fraq-plugin-drift-bottle">
+                      GitHub 项目
+                    </AboutLink>
+                  </li>
+                  <li>
+                    <AboutLink href="https://github.com/zhongwen-4-fraq-plugins/fraq-plugin-drift-bottle/issues/new?labels=bug&amp;title=%5BBug%5D%20">
+                      提交 Bug
+                    </AboutLink>
+                  </li>
+                  <li>
+                    <AboutLink href="https://github.com/zhongwen-4-fraq-plugins/fraq-plugin-drift-bottle/issues/new?labels=question&amp;title=%5BHelp%5D%20">
+                      需要帮助
+                    </AboutLink>
+                  </li>
+                </ul>
+                <dl className="about-runtime-list" aria-label="运行环境版本">
+                  <RuntimeVersion name="漂流瓶" version={__PLUGIN_VERSION__} />
+                  <RuntimeVersion name="Fraq" version={snapshot?.runtime.fraqVersion} />
+                  <RuntimeVersion
+                    name={snapshot?.runtime.protocolEndpoint?.name ?? '协议端'}
+                    version={snapshot?.runtime.protocolEndpoint?.version}
+                  />
+                </dl>
+              </div>
             </section>
           </div>
 
@@ -296,6 +309,15 @@ function AboutLink({ href, children }: { href: string; children: string }) {
   );
 }
 
+function RuntimeVersion({ name, version }: { name: string; version?: string }) {
+  return (
+    <div className="about-runtime-entry">
+      <dt>{name}</dt>
+      <dd>（{formatVersion(version)}）</dd>
+    </div>
+  );
+}
+
 function PanelSkeleton({ rows }: { rows: number }) {
   return (
     <div className="dashboard-skeleton" aria-hidden="true">
@@ -318,4 +340,9 @@ function formatDuration(milliseconds: number): string {
 
 function durationDateTime(milliseconds: number): string {
   return `PT${Math.max(0, Math.floor(milliseconds / 1000))}S`;
+}
+
+function formatVersion(version: string | undefined): string {
+  if (!version || version === '未知') return '—';
+  return /^v/i.test(version) ? version : `v${version}`;
 }

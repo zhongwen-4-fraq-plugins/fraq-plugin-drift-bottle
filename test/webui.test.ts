@@ -35,6 +35,10 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
     counts: { totalBottles: 12, pendingReview: 3 },
     changelog: [{ version: '0.3.6', items: ['加入主页概览'] }],
     operations: [],
+    runtime: {
+      fraqVersion: '0.14.0',
+      protocolEndpoint: { name: 'Lagrange.Core', version: '1.2.3' },
+    },
   };
   const bottles = {
     generatedAt: 1_700_000_001_000,
