@@ -1,4 +1,4 @@
-import { definePlugin } from '@fraqjs/fraq';
+import { type Context, definePlugin, msg } from '@fraqjs/fraq';
 import { AiService } from '@fraqjs/plugin-ai';
 import { HonoService } from '@fraqjs/plugin-hono';
 
@@ -8,7 +8,7 @@ import type { DriftBottleOptions } from './models/index.js';
 import { BottleStore } from './persistence/bottle-store.js';
 import { moderateBottle } from './processing/moderation.js';
 import { withModerationRecords } from './processing/moderation-records.js';
-import { WebuiAuth } from './webui/auth.js';
+import { WebuiAuth, type WebuiInitialCredential } from './webui/auth.js';
 import { createDashboardSnapshot } from './webui/dashboard.js';
 import { createBottleListPage, createPendingReviewListPage, createRegistrationRequestListPage } from './webui/lists.js';
 import { WebuiRegistration } from './webui/registration.js';
@@ -45,6 +45,13 @@ export type {
   WebuiRegistrationRequestItem,
 } from './webui/lists.js';
 
+interface PendingOwnerInitialization {
+  auth: WebuiAuth;
+  ownerIds: number[];
+}
+
+const pendingOwnerInitializations = new WeakMap<Context, PendingOwnerInitialization>();
+
 export default definePlugin({
   name: 'drift-bottle',
   inject: {
@@ -58,12 +65,7 @@ export default definePlugin({
     await store.load();
     const ownerIds = options.ownerIds ?? [];
     const webuiAuth = new WebuiAuth(store);
-    const initialCredential = await webuiAuth.initialize(ownerIds[0]);
-    if (initialCredential) {
-      ctx.logger.warn(
-        `漂流瓶 WebUI 初始账号：${initialCredential.userId}，初始密码：${initialCredential.password}（仅在首次生成时显示，请妥善保存）`,
-      );
-    }
+    pendingOwnerInitializations.set(ctx, { auth: webuiAuth, ownerIds });
     const webuiRegistration = new WebuiRegistration(webuiAuth, ctx.client, ownerIds, ctx.logger);
     const moderator = withModerationRecords(store, ctx.logger, (segments) =>
       moderateBottle(ctx.ai, segments, options.moderationModel),
@@ -83,4 +85,22 @@ export default definePlugin({
     ctx.logger.info(`漂流瓶 WebUI：${buildWebuiUrl(ctx.hono, webuiPath)}`);
     buildDriftBottleCommands(ctx, api, webuiRegistration, ownerIds);
   },
+  async start(ctx) {
+    const initialization = pendingOwnerInitializations.get(ctx);
+    pendingOwnerInitializations.delete(ctx);
+    if (!initialization) return;
+
+    const credentials = await initialization.auth.initializeOwners(initialization.ownerIds);
+    await Promise.all(credentials.map((credential) => sendInitialPassword(ctx, initialization.auth, credential)));
+  },
 });
+
+async function sendInitialPassword(ctx: Context, auth: WebuiAuth, credential: WebuiInitialCredential): Promise<void> {
+  const text = `您的密码是：${credential.password}，请妥善保管您的密码以防丢失，如若丢失请联系插件拥有者前往数据库删除您的密码`;
+  try {
+    await ctx.client.send_private_message({ user_id: credential.userId, message: msg`${text}` });
+  } catch (error) {
+    auth.removeAccount(credential.userId);
+    ctx.logger.error(`向插件主人 ${credential.userId} 发送 WebUI 初始密码失败，已撤销该账号以便下次重试`, error);
+  }
+}

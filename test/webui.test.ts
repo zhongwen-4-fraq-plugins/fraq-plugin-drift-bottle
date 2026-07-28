@@ -26,7 +26,7 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
 
   const hono = new HonoService();
   const auth = new WebuiAuth(store);
-  const initialCredential = await auth.initialize(123456789);
+  const [initialCredential] = await auth.initializeOwners([123456789]);
   assert.ok(initialCredential);
   const registrations: number[] = [];
   const dashboard = {

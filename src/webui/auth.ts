@@ -1,6 +1,7 @@
 import { randomBytes, randomInt, scrypt, timingSafeEqual } from 'node:crypto';
 
-const PASSWORD_LENGTH = 10;
+const MIN_PASSWORD_LENGTH = 6;
+const MAX_PASSWORD_LENGTH = 10;
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const HASH_PREFIX = 'scrypt-v1';
 
@@ -11,6 +12,7 @@ export interface WebuiCredentialStore {
   webuiAccountCount(): number;
   webuiAccountPasswordHash(userId: number): string | undefined;
   setWebuiAccount(userId: number, passwordHash: string, approvedBy?: number): void;
+  removeWebuiAccount(userId: number): void;
   hasWebuiRegistrationRequest(userId: number): boolean;
   createWebuiRegistrationRequest(userId: number, passwordHash: string): void;
   removeWebuiRegistrationRequest(userId: number): void;
@@ -19,26 +21,40 @@ export interface WebuiCredentialStore {
 
 export type WebuiRegistrationRequestResult = 'account-exists' | 'created' | 'pending';
 
+export interface WebuiInitialCredential {
+  password: string;
+  userId: number;
+}
+
 export class WebuiAuth {
   private readonly sessions = new Map<string, { expiresAt: number; userId: number }>();
 
   constructor(private readonly store: WebuiCredentialStore) {}
 
-  async initialize(ownerId: number | undefined): Promise<{ password: string; userId: number } | undefined> {
-    if (!isValidQqNumber(ownerId) || this.store.webuiAccountCount() > 0) {
-      return undefined;
-    }
-
+  async initializeOwners(ownerIds: number[]): Promise<WebuiInitialCredential[]> {
+    const owners = [...new Set(ownerIds.filter(isValidQqNumber))];
+    if (owners.length === 0) return [];
     const legacyPasswordHash = this.store.webuiPasswordHash();
     if (legacyPasswordHash) {
-      this.store.setWebuiAccount(ownerId, legacyPasswordHash, ownerId);
+      const firstOwnerId = owners[0];
+      if (!this.store.webuiAccountPasswordHash(firstOwnerId)) {
+        this.store.setWebuiAccount(firstOwnerId, legacyPasswordHash, firstOwnerId);
+      }
       this.store.clearWebuiPasswordHash();
-      return undefined;
     }
 
-    const password = generateInitialPassword();
-    this.store.setWebuiAccount(ownerId, await hashPassword(password), ownerId);
-    return { password, userId: ownerId };
+    const credentials: WebuiInitialCredential[] = [];
+    for (const userId of owners) {
+      if (this.store.webuiAccountPasswordHash(userId)) continue;
+      const password = generateInitialPassword();
+      this.store.setWebuiAccount(userId, await hashPassword(password), userId);
+      credentials.push({ password, userId });
+    }
+    return credentials;
+  }
+
+  removeAccount(userId: number): void {
+    this.store.removeWebuiAccount(userId);
   }
 
   async createSession(userId: number, password: string): Promise<string | undefined> {
@@ -109,8 +125,9 @@ export function generateInitialPassword(): string {
   const groups = ['ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnopqrstuvwxyz', '23456789'];
   const allCharacters = groups.join('');
   const characters = groups.map((group) => group[randomInt(group.length)]);
+  const passwordLength = randomInt(MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH + 1);
 
-  while (characters.length < PASSWORD_LENGTH) {
+  while (characters.length < passwordLength) {
     characters.push(allCharacters[randomInt(allCharacters.length)]);
   }
   for (let index = characters.length - 1; index > 0; index -= 1) {

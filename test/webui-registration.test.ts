@@ -40,7 +40,7 @@ test('WebUI 注册申请通知所有主人，任一主人同意后广播审批�
   }));
 
   const auth = new WebuiAuth(store);
-  await auth.initialize(10001);
+  await auth.initializeOwners([10001]);
   const registration = new WebuiRegistration(auth, client, [10001, 10002], ctx.logger);
   registerWebuiAccountCommands(ctx, registration, [10001, 10002]);
   await ctx.start();

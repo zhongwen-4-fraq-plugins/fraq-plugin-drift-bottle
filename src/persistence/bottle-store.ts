@@ -512,6 +512,10 @@ export class BottleStore implements Disposable {
       .run(userId, passwordHash, Date.now(), approvedBy ?? null);
   }
 
+  removeWebuiAccount(userId: number): void {
+    this.getDatabase().prepare('DELETE FROM bottle_webui_accounts WHERE user_id = ?').run(userId);
+  }
+
   hasWebuiRegistrationRequest(userId: number): boolean {
     return Boolean(
       this.getDatabase().prepare('SELECT 1 FROM bottle_webui_registration_requests WHERE user_id = ?').get(userId),

@@ -1,6 +1,6 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: WebUI 登录头像已改为跟随当前 QQ 账号，等待发布新版本。
+Focus: WebUI 已为主人列表逐账号生成并私聊初始密码，等待发布新版本。
 
 ## In flight
 

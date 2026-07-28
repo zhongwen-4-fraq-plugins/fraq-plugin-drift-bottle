@@ -1,4 +1,4 @@
-import { Context, type LogMessage } from '@fraqjs/fraq';
+import { Context, type LogMessage, type milky } from '@fraqjs/fraq';
 import { createMockMilkyClient } from '@fraqjs/mock';
 import { AiService } from '@fraqjs/plugin-ai';
 import { HonoService } from '@fraqjs/plugin-hono';
@@ -25,7 +25,10 @@ test('包元信息符合 Fraq CLI 插件约定', async () => {
 test('Fraq CLI 的 JSON 配置对象可以安装默认导出', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-cli-'));
   const messages: LogMessage[] = [];
-  const ctx = Context.fromClient(createMockMilkyClient(), {
+  const client = createMockMilkyClient();
+  let messageSeq = 1;
+  client.stubApi('send_private_message', () => ({ message_seq: messageSeq++, time: 1_700_000_000 }));
+  const ctx = Context.fromClient(client, {
     logHandler: (message) => messages.push(message),
   });
   t.after(async () => {
@@ -57,6 +60,24 @@ test('Fraq CLI 的 JSON 配置对象可以安装默认导出', async (t) => {
 
   assert.equal(ctx.isProvided(DriftBottleApi), true);
   assert.ok(messages.some((message) => message.message === '漂流瓶 WebUI：http://127.0.0.1:4649/manage/drift-bottle/'));
+  const passwordMessages = client.apiCalls
+    .filter((call) => call.endpoint === 'send_private_message')
+    .map((call) => call.params as milky.SendPrivateMessageInput_ZodInput);
+  assert.deepEqual(
+    passwordMessages.map((message) => message.user_id),
+    [123456789, 987654321],
+  );
+  assert.ok(
+    passwordMessages.every((message) =>
+      message.message.some(
+        (segment) =>
+          segment.type === 'text' &&
+          /^您的密码是：(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{6,10}，请妥善保管您的密码以防丢失，如若丢失请联系插件拥有者前往数据库删除您的密码$/.test(
+            segment.data.text,
+          ),
+      ),
+    ),
+  );
   const session = await hono.app.request('http://localhost/manage/drift-bottle/api/session');
   assert.deepEqual(await session.json(), {
     account: null,
