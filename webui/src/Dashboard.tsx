@@ -160,33 +160,31 @@ export function Dashboard({ onSessionExpired }: DashboardProps) {
                   <h2 id="about-title">关于</h2>
                 </div>
               </header>
-              <div className="about-columns">
-                <ul className="about-link-list" aria-label="项目链接">
-                  <li>
-                    <AboutLink href="https://github.com/zhongwen-4-fraq-plugins/fraq-plugin-drift-bottle">
-                      GitHub 项目
-                    </AboutLink>
-                  </li>
-                  <li>
-                    <AboutLink href="https://github.com/zhongwen-4-fraq-plugins/fraq-plugin-drift-bottle/issues/new?labels=bug&amp;title=%5BBug%5D%20">
-                      提交 Bug
-                    </AboutLink>
-                  </li>
-                  <li>
-                    <AboutLink href="https://github.com/zhongwen-4-fraq-plugins/fraq-plugin-drift-bottle/issues/new?labels=question&amp;title=%5BHelp%5D%20">
-                      需要帮助
-                    </AboutLink>
-                  </li>
-                </ul>
-                <dl className="about-runtime-list" aria-label="运行环境版本">
-                  <RuntimeVersion name="漂流瓶" version={__PLUGIN_VERSION__} />
-                  <RuntimeVersion name="Fraq" version={snapshot?.runtime.fraqVersion} />
-                  <RuntimeVersion
-                    name={snapshot?.runtime.protocolEndpoint?.name ?? '协议端'}
-                    version={snapshot?.runtime.protocolEndpoint?.version}
-                  />
-                </dl>
-              </div>
+              <dl className="about-runtime-list" aria-label="运行环境版本">
+                <RuntimeVersion name="漂流瓶" version={__PLUGIN_VERSION__} />
+                <RuntimeVersion name="Fraq" version={snapshot?.runtime.fraqVersion} />
+                <RuntimeVersion
+                  name={snapshot?.runtime.protocolEndpoint?.name ?? '协议端'}
+                  version={snapshot?.runtime.protocolEndpoint?.version}
+                />
+              </dl>
+              <nav className="about-actions" aria-label="项目链接">
+                <AboutAction
+                  href="https://github.com/zhongwen-4-fraq-plugins/fraq-plugin-drift-bottle"
+                  icon="github"
+                  label="GitHub 项目"
+                />
+                <AboutAction
+                  href="https://github.com/zhongwen-4-fraq-plugins/fraq-plugin-drift-bottle/issues/new?labels=bug&amp;title=%5BBug%5D%20"
+                  icon="bug"
+                  label="提交 Bug"
+                />
+                <AboutAction
+                  href="https://github.com/zhongwen-4-fraq-plugins/fraq-plugin-drift-bottle/issues/new?labels=question&amp;title=%5BHelp%5D%20"
+                  icon="help"
+                  label="需要帮助"
+                />
+              </nav>
             </section>
           </div>
 
@@ -298,12 +296,37 @@ function DashboardIcon({ name }: { name: DashboardIconName }) {
   );
 }
 
-function AboutLink({ href, children }: { href: string; children: string }) {
+type AboutActionIcon = 'bug' | 'github' | 'help';
+
+function AboutAction({ href, icon, label }: { href: string; icon: AboutActionIcon; label: string }) {
   return (
-    <a href={href} target="_blank" rel="noreferrer" aria-label={`${children}（在新标签页打开）`}>
-      <span>{children}</span>
-      <svg className="external-link-icon" viewBox="0 0 16 16" aria-hidden="true">
-        <path d="M6 3.5H3.5v9h9V10M9 3.5h3.5V7M12.25 3.75 7 9" />
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      aria-label={`${label}（在新标签页打开）`}
+      data-tooltip={label}
+      title={label}
+    >
+      <svg className="about-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+        {icon === 'github' ? (
+          <>
+            <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3.28-.36 6.72-1.61 6.72-7.5A5.8 5.8 0 0 0 18.22 3 5.4 5.4 0 0 0 18.13 0S16.95-.36 15 1.5a13.38 13.38 0 0 0-7 0C5.05-.36 3.87 0 3.87 0a5.4 5.4 0 0 0-.09 3 5.8 5.8 0 0 0-1.5 4c0 5.88 3.44 7.12 6.72 7.5A4.8 4.8 0 0 0 8 18v4" />
+            <path d="M8 19c-3 .92-3-2.3-4-2.5" />
+          </>
+        ) : null}
+        {icon === 'bug' ? (
+          <>
+            <path d="m8 2 1.88 1.88M14.12 3.88 16 2M9 7.13v-1a3 3 0 0 1 6 0v1" />
+            <path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6ZM12 20v-9M6.5 9C4.6 8.7 3 7.1 3 5M6 13H2M5.8 17C3.7 17.2 2 19 2 21M17.5 9C19.4 8.7 21 7.1 21 5M18 13h4M18.2 17c2.1.2 3.8 2 3.8 4" />
+          </>
+        ) : null}
+        {icon === 'help' ? (
+          <>
+            <circle cx="12" cy="12" r="9" />
+            <path d="M9.4 9a2.8 2.8 0 1 1 4.8 1.94C13.14 12 12 12.45 12 14M12 18h.01" />
+          </>
+        ) : null}
       </svg>
     </a>
   );
