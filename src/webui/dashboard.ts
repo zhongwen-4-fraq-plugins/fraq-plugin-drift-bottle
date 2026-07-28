@@ -28,6 +28,14 @@ export interface DashboardSnapshot {
 
 const CHANGELOG: DashboardRelease[] = [
   {
+    version: '0.3.11',
+    items: [
+      '登录页头像会跟随当前输入的 QQ 账号更新。',
+      '插件启动时为所有尚无账号的主人分别生成并私聊初始密码。',
+      '初始密码发送失败时自动撤销新账号，以便下次启动重新生成并发送。',
+    ],
+  },
+  {
     version: '0.3.10',
     items: [
       'WebUI 登录改为 QQ 账号与密码，并加入主人审批注册流程。',
