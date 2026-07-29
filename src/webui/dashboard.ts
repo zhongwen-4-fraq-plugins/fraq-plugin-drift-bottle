@@ -37,6 +37,14 @@ export interface DashboardSnapshot {
 
 const CHANGELOG: DashboardRelease[] = [
   {
+    version: '0.3.15',
+    items: [
+      'AI 审核结构不匹配时会进行一次受限重试，并保存响应摘要、校验原因和 Token 等诊断信息。',
+      '全部瓶子列表统一按瓶子 ID、时间、来源、消息段类型和内容排列，并完整显示瓶子 ID。',
+      '设置页面新增插件配置和当前账号密码修改，支持权限校验、持久化与响应式表单。',
+    ],
+  },
+  {
     version: '0.3.14',
     items: [
       '待审核与全部瓶子列表的内容类型改为响应式标签。',
