@@ -37,6 +37,14 @@ export interface DashboardSnapshot {
 
 const CHANGELOG: DashboardRelease[] = [
   {
+    version: '0.3.16',
+    items: [
+      '投瓶审核支持 AI 与人工模式切换，人工审核会保留完整投瓶草稿供主人或管理员处理。',
+      '机器人新增待审核投瓶的通过与拒绝命令，并要求拒绝时填写理由。',
+      '全部瓶子列表可按需向下展开评论，桌面与移动端共享缓存并支持加载失败重试。',
+    ],
+  },
+  {
     version: '0.3.15',
     items: [
       'AI 审核结构不匹配时会进行一次受限重试，并保存响应摘要、校验原因和 Token 等诊断信息。',
