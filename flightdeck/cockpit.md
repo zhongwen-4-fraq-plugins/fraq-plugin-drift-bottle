@@ -1,10 +1,10 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: 正在发布 `v0.3.13`；检查、31 项测试与生产构建通过，等待提交并推送 Tag。
+Focus: `v0.3.13` 已发布，Fraq 宿主已更新到 `0.3.13`，所有 Fraq 实例均已关闭。
 
 ## In flight
 
-- `release-v0.3.13` — 验证通过，等待推送 Tag、npm 发布与宿主更新。
+无。
 
 ## Next
 
