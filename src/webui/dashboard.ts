@@ -37,6 +37,14 @@ export interface DashboardSnapshot {
 
 const CHANGELOG: DashboardRelease[] = [
   {
+    version: '0.3.14',
+    items: [
+      '待审核与全部瓶子列表的内容类型改为响应式标签。',
+      '待审核列表新增勾号通过投放和叉号拒绝归档，拒绝理由必须填写。',
+      '插件主人和数据库管理员均可人工审核；旧记录缺少投瓶上下文时仅允许拒绝归档。',
+    ],
+  },
+  {
     version: '0.3.13',
     items: ['关于区域的 GitHub、Bug 和帮助入口改为底部图标操作，并完善键盘提示与触控尺寸。'],
   },
