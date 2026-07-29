@@ -56,6 +56,7 @@ test('Fraq CLI 的 JSON 配置对象可以安装默认导出', async (t) => {
   const options = JSON.parse(
     JSON.stringify({
       storagePath: join(directory, 'bottles.db'),
+      moderationMode: 'manual',
       moderationModel: 'test',
       ownerIds: [123456789, 987654321],
       webuiPath: '/manage/drift-bottle/',
@@ -96,6 +97,11 @@ test('Fraq CLI 的 JSON 配置对象可以安装默认导出', async (t) => {
   });
   const cookie = login.headers.get('set-cookie');
   assert.ok(cookie);
+  const settings = await hono.app.request('http://localhost/manage/drift-bottle/api/settings', {
+    headers: { Cookie: cookie },
+  });
+  const settingsBody = (await settings.json()) as { moderationMode?: unknown };
+  assert.equal(settingsBody.moderationMode, 'manual');
   const dashboard = await hono.app.request('http://localhost/manage/drift-bottle/api/dashboard', {
     headers: { Cookie: cookie },
   });

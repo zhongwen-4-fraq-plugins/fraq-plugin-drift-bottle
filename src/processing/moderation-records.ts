@@ -1,6 +1,6 @@
 import type { Logger } from '@fraqjs/fraq';
 
-import type { BottleSegment } from '../models/index.js';
+import type { BottleSegment, NewDriftBottle } from '../models/index.js';
 import type { BottleStore } from '../persistence/bottle-store.js';
 import {
   type BottleModerator,
@@ -12,6 +12,11 @@ import {
 } from './moderation.js';
 
 export type ModerationProcess =
+  | {
+      manual: {
+        reason: string;
+      };
+    }
   | {
       result: Pick<ModerationResult, 'approved' | 'categories' | 'reason'>;
     }
@@ -47,6 +52,17 @@ export interface ModerationRecord {
 }
 
 export type NewModerationRecord = Omit<ModerationRecord, 'id' | 'createdAt'>;
+
+export function queueBottleForManualReview(store: BottleStore, bottleDraft: NewDriftBottle): ModerationRecord {
+  return store.addModerationRecord({
+    content: bottleDraft.segments,
+    process: { manual: { reason: '等待人工审核' } },
+    success: true,
+    approved: false,
+    target: 'bottle-content',
+    bottleDraft,
+  });
+}
 
 export function withModerationRecords(
   store: BottleStore,

@@ -2,6 +2,7 @@ import type { Disposable } from '@fraqjs/fraq';
 
 import type {
   BottleComment,
+  BottleModerationMode,
   BottleOperationRecord,
   BottleSignature,
   DriftBottle,
@@ -70,6 +71,7 @@ export interface WebuiRegistrationRequestRecord {
 }
 
 export interface PersistedWebuiSettings {
+  moderationMode?: BottleModerationMode;
   moderationModel?: string;
   ownerIds: unknown;
   webuiPath: string;
@@ -224,12 +226,19 @@ export class BottleStore implements Disposable {
     this.database.exec(`
       CREATE TABLE IF NOT EXISTS bottle_webui_settings (
         id INTEGER PRIMARY KEY CHECK (id = 1),
+        moderation_mode TEXT,
         moderation_model TEXT,
         owner_ids TEXT NOT NULL,
         webui_path TEXT NOT NULL,
         updated_at INTEGER NOT NULL
       )
     `);
+    const settingsColumns = this.database.prepare('PRAGMA table_info(bottle_webui_settings)').all() as {
+      name: string;
+    }[];
+    if (!settingsColumns.some((column) => column.name === 'moderation_mode')) {
+      this.database.exec('ALTER TABLE bottle_webui_settings ADD COLUMN moderation_mode TEXT');
+    }
   }
 
   async add(input: NewDriftBottle): Promise<DriftBottle> {
@@ -749,8 +758,17 @@ export class BottleStore implements Disposable {
 
   webuiSettings(): PersistedWebuiSettings | undefined {
     const row = this.getDatabase()
-      .prepare('SELECT moderation_model, owner_ids, webui_path FROM bottle_webui_settings WHERE id = 1')
-      .get() as { moderation_model: string | null; owner_ids: string; webui_path: string } | undefined;
+      .prepare(
+        'SELECT moderation_mode, moderation_model, owner_ids, webui_path FROM bottle_webui_settings WHERE id = 1',
+      )
+      .get() as
+      | {
+          moderation_mode: BottleModerationMode | null;
+          moderation_model: string | null;
+          owner_ids: string;
+          webui_path: string;
+        }
+      | undefined;
     if (!row) return undefined;
 
     let ownerIds: unknown;
@@ -760,6 +778,7 @@ export class BottleStore implements Disposable {
       ownerIds = undefined;
     }
     return {
+      ...(row.moderation_mode === null ? {} : { moderationMode: row.moderation_mode }),
       ...(row.moderation_model === null ? {} : { moderationModel: row.moderation_model }),
       ownerIds,
       webuiPath: row.webui_path,
@@ -769,15 +788,22 @@ export class BottleStore implements Disposable {
   setWebuiSettings(settings: Omit<PersistedWebuiSettings, 'ownerIds'> & { ownerIds: number[] }): void {
     this.getDatabase()
       .prepare(`
-        INSERT INTO bottle_webui_settings (id, moderation_model, owner_ids, webui_path, updated_at)
-        VALUES (1, ?, ?, ?, ?)
+        INSERT INTO bottle_webui_settings (id, moderation_mode, moderation_model, owner_ids, webui_path, updated_at)
+        VALUES (1, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
+          moderation_mode = excluded.moderation_mode,
           moderation_model = excluded.moderation_model,
           owner_ids = excluded.owner_ids,
           webui_path = excluded.webui_path,
           updated_at = excluded.updated_at
       `)
-      .run(settings.moderationModel ?? null, JSON.stringify(settings.ownerIds), settings.webuiPath, Date.now());
+      .run(
+        settings.moderationMode ?? null,
+        settings.moderationModel ?? null,
+        JSON.stringify(settings.ownerIds),
+        settings.webuiPath,
+        Date.now(),
+      );
   }
 
   setSignature(senderId: number, signature: BottleSignature): void {

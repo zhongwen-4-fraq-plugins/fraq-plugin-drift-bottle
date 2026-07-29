@@ -90,3 +90,48 @@ test('投瓶审核会携带人工投放所需的完整草稿上下文', async (t
     },
   ]);
 });
+
+test('人工审核模式会跳过投瓶 AI 并保存可投放草稿', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-api-manual-review-'));
+  const client = createMockMilkyClient();
+  const store = new BottleStore(join(directory, 'bottles.db'));
+  await store.load();
+  store.setSignature(10001, { type: 'alias', name: '海风' });
+  let moderationCalls = 0;
+  const api = new DriftBottleApi(
+    client,
+    store,
+    async () => {
+      moderationCalls += 1;
+      return { approved: true, categories: [], reason: '' };
+    },
+    () => 'manual',
+  );
+  t.after(async () => {
+    api.dispose();
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  const sender = client.inbox.group({ groupId: 20001, userId: 10001 }, [inseg.text('等待主人确认')]);
+  const result = await api.createBottle(sender, [inseg.text('等待主人确认')]);
+  assert.equal(result.status, 'pending');
+  assert.equal(moderationCalls, 0);
+  assert.equal(api.count(), 0);
+  assert.equal(api.pendingModerationCount(), 1);
+
+  const [record] = api.pendingModerationRecords();
+  assert.ok(record);
+  assert.deepEqual(record.process, { manual: { reason: '等待人工审核' } });
+  assert.equal(record.id, result.status === 'pending' ? result.reviewId : undefined);
+  assert.deepEqual(record.bottleDraft, {
+    senderId: 10001,
+    displayName: '海风',
+    source: { scene: 'group', peerId: 20001 },
+    segments: [inseg.text('等待主人确认')],
+  });
+
+  const approved = api.approveModerationRecord(record.id, 90001);
+  assert.equal(approved.status, 'approved');
+  assert.equal(api.count(), 1);
+  assert.equal(api.pendingModerationCount(), 0);
+});

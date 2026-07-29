@@ -10,6 +10,7 @@ interface SettingsPageProps {
 
 interface PluginSettings {
   activeWebuiPath: string;
+  moderationMode: 'ai' | 'manual';
   moderationModel?: string;
   ownerIds: number[];
   restartRequired: boolean;
@@ -32,6 +33,7 @@ const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{6,10}$/;
 
 export function SettingsPage({ isOwner, onSessionExpired }: SettingsPageProps) {
   const [settings, setSettings] = useState<PluginSettings>();
+  const [moderationMode, setModerationMode] = useState<'ai' | 'manual'>('ai');
   const [moderationModel, setModerationModel] = useState('');
   const [ownerIds, setOwnerIds] = useState('');
   const [webuiPath, setWebuiPath] = useState('');
@@ -71,6 +73,7 @@ export function SettingsPage({ isOwner, onSessionExpired }: SettingsPageProps) {
       .then((result) => {
         if (!result) return;
         setSettings(result);
+        setModerationMode(result.moderationMode);
         setModerationModel(result.moderationModel ?? '');
         setOwnerIds(result.ownerIds.join('\n'));
         setWebuiPath(result.webuiPath);
@@ -104,7 +107,7 @@ export function SettingsPage({ isOwner, onSessionExpired }: SettingsPageProps) {
         method: 'PUT',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ moderationModel, ownerIds: parsedOwners.value, webuiPath }),
+        body: JSON.stringify({ moderationMode, moderationModel, ownerIds: parsedOwners.value, webuiPath }),
       });
       if (response.status === 401) {
         onSessionExpired();
@@ -125,6 +128,7 @@ export function SettingsPage({ isOwner, onSessionExpired }: SettingsPageProps) {
         return;
       }
       setSettings(result);
+      setModerationMode(result.moderationMode);
       setModerationModel(result.moderationModel ?? '');
       setOwnerIds(result.ownerIds.join('\n'));
       setWebuiPath(result.webuiPath);
@@ -214,7 +218,7 @@ export function SettingsPage({ isOwner, onSessionExpired }: SettingsPageProps) {
         <section className="settings-section" aria-labelledby="plugin-settings-title">
           <header className="settings-section-header">
             <h2 id="plugin-settings-title">插件配置</h2>
-            <p>审核模型和主人列表保存后立即生效；修改 WebUI 路径需要重启 Fraq。</p>
+            <p>审核方式、模型和主人列表保存后立即生效；修改 WebUI 路径需要重启 Fraq。</p>
           </header>
           {configLoading ? (
             <div className="settings-form-skeleton" aria-label="正在载入插件配置">
@@ -230,6 +234,26 @@ export function SettingsPage({ isOwner, onSessionExpired }: SettingsPageProps) {
             >
               <div className="settings-field-grid">
                 <div className="settings-field">
+                  <label htmlFor="moderation-mode">投瓶审核方式</label>
+                  <select
+                    id="moderation-mode"
+                    value={moderationMode}
+                    onChange={(event) => {
+                      setModerationMode(event.target.value as 'ai' | 'manual');
+                      setConfigMessage(undefined);
+                    }}
+                    disabled={configSaving}
+                  >
+                    <option value="ai">AI 自动审核</option>
+                    <option value="manual">人工审核</option>
+                  </select>
+                  <p className="settings-field-hint">
+                    {moderationMode === 'manual'
+                      ? '所有新投瓶会进入待审核列表，通过后才会公开。'
+                      : 'AI 通过后立即公开；未通过或中断时转入待审核列表。'}
+                  </p>
+                </div>
+                <div className="settings-field">
                   <label htmlFor="moderation-model">AI 审核模型</label>
                   <input
                     id="moderation-model"
@@ -242,7 +266,7 @@ export function SettingsPage({ isOwner, onSessionExpired }: SettingsPageProps) {
                     }}
                     disabled={configSaving}
                   />
-                  <p className="settings-field-hint">可填写模型别名或“提供商/模型”。</p>
+                  <p className="settings-field-hint">可填写模型别名或“提供商/模型”；评论与署名审核仍会使用此模型。</p>
                 </div>
                 <div className="settings-field">
                   <label htmlFor="webui-path">WebUI 路径</label>

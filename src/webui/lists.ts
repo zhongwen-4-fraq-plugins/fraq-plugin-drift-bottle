@@ -12,7 +12,7 @@ export interface WebuiPendingReviewItem {
   id: string;
   createdAt: number;
   content: WebuiContentSummary;
-  status: 'rejected' | 'error';
+  status: 'pending' | 'rejected' | 'error';
   reason: string;
   categories: string[];
   totalTokens?: number;
@@ -108,6 +108,17 @@ function formatPendingReview(record: ModerationRecord): WebuiPendingReviewItem {
         }
       : undefined,
   };
+  if ('manual' in record.process) {
+    return {
+      id: record.id,
+      createdAt: record.createdAt,
+      content: summarizeSegments(record.content),
+      status: 'pending',
+      reason: record.process.manual.reason,
+      categories: [],
+      ...context,
+    };
+  }
   if ('error' in record.process) {
     return {
       id: record.id,

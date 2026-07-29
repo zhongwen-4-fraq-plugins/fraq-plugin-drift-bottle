@@ -28,6 +28,7 @@ export type {
 export { DriftBottleApi, DriftBottleApiError } from './api/drift-bottle-api.js';
 export type {
   BottleComment,
+  BottleModerationMode,
   BottleOperationAction,
   BottleOperationRecord,
   BottleSegment,
@@ -84,7 +85,7 @@ export default definePlugin({
     const moderator = withModerationRecords(store, ctx.logger, (segments) =>
       moderateBottle(ctx.ai, segments, webuiSettings.moderationModel),
     );
-    const api = new DriftBottleApi(ctx.client, store, moderator);
+    const api = new DriftBottleApi(ctx.client, store, moderator, () => webuiSettings.moderationMode);
     ctx.provide(DriftBottleApi, api);
     const webuiPath = registerWebuiRoutes(ctx.hono, {
       auth: webuiAuth,

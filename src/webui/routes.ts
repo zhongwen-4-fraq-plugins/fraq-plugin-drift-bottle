@@ -12,6 +12,7 @@ import type {
 import type { WebuiRegistration } from './registration.js';
 import {
   type EditableWebuiSettings,
+  normalizeModerationMode,
   normalizeModerationModel,
   normalizeOwnerIds,
   normalizeWebuiPath,
@@ -351,6 +352,8 @@ function readSettings(body: unknown): { value: EditableWebuiSettings } | { error
   if (
     !body ||
     typeof body !== 'object' ||
+    !('moderationMode' in body) ||
+    typeof body.moderationMode !== 'string' ||
     !('moderationModel' in body) ||
     typeof body.moderationModel !== 'string' ||
     !('ownerIds' in body) ||
@@ -365,6 +368,7 @@ function readSettings(body: unknown): { value: EditableWebuiSettings } | { error
   try {
     return {
       value: {
+        moderationMode: normalizeModerationMode(body.moderationMode as 'ai' | 'manual'),
         moderationModel: normalizeModerationModel(body.moderationModel),
         ownerIds: normalizeOwnerIds(body.ownerIds as number[]),
         webuiPath: normalizeWebuiPath(body.webuiPath),

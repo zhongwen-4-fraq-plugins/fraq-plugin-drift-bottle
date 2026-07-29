@@ -8,8 +8,11 @@ export type BottleSegment =
 
 export type BottleSignature = { type: 'anonymous' } | { type: 'original' } | { type: 'alias'; name: string };
 
+export type BottleModerationMode = 'ai' | 'manual';
+
 export interface DriftBottleOptions {
   storagePath?: string;
+  moderationMode?: BottleModerationMode;
   moderationModel?: string;
   ownerIds?: number[];
   webuiPath?: string;

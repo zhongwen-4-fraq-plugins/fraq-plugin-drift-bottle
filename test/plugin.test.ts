@@ -166,6 +166,42 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
   ]);
 });
 
+test('人工审核模式会回复已提交并把投瓶放入待审核列表', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-manual-command-'));
+  const client = createMockMilkyClient();
+  client.stubApi('send_group_message', () => ({ message_seq: 1, time: 1_700_000_000 }));
+  const ctx = Context.fromClient(client);
+  const store = new BottleStore(join(directory, 'bottles.db'));
+  await store.load();
+  const api = new DriftBottleApi(
+    client,
+    store,
+    async () => ({ approved: true, categories: [], reason: '' }),
+    () => 'manual',
+  );
+  ctx.provide(DriftBottleApi, api);
+  registerDriftBottleCommands(ctx, api);
+  await ctx.start();
+  t.after(async () => {
+    await ctx.stop();
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  await dispatchGroupMessage(ctx, client, 10001, inmsg`扔瓶子 等待审核的内容`);
+
+  const replies = client.apiCalls
+    .filter((call) => call.endpoint === 'send_group_message')
+    .map((call) => call.params as milky.SendGroupMessageInput_ZodInput);
+  assert.deepEqual(replies, [
+    {
+      group_id: 20001,
+      message: [{ type: 'text', data: { text: '漂流瓶已提交人工审核，通过后会进入海里。' } }],
+    },
+  ]);
+  assert.equal(api.pendingModerationCount(), 1);
+  assert.equal(api.count(), 0);
+});
+
 async function dispatchGroupMessage(
   ctx: Context,
   client: ReturnType<typeof createMockMilkyClient>,

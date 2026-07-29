@@ -1031,6 +1031,11 @@ textarea {
   color: var(--color-warning);
 }
 
+.review-status--pending {
+  background: oklch(0.94 0.025 220);
+  color: var(--color-primary-hover);
+}
+
 .review-status--error {
   background: oklch(0.95 0.025 28);
   color: var(--color-error);
@@ -1576,6 +1581,7 @@ textarea {
 }
 
 .settings-field > input,
+.settings-field > select,
 .settings-field > textarea,
 .settings-password-control {
   width: 100%;
@@ -1590,6 +1596,7 @@ textarea {
 }
 
 .settings-field > input,
+.settings-field > select,
 .settings-field > textarea,
 .settings-password-control input {
   font-size: var(--text-body);
@@ -1601,6 +1608,11 @@ textarea {
   padding: var(--space-xs) var(--space-sm);
 }
 
+.settings-field > select {
+  min-height: 2.75rem;
+  padding: var(--space-xs) var(--space-sm);
+}
+
 .settings-field > textarea {
   min-height: 7rem;
   resize: vertical;
@@ -1608,6 +1620,7 @@ textarea {
 }
 
 .settings-field > input:focus,
+.settings-field > select:focus,
 .settings-field > textarea:focus,
 .settings-password-control:focus-within {
   border-color: var(--color-primary);
@@ -1615,6 +1628,7 @@ textarea {
 }
 
 .settings-field > input:focus,
+.settings-field > select:focus,
 .settings-field > textarea:focus,
 .settings-password-control input:focus {
   outline: 0;
@@ -1633,6 +1647,7 @@ textarea {
 }
 
 .settings-field > input:disabled,
+.settings-field > select:disabled,
 .settings-field > textarea:disabled,
 .settings-password-control:has(input:disabled) {
   background: var(--color-surface);
@@ -2397,6 +2412,7 @@ textarea {
   }
 
   .settings-field > input,
+  .settings-field > select,
   .settings-password-control,
   .settings-form-actions > button,
   .settings-load-error button {
@@ -2422,6 +2438,7 @@ textarea {
   }
 
   .settings-field > input,
+  .settings-field > select,
   .settings-field > textarea,
   .settings-password-control {
     border: 0.0625rem solid CanvasText;

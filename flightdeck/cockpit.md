@@ -1,16 +1,19 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: AI 结构化响应修复已通过本地验证，等待发布并在真实网关回归。
+Focus: 投瓶人工审核模式已完成并通过本地验证，等待发布与宿主回归。
 
 ## In flight
 
-- `ai-schema-response` — 精确提示词、单次受限重试和失败诊断已实现，等待发布与真实网关回归。
+- `manual-bottle-moderation` — AI/人工投瓶审核可即时切换，人工记录可在 WebUI 通过或拒绝，等待发布与宿主回归。
+- `ai-schema-response` — 已随 v0.3.15 发布，仍待真实网关内容审核回归。
+- `bottle-list-order` — 工作目录存在但缺少 `index.md`，需要决定恢复或清理。
 
 ## Next
 
-- 发布 AI 结构化响应修复并更新宿主，完成真实网关回归。
+- 发布投瓶人工审核模式并更新宿主，完成投瓶入队和人工通过回归。
+- 完成 AI 结构化响应修复的真实网关回归。
 - 为全部瓶子列表增加详情、评论查看和管理操作。
 
 ## Open questions
 
-无。
+- `bottle-list-order` 是否仍需恢复为有效工作包？

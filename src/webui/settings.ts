@@ -1,8 +1,9 @@
-import type { DriftBottleOptions } from '../models/index.js';
+import type { BottleModerationMode, DriftBottleOptions } from '../models/index.js';
 import type { BottleStore, PersistedWebuiSettings } from '../persistence/bottle-store.js';
 import { parseQqAccount } from './auth.js';
 
 export interface EditableWebuiSettings {
+  moderationMode: BottleModerationMode;
   moderationModel?: string;
   ownerIds: number[];
   webuiPath: string;
@@ -17,6 +18,7 @@ export interface WebuiSettingsSnapshot extends EditableWebuiSettings {
 export class WebuiSettings {
   private activeWebuiPath = '';
   private desiredWebuiPath: string;
+  private mode: BottleModerationMode;
   private model?: string;
   readonly ownerIds: number[];
   readonly storagePath: string;
@@ -27,6 +29,7 @@ export class WebuiSettings {
   ) {
     const persisted = store.webuiSettings();
     this.storagePath = options.storagePath ?? './data/drift-bottles.db';
+    this.mode = readModerationMode(persisted) ?? normalizeModerationMode(options.moderationMode);
     this.model = persisted ? readModerationModel(persisted) : normalizeModerationModel(options.moderationModel);
     this.ownerIds = readOwnerIds(persisted) ?? normalizeConfiguredOwnerIds(options.ownerIds ?? []);
     this.desiredWebuiPath = readWebuiPath(persisted) ?? normalizeWebuiPath(options.webuiPath ?? '/drift-bottle');
@@ -34,6 +37,10 @@ export class WebuiSettings {
 
   get moderationModel(): string | undefined {
     return this.model;
+  }
+
+  get moderationMode(): BottleModerationMode {
+    return this.mode;
   }
 
   get webuiPath(): string {
@@ -45,14 +52,17 @@ export class WebuiSettings {
   }
 
   update(settings: EditableWebuiSettings): void {
+    const mode = normalizeModerationMode(settings.moderationMode);
     const model = normalizeModerationModel(settings.moderationModel);
     const ownerIds = normalizeOwnerIds(settings.ownerIds);
     const webuiPath = normalizeWebuiPath(settings.webuiPath);
     this.store.setWebuiSettings({
+      moderationMode: mode,
       moderationModel: model,
       ownerIds,
       webuiPath,
     });
+    this.mode = mode;
     this.model = model;
     this.ownerIds.splice(0, this.ownerIds.length, ...ownerIds);
     this.desiredWebuiPath = webuiPath;
@@ -61,6 +71,7 @@ export class WebuiSettings {
   snapshot(): WebuiSettingsSnapshot {
     return {
       activeWebuiPath: this.activeWebuiPath || this.desiredWebuiPath,
+      moderationMode: this.mode,
       moderationModel: this.model,
       ownerIds: [...this.ownerIds],
       restartRequired: Boolean(this.activeWebuiPath && this.activeWebuiPath !== this.desiredWebuiPath),
@@ -68,6 +79,12 @@ export class WebuiSettings {
       webuiPath: this.desiredWebuiPath,
     };
   }
+}
+
+export function normalizeModerationMode(mode: BottleModerationMode | undefined): BottleModerationMode {
+  if (mode === undefined || mode === 'ai') return 'ai';
+  if (mode === 'manual') return 'manual';
+  throw new Error('投瓶审核方式必须是 AI 审核或人工审核');
 }
 
 export function normalizeWebuiPath(path: string): string {
@@ -99,6 +116,15 @@ function readModerationModel(settings: PersistedWebuiSettings | undefined): stri
   if (!settings || settings.moderationModel === undefined) return undefined;
   try {
     return normalizeModerationModel(settings.moderationModel);
+  } catch {
+    return undefined;
+  }
+}
+
+function readModerationMode(settings: PersistedWebuiSettings | undefined): BottleModerationMode | undefined {
+  if (!settings || settings.moderationMode === undefined) return undefined;
+  try {
+    return normalizeModerationMode(settings.moderationMode);
   } catch {
     return undefined;
   }

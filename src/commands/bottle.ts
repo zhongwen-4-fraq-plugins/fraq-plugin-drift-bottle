@@ -67,6 +67,10 @@ export function registerDriftBottleCommands(ctx: Context, api: DriftBottleApi): 
       );
       return;
     }
+    if (result.status === 'pending') {
+      await session.reply('漂流瓶已提交人工审核，通过后会进入海里。');
+      return;
+    }
     await session.reply(`漂流瓶已经扔进海里了（ID：${result.bottle.id}）。`);
   }
 

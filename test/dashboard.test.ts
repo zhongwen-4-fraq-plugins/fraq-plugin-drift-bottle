@@ -35,6 +35,12 @@ test('主页概览汇总瓶子、待审核、更新日志和完整操作记录',
     success: true,
     approved: false,
   });
+  store.addModerationRecord({
+    content: [inseg.text('等待人工审核')],
+    process: { manual: { reason: '等待人工审核' } },
+    success: true,
+    approved: false,
+  });
 
   const instanceStartedAt = Date.now() - 5000;
   const snapshot = createDashboardSnapshot(api, instanceStartedAt, {
@@ -43,7 +49,7 @@ test('主页概览汇总瓶子、待审核、更新日志和完整操作记录',
   });
 
   assert.equal(snapshot.instanceStartedAt, instanceStartedAt);
-  assert.deepEqual(snapshot.counts, { totalBottles: 1, pendingReview: 1 });
+  assert.deepEqual(snapshot.counts, { totalBottles: 1, pendingReview: 2 });
   assert.deepEqual(snapshot.runtime, {
     fraqVersion: '0.14.0',
     protocolEndpoint: { name: 'Lagrange.Core', version: '1.2.3' },
@@ -51,5 +57,6 @@ test('主页概览汇总瓶子、待审核、更新日志和完整操作记录',
   assert.equal(snapshot.changelog[0]?.version, '0.3.15');
   assert.ok(snapshot.operations.some((operation) => operation.title === '投递漂流瓶'));
   assert.ok(snapshot.operations.some((operation) => operation.title === 'AI 审核未通过'));
+  assert.ok(snapshot.operations.some((operation) => operation.title === '等待人工审核'));
   assert.ok(snapshot.operations.every((operation) => operation.createdAt > 0));
 });

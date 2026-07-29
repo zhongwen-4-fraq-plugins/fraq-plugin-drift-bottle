@@ -156,6 +156,15 @@ function formatDomainOperation(record: BottleOperationRecord): DashboardOperatio
 }
 
 function formatModerationOperation(record: ModerationRecord): DashboardOperation {
+  if ('manual' in record.process) {
+    return {
+      id: `moderation-${record.id}`,
+      createdAt: record.createdAt,
+      title: '等待人工审核',
+      detail: record.process.manual.reason,
+      tone: 'warning',
+    };
+  }
   if ('error' in record.process) {
     return {
       id: `moderation-${record.id}`,

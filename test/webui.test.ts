@@ -53,6 +53,7 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   const pendingReviews = { ...bottles, total: 2 };
   let pluginSettings: WebuiSettingsSnapshot = {
     activeWebuiPath: '/manage/drift-bottle',
+    moderationMode: 'ai',
     moderationModel: 'openai/gpt-4o-mini',
     ownerIds: [123456789],
     restartRequired: false,
@@ -297,21 +298,39 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   const selfRemoval = await hono.app.request('http://localhost/manage/drift-bottle/api/settings', {
     method: 'PUT',
     headers: { Cookie: cookie, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ moderationModel: '', ownerIds: [987654321], webuiPath: '/drift-bottle' }),
+    body: JSON.stringify({
+      moderationMode: 'ai',
+      moderationModel: '',
+      ownerIds: [987654321],
+      webuiPath: '/drift-bottle',
+    }),
   });
   assert.equal(selfRemoval.status, 400);
 
   const invalidSettings = await hono.app.request('http://localhost/manage/drift-bottle/api/settings', {
     method: 'PUT',
     headers: { Cookie: cookie, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ moderationModel: '', ownerIds: ['123456789'], webuiPath: '/' }),
+    body: JSON.stringify({ moderationMode: 'ai', moderationModel: '', ownerIds: ['123456789'], webuiPath: '/' }),
   });
   assert.equal(invalidSettings.status, 400);
+
+  const invalidModerationMode = await hono.app.request('http://localhost/manage/drift-bottle/api/settings', {
+    method: 'PUT',
+    headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      moderationMode: 'automatic',
+      moderationModel: '',
+      ownerIds: [123456789],
+      webuiPath: '/drift-bottle',
+    }),
+  });
+  assert.equal(invalidModerationMode.status, 400);
 
   const updatedSettings = await hono.app.request('http://localhost/manage/drift-bottle/api/settings', {
     method: 'PUT',
     headers: { Cookie: cookie, 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      moderationMode: 'manual',
       moderationModel: ' openai/gpt-5-mini ',
       ownerIds: [123456789, 987654321],
       webuiPath: '/new/drift-bottle/',
@@ -320,6 +339,7 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   assert.equal(updatedSettings.status, 200);
   assert.deepEqual(await updatedSettings.json(), {
     activeWebuiPath: '/manage/drift-bottle',
+    moderationMode: 'manual',
     moderationModel: 'openai/gpt-5-mini',
     ownerIds: [123456789, 987654321],
     restartRequired: true,

@@ -31,7 +31,7 @@ export default definePlugin({
 - `src/processing/`：消息转换、署名解析和 AI 审核处理。
 - `src/commands/`：Fraq 命令构建与用户交互。
 
-Fraq 漂流瓶插件，支持投递、随机捡取、匿名、原名或别名署名，并使用 AI 审核脏话与 R18 内容。
+Fraq 漂流瓶插件，支持投递、随机捡取、匿名、原名或别名署名，并可选择 AI 或人工审核投瓶内容。
 
 需要 Node.js 22.13.0 或更高版本。
 
@@ -64,6 +64,7 @@ plugins:
 
   drift-bottle:
     storagePath: ./data/drift-bottles.db
+    moderationMode: ai
     moderationModel: deepseek/deepseek-chat
     ownerIds: [123456789]
     webuiPath: /drift-bottle
@@ -87,7 +88,7 @@ WebUI 由 Fraq Hono 插件统一提供服务，默认地址为 `http://127.0.0.1
 
 插件载入时会扫描 `ownerIds`，为其中每个尚无账号的主人创建 WebUI 账号，分别生成一段 6–10 位、同时包含大写字母、小写字母和数字的随机密码，并将密码私聊发送给对应主人。SQLite 仅保存带盐密码哈希；已有账号不会在重启时被覆盖或重复发送，旧版单密码会自动迁移到首位主人账号。
 
-登录后可以在“设置”页面修改当前账号密码。插件主人还可以修改 AI 审核模型、主人 QQ 号列表和 WebUI 路径；审核模型与主人列表立即生效，WebUI 路径在重启 Fraq 后生效。设置页面中的数据库路径仅供查看，如需修改请调整 Fraq 插件配置并重启。
+登录后可以在“设置”页面修改当前账号密码。插件主人还可以修改投瓶审核方式、AI 审核模型、主人 QQ 号列表和 WebUI 路径；审核方式、审核模型与主人列表立即生效，WebUI 路径在重启 Fraq 后生效。设置页面中的数据库路径仅供查看，如需修改请调整 Fraq 插件配置并重启。
 
 其他 QQ 号可以在登录页设置 6–10 位、同时包含大小写英文字母和数字的密码并提交注册申请。机器人会私聊所有主人；任一主人引用回复该注册请求并发送：
 
@@ -112,6 +113,7 @@ import DriftBottlePlugin from 'fraq-plugin-drift-bottle';
 ctx.install(HonoPlugin, { host: '127.0.0.1', port: 4649 });
 ctx.install(DriftBottlePlugin, {
   storagePath: './data/drift-bottles.db',
+  moderationMode: 'ai',
   moderationModel: 'fast',
   ownerIds: [123456789],
 });
@@ -124,6 +126,7 @@ ctx.install(DriftBottlePlugin, {
 | 字段 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `storagePath` | `string` | `./data/drift-bottles.db` | SQLite 数据库路径；父目录会自动创建。 |
+| `moderationMode` | `'ai' \| 'manual'` | `'ai'` | 投瓶审核方式；人工模式会先进入待审核列表，通过后才公开。 |
 | `moderationModel` | `string` | AI 插件默认模型 | AI 模型别名或 `提供商/模型`；需支持所投递的图片或视频。 |
 | `ownerIds` | `number[]` | `[]` | 插件主人 QQ 号；可删除漂流瓶并管理数据库授权列表。 |
 | `webuiPath` | `string` | `/drift-bottle` | WebUI 在 Fraq Hono 服务上的挂载路径。 |
@@ -137,12 +140,12 @@ ctx.install(DriftBottlePlugin, {
 | `id` | 审核记录 ID。 |
 | `created_at` | 记录时间，Unix 毫秒时间戳。 |
 | `content` | 投稿消息段的 JSON 快照。 |
-| `process` | AI 返回的审核结果，失败时为错误名称和信息。 |
+| `process` | AI 返回的审核结果、错误信息，或等待人工审核状态。 |
 | `input_tokens` | 输入 Token，无法获得时为 `NULL`。 |
 | `output_tokens` | 输出 Token，无法获得时为 `NULL`。 |
 | `total_tokens` | 总 Token，无法获得时为 `NULL`。 |
-| `success` | AI 调用成功为 `1`，调用失败为 `0`。 |
-| `approved` | 内容通过为 `1`，内容被拒绝为 `0`，调用失败为 `NULL`。 |
+| `success` | AI 调用成功或成功进入人工队列为 `1`，AI 调用失败为 `0`。 |
+| `approved` | 内容通过为 `1`，被 AI 拒绝或等待人工审核为 `0`，调用失败为 `NULL`。 |
 
 ## 命令
 
@@ -168,11 +171,12 @@ ctx.install(DriftBottlePlugin, {
 ## 行为
 
 - 默认匿名；署名模式按 QQ 用户保存。原名会在投递时读取当前群昵称或 QQ 昵称，旧瓶子不受后续改名影响。
-- 内容和署名通过 AI 审核后才会写入数据库。
+- AI 模式下，投瓶内容和署名通过 AI 审核后才会公开；人工模式下，新投瓶会保存完整草稿并进入待审核列表，通过后才会公开。
+- 人工模式只改变投瓶流程；评论、别名和原名署名仍使用 AI 审核。
 - 每次 AI 审核完成后，插件日志会记录输入、输出和总 Token 数量。
 - 每次 AI 审核都会写入 SQLite 的 `bottle_moderation_records` 表，包括时间、投稿内容 JSON、审核结果或错误、Token 用量、调用是否成功及内容是否通过。
 - R18 审核包含性暗示倾向、敏感部位聚焦或触摸等内容，卡通、动物和表情包采用相同标准。
-- AI 审核失败或服务不可用时拒绝投递，不会绕过审核。
+- AI 审核失败或服务不可用时不会绕过审核，相关投瓶记录会进入待审核列表供人工处理。
 - 数据存储在 SQLite 中，旧版数据库会自动迁移。
 - 删除权限列表存储在同一个 SQLite 数据库中；群主和群管理员无需加入列表。
 - 重复捡取设置按 QQ 用户存储在 SQLite 中，只影响该用户执行 `捡瓶子` 时的行为。

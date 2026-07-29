@@ -51,6 +51,18 @@ test('WebUI 列表按页返回漂流瓶和待审核摘要', async (t) => {
     process: { error: { name: 'Error', message: '模型暂时不可用' } },
     success: false,
   });
+  store.addModerationRecord({
+    content: [inseg.text('直接进入人工审核')],
+    process: { manual: { reason: '等待人工审核' } },
+    success: true,
+    approved: false,
+    target: 'bottle-content',
+    bottleDraft: {
+      senderId: 67890,
+      source: { scene: 'friend', peerId: 67890 },
+      segments: [inseg.text('直接进入人工审核')],
+    },
+  });
 
   const firstBottlePage = createBottleListPage(api, 1);
   assert.equal(firstBottlePage.total, 21);
@@ -63,22 +75,23 @@ test('WebUI 列表按页返回漂流瓶和待审核摘要', async (t) => {
   assert.equal(lastBottlePage.items.length, 1);
 
   const pendingPage = createPendingReviewListPage(api, 1);
-  assert.equal(pendingPage.total, 2);
+  assert.equal(pendingPage.total, 3);
   assert.deepEqual(
     pendingPage.items.map(({ status }) => status),
-    ['error', 'rejected'],
+    ['pending', 'error', 'rejected'],
   );
-  assert.equal(pendingPage.items[1]?.reason, '内容需要确认');
-  assert.deepEqual(pendingPage.items[1]?.categories, ['r18']);
-  assert.equal(pendingPage.items[1]?.target, '瓶子内容');
-  assert.equal(pendingPage.items[1]?.canApprove, true);
-  assert.deepEqual(pendingPage.items[1]?.bottleDraft, {
+  assert.equal(pendingPage.items[0]?.reason, '等待人工审核');
+  assert.equal(pendingPage.items[2]?.reason, '内容需要确认');
+  assert.deepEqual(pendingPage.items[2]?.categories, ['r18']);
+  assert.equal(pendingPage.items[2]?.target, '瓶子内容');
+  assert.equal(pendingPage.items[2]?.canApprove, true);
+  assert.deepEqual(pendingPage.items[2]?.bottleDraft, {
     senderId: 12345,
     displayName: '海风',
     source: { scene: 'group', peerId: 54321 },
   });
-  assert.equal(pendingPage.items[0]?.target, '历史记录');
-  assert.equal(pendingPage.items[0]?.canApprove, false);
+  assert.equal(pendingPage.items[1]?.target, '历史记录');
+  assert.equal(pendingPage.items[1]?.canApprove, false);
   assert.deepEqual(summarizeSegments([inseg.text('你好'), inseg.image({ summary: '照片' })]), {
     preview: '你好 [图片：照片]',
     kinds: ['文字', '图片'],

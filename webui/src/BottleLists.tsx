@@ -11,7 +11,7 @@ interface PendingReviewItem {
   id: string;
   createdAt: number;
   content: ContentSummary;
-  status: 'rejected' | 'error';
+  status: 'pending' | 'rejected' | 'error';
   reason: string;
   categories: string[];
   totalTokens?: number;
@@ -89,9 +89,9 @@ export function PendingReviewList({ canModerate, onSessionExpired }: PendingRevi
   return (
     <ListPageFrame
       title="待审核"
-      description="AI 未通过或审核中断的内容会集中在这里。"
+      description="等待人工处理、AI 未通过或审核中断的内容会集中在这里。"
       emptyTitle="没有待审核记录"
-      emptyDescription="AI 审核未通过或中断的内容会自动出现在这里。"
+      emptyDescription="需要人工处理的投瓶内容会自动出现在这里。"
       {...list}
     >
       {(data) => (
@@ -580,7 +580,8 @@ function ContentTypeTags({ kinds }: { kinds: string[] }) {
 }
 
 function ReviewStatus({ status }: { status: PendingReviewItem['status'] }) {
-  return <span className={`review-status review-status--${status}`}>{status === 'error' ? '审核中断' : '未通过'}</span>;
+  const label = status === 'pending' ? '待人工审核' : status === 'error' ? '审核中断' : '未通过';
+  return <span className={`review-status review-status--${status}`}>{label}</span>;
 }
 
 function BottleSource({ item }: { item: BottleItem }) {

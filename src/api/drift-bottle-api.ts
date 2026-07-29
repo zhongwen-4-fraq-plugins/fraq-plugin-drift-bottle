@@ -2,6 +2,7 @@ import type { Disposable, MilkyClient, milky } from '@fraqjs/fraq';
 
 import type {
   BottleComment,
+  BottleModerationMode,
   BottleOperationRecord,
   BottleSegment,
   BottleSignature,
@@ -21,7 +22,7 @@ import {
   toOutgoingSegments,
 } from '../processing/message.js';
 import type { BottleModerator, ModerationContext, ModerationTarget } from '../processing/moderation.js';
-import type { ModerationRecord } from '../processing/moderation-records.js';
+import { type ModerationRecord, queueBottleForManualReview } from '../processing/moderation-records.js';
 import { type ResolvedBottleSignature, resolveBottleSignature } from '../processing/signature.js';
 
 export type DriftBottleApiErrorCode =
@@ -43,6 +44,7 @@ export class DriftBottleApiError extends Error {
 
 export type CreateBottleResult =
   | { status: 'created'; bottle: DriftBottle }
+  | { status: 'pending'; reviewId: string }
   | { status: 'empty' }
   | { status: 'unsupported' }
   | { status: 'rejected'; target: 'content' | 'signature'; reason: string };
@@ -68,6 +70,7 @@ export class DriftBottleApi implements Disposable {
     private readonly client: MilkyClient,
     private readonly store: BottleStore,
     private readonly moderator: BottleModerator,
+    private readonly moderationMode: () => BottleModerationMode = () => 'ai',
   ) {}
 
   async createBottle(message: milky.IncomingMessage, content: milky.IncomingSegment[]): Promise<CreateBottleResult> {
@@ -102,6 +105,11 @@ export class DriftBottleApi implements Disposable {
       },
       segments,
     };
+
+    if (this.moderationMode() === 'manual') {
+      const review = queueBottleForManualReview(this.store, bottleDraft);
+      return { status: 'pending', reviewId: review.id };
+    }
 
     const moderation = await this.moderate(segments, { target: 'bottle-content', bottleDraft });
     if (!moderation.approved) {
