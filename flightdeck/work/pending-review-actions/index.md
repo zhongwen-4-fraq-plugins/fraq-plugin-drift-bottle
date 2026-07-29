@@ -2,11 +2,11 @@
 
 ## State
 
-内容类型标签与设计简报已确认；正在完成 Impeccable 视觉方向门槛。
+内容类型标签、设计简报及视觉方向问题已确认；Palette 生成因内置 image generation 不可用而暂停。
 
 ## Next
 
-- 用户确认颜色、氛围与参考方向。
+- 用户确认是否使用需要 `OPENAI_API_KEY` 的 imagegen CLI 备用方案。
 - 确认 palette artifact 与视觉 mock。
 - 完成视觉方向门槛后实现操作栏、状态模型与写接口。
 - 测试并验证完整人工审核流程。
@@ -37,9 +37,10 @@ Done:
 - 用户确认插件主人和管理员均可执行人工审核。
 - 用户要求操作栏使用勾和叉图标；叉号操作必须填写拒绝理由。
 - 用户确认修订后的紧凑设计简报。
+- 用户确认保留现有冷白、浅蓝灰、蓝主色及 GitHub / Linear 参考方向。
 
 Current:
-- Impeccable Codex Step A：视觉方向问题。
+- Impeccable Codex Step B：内置图像生成不可用，等待 CLI 备用方案授权。
 
 ## Open questions
 
