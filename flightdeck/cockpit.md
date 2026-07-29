@@ -1,10 +1,11 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: 已确认 AI 审核失败源于 OpenAI-compatible 未发送 JSON Schema，模型返回的 JSON 未通过 Zod 校验；等待确认是否实施修复。
+Focus: 待审核操作栏已完成现状检查；审核记录缺少重新投放上下文，等待确认操作语义与权限范围。
 
 ## In flight
 
 - `ai-schema-response` — 根因已确认，等待实施诊断记录、精确提示词与受限修复/重试。
+- `pending-review-actions` — 等待确认人工操作语义与权限；内容类型将改为标签。
 
 ## Next
 
