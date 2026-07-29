@@ -1,14 +1,14 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: `v0.3.14` 已发布并更新宿主；当前主题为 AI 结构化响应修复。
+Focus: AI 结构化响应修复已通过本地验证，等待发布并在真实网关回归。
 
 ## In flight
 
-- `ai-schema-response` — 根因已确认，等待实施诊断记录、精确提示词与受限修复/重试。
+- `ai-schema-response` — 精确提示词、单次受限重试和失败诊断已实现，等待发布与真实网关回归。
 
 ## Next
 
-- 修复 AI 审核结构化响应不匹配问题，并保留可诊断的失败记录。
+- 发布 AI 结构化响应修复并更新宿主，完成真实网关回归。
 - 为全部瓶子列表增加详情、评论查看和管理操作。
 
 ## Open questions

@@ -38,7 +38,8 @@ export type {
   NewDriftBottle,
 } from './models/index.js';
 export type { ApproveModerationRecordResult, RejectModerationRecordResult } from './persistence/bottle-store.js';
-export type { ModerationContext, ModerationTarget } from './processing/moderation.js';
+export type { ModerationAttemptDiagnostic, ModerationContext, ModerationTarget } from './processing/moderation.js';
+export { ModerationFailureError } from './processing/moderation.js';
 export type { ModerationProcess, ModerationRecord } from './processing/moderation-records.js';
 export type {
   DashboardOperation,

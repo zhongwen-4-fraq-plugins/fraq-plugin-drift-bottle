@@ -2,12 +2,11 @@
 
 ## State
 
-根因已确认，尚未实施修复。
+修复已实现并通过本地完整验证，等待发布与真实网关回归。
 
 ## Next
 
-- 先让审核失败记录保留 Schema 校验原因、模型响应摘要、usage 与 provider warning。
-- 在提示词中明确审核 JSON 的三个字段、类型和允许值，并为 Schema 失败增加一次受限修复或重试。
+- 发布并更新 Fraq 宿主，使用真实网关复核一次结构错误和一次正常审核。
 - 仅在确认 Akile 网关与目标模型支持 `json_schema` 后，考虑配置 `supportsStructuredOutputs: true`。
 - 将宿主中明文写入的 API Key 轮换，并改用环境变量引用。
 
@@ -33,7 +32,18 @@ Done:
 - 确认现有数据库记录丢弃了原始响应、校验 cause、usage 与 finish reason。
 
 Current:
-- 等待用户确认是否实施修复。
+- 等待发布与真实网关回归。
+
+Implemented:
+- 提示词明确限定 `approved`、`categories`、`reason` 三个字段、JSON 类型与允许值。
+- 仅对 `NoObjectGeneratedError` 进行一次受限重试，第二次仍失败时保持 fail-closed。
+- 失败记录保存校验 cause、最多 1000 字符的响应摘要、累计 Token、finish reason、provider warning 与尝试次数。
+- 成功重试会累计两次 Token；普通 provider 错误不会重试。
+
+Verified:
+- `pnpm check` 成功。
+- `pnpm test` 通过 36 项测试，覆盖首次结构失败后成功及两次失败的诊断持久化。
+- `pnpm build` 成功。
 
 ## Open questions
 

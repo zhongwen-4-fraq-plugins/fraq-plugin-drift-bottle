@@ -1,6 +1,7 @@
 import { inseg } from '@fraqjs/mock';
 
 import { BottleStore } from '../src/persistence/bottle-store.js';
+import { ModerationFailureError } from '../src/processing/moderation.js';
 import { withModerationRecords } from '../src/processing/moderation-records.js';
 
 import assert from 'node:assert/strict';
@@ -73,6 +74,52 @@ test('AI 审核成功和失败都会写入数据库', async (t) => {
     ],
   );
   assert.deepEqual(logs, ['漂流瓶 AI 审核 Token：输入 120，输出 30，总计 150']);
+});
+
+test('AI 结构校验失败会保存响应摘要、原因、Token 和 provider warning', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-diagnostic-'));
+  const store = new BottleStore(join(directory, 'bottles.db'));
+  await store.load();
+  t.after(async () => {
+    store.dispose();
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  const schemaCause = new Error('approved: expected boolean, received string');
+  const schemaError = new Error('No object generated: response did not match schema.', { cause: schemaCause });
+  schemaError.name = 'AI_NoObjectGeneratedError';
+  const moderator = withModerationRecords(store, { info: () => undefined }, async () => {
+    throw new ModerationFailureError(schemaError, [
+      {
+        responseTextSummary: '{"approved":"false"}',
+        finishReason: 'stop',
+        warnings: ['unsupported：responseFormat'],
+        usage: { inputTokens: 10, outputTokens: 2, totalTokens: 12 },
+      },
+      {
+        responseTextSummary: '{"approved":0}',
+        finishReason: 'stop',
+        warnings: ['unsupported：responseFormat'],
+        usage: { inputTokens: 11, outputTokens: 2, totalTokens: 13 },
+      },
+    ]);
+  });
+
+  await assert.rejects(moderator([inseg.text('结构失败')]), /response did not match schema/);
+  const [record] = store.pendingModerationRecords();
+  assert.ok(record);
+  assert.deepEqual(record.process, {
+    error: {
+      name: 'AI_NoObjectGeneratedError',
+      message: 'No object generated: response did not match schema.',
+      cause: { name: 'Error', message: 'approved: expected boolean, received string' },
+      responseTextSummary: '{"approved":0}',
+      finishReason: 'stop',
+      providerWarnings: ['unsupported：responseFormat'],
+      attempts: 2,
+    },
+  });
+  assert.deepEqual([record.inputTokens, record.outputTokens, record.totalTokens], [21, 4, 25]);
 });
 
 test('人工审核可投放完整草稿，并要求拒绝理由后归档', async (t) => {

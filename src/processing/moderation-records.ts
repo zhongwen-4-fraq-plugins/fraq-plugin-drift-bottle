@@ -6,7 +6,9 @@ import {
   type BottleModerator,
   formatModerationUsage,
   type ModerationContext,
+  ModerationFailureError,
   type ModerationResult,
+  type ModerationUsage,
 } from './moderation.js';
 
 export type ModerationProcess =
@@ -17,6 +19,11 @@ export type ModerationProcess =
       error: {
         name: string;
         message: string;
+        cause?: { name: string; message: string };
+        responseTextSummary?: string;
+        finishReason?: string;
+        providerWarnings?: string[];
+        attempts?: number;
       };
     };
 
@@ -51,9 +58,13 @@ export function withModerationRecords(
     try {
       result = await moderator(segments, context);
     } catch (error) {
+      const failure = describeError(error);
       store.addModerationRecord({
         content: segments,
-        process: { error: describeError(error) },
+        process: { error: failure.error },
+        inputTokens: failure.usage?.inputTokens,
+        outputTokens: failure.usage?.outputTokens,
+        totalTokens: failure.usage?.totalTokens,
         success: false,
         ...context,
       });
@@ -83,7 +94,31 @@ export function withModerationRecords(
   };
 }
 
-function describeError(error: unknown): { name: string; message: string } {
+function describeError(error: unknown): {
+  error: Extract<ModerationProcess, { error: unknown }>['error'];
+  usage?: ModerationUsage;
+} {
+  if (error instanceof ModerationFailureError) {
+    const original = basicError(error.cause);
+    const cause = error.cause instanceof Error && error.cause.cause ? basicError(error.cause.cause) : undefined;
+    const latestAttempt = error.attempts.at(-1);
+    const providerWarnings = [...new Set(error.attempts.flatMap((attempt) => attempt.warnings))];
+    return {
+      error: {
+        ...original,
+        cause,
+        responseTextSummary: latestAttempt?.responseTextSummary,
+        finishReason: latestAttempt?.finishReason,
+        providerWarnings: providerWarnings.length ? providerWarnings : undefined,
+        attempts: error.attempts.length,
+      },
+      usage: error.usage,
+    };
+  }
+  return { error: basicError(error) };
+}
+
+function basicError(error: unknown): { name: string; message: string } {
   if (error instanceof Error) {
     return { name: error.name, message: error.message };
   }
