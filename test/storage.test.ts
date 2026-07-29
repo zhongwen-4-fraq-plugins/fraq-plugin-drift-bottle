@@ -30,6 +30,24 @@ test('漂流瓶会持久化，并可选择捡取后是否删除', async (t) => {
     );
     INSERT INTO bottle_profiles (sender_id, alias) VALUES (10003, '旧别名');
   `);
+  legacyDatabase.exec(`
+    CREATE TABLE bottle_moderation_records (
+      id TEXT PRIMARY KEY,
+      created_at INTEGER NOT NULL,
+      content TEXT NOT NULL,
+      process TEXT NOT NULL,
+      input_tokens INTEGER,
+      output_tokens INTEGER,
+      total_tokens INTEGER,
+      success INTEGER NOT NULL,
+      approved INTEGER
+    );
+    INSERT INTO bottle_moderation_records (
+      id, created_at, content, process, success, approved
+    ) VALUES (
+      'legacy-review', 1700000000000, '[]', '{"error":{"name":"Error","message":"旧审核失败"}}', 0, NULL
+    );
+  `);
   legacyDatabase
     .prepare(`
       INSERT INTO bottles (id, sender_id, created_at, source_scene, source_peer_id, segments)
@@ -47,6 +65,10 @@ test('漂流瓶会持久化，并可选择捡取后是否删除', async (t) => {
 
   const store = new BottleStore(storagePath);
   await store.load();
+  assert.equal(store.pendingModerationCount(), 1);
+  assert.equal(store.approveModerationRecord('legacy-review', 10001).status, 'publish-unavailable');
+  assert.equal(store.rejectModerationRecord('legacy-review', 10001, '旧记录缺少上下文').status, 'rejected');
+  assert.equal(store.pendingModerationCount(), 0);
   assert.equal(store.hasBottle('legacy-bottle'), true);
   assert.equal(store.deleteBottle('legacy-bottle'), true);
   store.setSignature(10001, { type: 'alias', name: '海风' });
@@ -106,7 +128,11 @@ test('漂流瓶会持久化，并可选择捡取后是否删除', async (t) => {
   assert.deepEqual(reloadedStore.moderators(), [20001]);
   assert.equal(reloadedStore.repeatPickFor(30001), true);
   assert.equal(reloadedStore.repeatPickFor(30002), false);
-  assert.deepEqual(reloadedStore.operationRecords(), [operation]);
+  assert.deepEqual(
+    reloadedStore.operationRecords().filter(({ action }) => action === 'moderator-added'),
+    [operation],
+  );
+  assert.ok(reloadedStore.operationRecords().some(({ action }) => action === 'moderation-rejected'));
   assert.deepEqual(
     reloadedStore.commentsFor(secondBottle.id).map(({ displayName, content }) => ({ displayName, content })),
     [{ displayName: '浪花', content: '写得真好' }],

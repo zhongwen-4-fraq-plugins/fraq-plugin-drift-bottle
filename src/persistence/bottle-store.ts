@@ -45,6 +45,13 @@ interface ModerationRecordRow {
   total_tokens: number | null;
   success: number;
   approved: number | null;
+  target_type: ModerationRecord['target'] | null;
+  bottle_draft: string | null;
+  resolution: ModerationRecord['resolution'] | null;
+  resolved_by: number | null;
+  resolved_at: number | null;
+  rejection_reason: string | null;
+  published_bottle_id: string | null;
 }
 
 interface OperationRecordRow {
@@ -61,6 +68,14 @@ export interface WebuiRegistrationRequestRecord {
   userId: number;
   createdAt: number;
 }
+
+export type ApproveModerationRecordResult =
+  | { status: 'approved'; bottle: DriftBottle }
+  | { status: 'not-found' | 'already-resolved' | 'not-pending' | 'publish-unavailable' };
+
+export type RejectModerationRecordResult =
+  | { status: 'rejected' }
+  | { status: 'not-found' | 'already-resolved' | 'not-pending' | 'invalid-reason' };
 
 export class BottleStore implements Disposable {
   private database?: DatabaseSync;
@@ -138,11 +153,35 @@ export class BottleStore implements Disposable {
         output_tokens INTEGER,
         total_tokens INTEGER,
         success INTEGER NOT NULL,
-        approved INTEGER
+        approved INTEGER,
+        target_type TEXT,
+        bottle_draft TEXT,
+        resolution TEXT,
+        resolved_by INTEGER,
+        resolved_at INTEGER,
+        rejection_reason TEXT,
+        published_bottle_id TEXT
       );
       CREATE INDEX IF NOT EXISTS bottle_moderation_records_created_at
       ON bottle_moderation_records (created_at, id);
     `);
+    const moderationColumns = this.database.prepare('PRAGMA table_info(bottle_moderation_records)').all() as {
+      name: string;
+    }[];
+    const moderationMigrations: [string, string][] = [
+      ['target_type', 'TEXT'],
+      ['bottle_draft', 'TEXT'],
+      ['resolution', 'TEXT'],
+      ['resolved_by', 'INTEGER'],
+      ['resolved_at', 'INTEGER'],
+      ['rejection_reason', 'TEXT'],
+      ['published_bottle_id', 'TEXT'],
+    ];
+    for (const [name, definition] of moderationMigrations) {
+      if (!moderationColumns.some((column) => column.name === name)) {
+        this.database.exec(`ALTER TABLE bottle_moderation_records ADD COLUMN ${name} ${definition}`);
+      }
+    }
     this.database.exec(`
       CREATE TABLE IF NOT EXISTS bottle_webui_credentials (
         id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -385,8 +424,9 @@ export class BottleStore implements Disposable {
     this.getDatabase()
       .prepare(`
         INSERT INTO bottle_moderation_records (
-          id, created_at, content, process, input_tokens, output_tokens, total_tokens, success, approved
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          id, created_at, content, process, input_tokens, output_tokens, total_tokens, success, approved,
+          target_type, bottle_draft, resolution, resolved_by, resolved_at, rejection_reason, published_bottle_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
       .run(
         record.id,
@@ -398,6 +438,13 @@ export class BottleStore implements Disposable {
         record.totalTokens ?? null,
         record.success ? 1 : 0,
         record.approved === undefined ? null : record.approved ? 1 : 0,
+        record.target ?? null,
+        record.bottleDraft ? JSON.stringify(record.bottleDraft) : null,
+        record.resolution ?? null,
+        record.resolvedBy ?? null,
+        record.resolvedAt ?? null,
+        record.rejectionReason ?? null,
+        record.publishedBottleId ?? null,
       );
     return record;
   }
@@ -413,7 +460,7 @@ export class BottleStore implements Disposable {
     const rows = this.getDatabase()
       .prepare(`
         SELECT * FROM bottle_moderation_records
-        WHERE success = 0 OR approved = 0
+        WHERE resolution IS NULL AND (success = 0 OR approved = 0)
         ORDER BY created_at DESC, rowid DESC
         LIMIT ? OFFSET ?
       `)
@@ -423,9 +470,111 @@ export class BottleStore implements Disposable {
 
   pendingModerationCount(): number {
     const row = this.getDatabase()
-      .prepare('SELECT COUNT(*) AS count FROM bottle_moderation_records WHERE success = 0 OR approved = 0')
+      .prepare(
+        'SELECT COUNT(*) AS count FROM bottle_moderation_records WHERE resolution IS NULL AND (success = 0 OR approved = 0)',
+      )
       .get() as { count: number };
     return row.count;
+  }
+
+  approveModerationRecord(id: string, actorId: number): ApproveModerationRecordResult {
+    const database = this.getDatabase();
+    database.exec('BEGIN IMMEDIATE');
+    try {
+      const row = database.prepare('SELECT * FROM bottle_moderation_records WHERE id = ?').get(id) as
+        | ModerationRecordRow
+        | undefined;
+      if (!row) {
+        database.exec('ROLLBACK');
+        return { status: 'not-found' };
+      }
+      const unavailable = moderationActionUnavailable(row);
+      if (unavailable) {
+        database.exec('ROLLBACK');
+        return { status: unavailable };
+      }
+      if (!row.bottle_draft) {
+        database.exec('ROLLBACK');
+        return { status: 'publish-unavailable' };
+      }
+
+      const draft = JSON.parse(row.bottle_draft) as NewDriftBottle;
+      const bottle: DriftBottle = { id: randomUUID(), createdAt: Date.now(), ...draft };
+      database
+        .prepare(`
+          INSERT INTO bottle_threads (id, sender_id, created_at, display_name)
+          VALUES (?, ?, ?, ?)
+        `)
+        .run(bottle.id, bottle.senderId, bottle.createdAt, bottle.displayName ?? null);
+      database
+        .prepare(`
+          INSERT INTO bottles (id, sender_id, created_at, display_name, source_scene, source_peer_id, segments)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `)
+        .run(
+          bottle.id,
+          bottle.senderId,
+          bottle.createdAt,
+          bottle.displayName ?? null,
+          bottle.source.scene,
+          bottle.source.peerId,
+          JSON.stringify(bottle.segments),
+        );
+      database
+        .prepare(`
+          UPDATE bottle_moderation_records
+          SET resolution = 'approved', resolved_by = ?, resolved_at = ?, published_bottle_id = ?
+          WHERE id = ?
+        `)
+        .run(actorId, Date.now(), bottle.id, id);
+      this.addOperationRecord({
+        action: 'moderation-approved',
+        actorId,
+        bottleId: bottle.id,
+        detail: id,
+      });
+      database.exec('COMMIT');
+      return { status: 'approved', bottle };
+    } catch (error) {
+      database.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
+  rejectModerationRecord(id: string, actorId: number, reason: string): RejectModerationRecordResult {
+    const normalizedReason = reason.trim();
+    if (!normalizedReason || [...normalizedReason].length > 500) {
+      return { status: 'invalid-reason' };
+    }
+    const database = this.getDatabase();
+    database.exec('BEGIN IMMEDIATE');
+    try {
+      const row = database.prepare('SELECT * FROM bottle_moderation_records WHERE id = ?').get(id) as
+        | ModerationRecordRow
+        | undefined;
+      if (!row) {
+        database.exec('ROLLBACK');
+        return { status: 'not-found' };
+      }
+      const unavailable = moderationActionUnavailable(row);
+      if (unavailable) {
+        database.exec('ROLLBACK');
+        return { status: unavailable };
+      }
+      database
+        .prepare(`
+          UPDATE bottle_moderation_records
+          SET resolution = 'rejected', resolved_by = ?, resolved_at = ?, rejection_reason = ?
+          WHERE id = ?
+        `)
+        .run(actorId, Date.now(), normalizedReason, id);
+      this.addOperationRecord({ action: 'moderation-rejected', actorId, detail: normalizedReason });
+      database.exec('COMMIT');
+      return { status: 'rejected' };
+    } catch (error) {
+      database.exec('ROLLBACK');
+      throw error;
+    }
   }
 
   addOperationRecord(input: NewBottleOperationRecord): BottleOperationRecord {
@@ -657,6 +806,19 @@ export class BottleStore implements Disposable {
       totalTokens: row.total_tokens ?? undefined,
       success: Boolean(row.success),
       approved: row.approved === null ? undefined : Boolean(row.approved),
+      target: row.target_type ?? undefined,
+      bottleDraft: row.bottle_draft ? (JSON.parse(row.bottle_draft) as NewDriftBottle) : undefined,
+      resolution: row.resolution ?? undefined,
+      resolvedBy: row.resolved_by ?? undefined,
+      resolvedAt: row.resolved_at ?? undefined,
+      rejectionReason: row.rejection_reason ?? undefined,
+      publishedBottleId: row.published_bottle_id ?? undefined,
     };
   }
+}
+
+function moderationActionUnavailable(row: ModerationRecordRow): 'already-resolved' | 'not-pending' | undefined {
+  if (row.resolution) return 'already-resolved';
+  if (row.success !== 0 && row.approved !== 0) return 'not-pending';
+  return undefined;
 }

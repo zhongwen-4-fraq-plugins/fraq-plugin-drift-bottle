@@ -53,7 +53,9 @@ export type BottleOperationAction =
   | 'signature-updated'
   | 'moderator-added'
   | 'moderator-removed'
-  | 'repeat-pick-updated';
+  | 'repeat-pick-updated'
+  | 'moderation-approved'
+  | 'moderation-rejected';
 
 export interface BottleOperationRecord {
   id: string;

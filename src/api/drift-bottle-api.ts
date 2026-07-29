@@ -8,7 +8,11 @@ import type {
   DriftBottle,
   NewDriftBottle,
 } from '../models/index.js';
-import type { BottleStore } from '../persistence/bottle-store.js';
+import type {
+  ApproveModerationRecordResult,
+  BottleStore,
+  RejectModerationRecordResult,
+} from '../persistence/bottle-store.js';
 import {
   hasBottleContent,
   hasOnlySupportedBottleSegments,
@@ -16,7 +20,7 @@ import {
   resolveBottleContent,
   toOutgoingSegments,
 } from '../processing/message.js';
-import type { BottleModerator } from '../processing/moderation.js';
+import type { BottleModerator, ModerationContext, ModerationTarget } from '../processing/moderation.js';
 import type { ModerationRecord } from '../processing/moderation-records.js';
 import { type ResolvedBottleSignature, resolveBottleSignature } from '../processing/signature.js';
 
@@ -88,17 +92,8 @@ export class DriftBottleApi implements Disposable {
       throw new DriftBottleApiError('read-forward', { cause });
     }
 
-    const moderation = await this.moderate(segments);
-    if (!moderation.approved) {
-      return { status: 'rejected', target: 'content', reason: moderation.reason };
-    }
-
-    const signature = await this.resolveApprovedSignature(message);
-    if ('rejected' in signature) {
-      return { status: 'rejected', target: 'signature', reason: signature.rejected };
-    }
-
-    const bottle = await this.store.add({
+    const signature = await this.resolveSignature(message);
+    const bottleDraft: NewDriftBottle = {
       senderId: message.sender_id,
       displayName: signature.displayName,
       source: {
@@ -106,7 +101,24 @@ export class DriftBottleApi implements Disposable {
         peerId: message.peer_id,
       },
       segments,
-    });
+    };
+
+    const moderation = await this.moderate(segments, { target: 'bottle-content', bottleDraft });
+    if (!moderation.approved) {
+      return { status: 'rejected', target: 'content', reason: moderation.reason };
+    }
+
+    if (signature.displayName && signature.needsModeration) {
+      const signatureModeration = await this.moderate([{ type: 'text', data: { text: signature.displayName } }], {
+        target: 'bottle-signature',
+        bottleDraft,
+      });
+      if (!signatureModeration.approved) {
+        return { status: 'rejected', target: 'signature', reason: signatureModeration.reason };
+      }
+    }
+
+    const bottle = await this.store.add(bottleDraft);
     this.store.addOperationRecord({
       action: 'bottle-created',
       actorId: message.sender_id,
@@ -145,12 +157,14 @@ export class DriftBottleApi implements Disposable {
       return { status: 'too-long' };
     }
 
-    const moderation = await this.moderate([{ type: 'text', data: { text: content } }]);
+    const moderation = await this.moderate([{ type: 'text', data: { text: content } }], {
+      target: 'comment-content',
+    });
     if (!moderation.approved) {
       return { status: 'rejected', target: 'content', reason: moderation.reason };
     }
 
-    const signature = await this.resolveApprovedSignature(message);
+    const signature = await this.resolveApprovedSignature(message, 'comment-signature');
     if ('rejected' in signature) {
       return { status: 'rejected', target: 'signature', reason: signature.rejected };
     }
@@ -216,7 +230,9 @@ export class DriftBottleApi implements Disposable {
       return { status: 'too-long' };
     }
 
-    const moderation = await this.moderate([{ type: 'text', data: { text: signature.name } }]);
+    const moderation = await this.moderate([{ type: 'text', data: { text: signature.name } }], {
+      target: 'profile-signature',
+    });
     if (!moderation.approved) {
       return { status: 'rejected', reason: moderation.reason };
     }
@@ -296,6 +312,14 @@ export class DriftBottleApi implements Disposable {
     return this.store.pendingModerationCount();
   }
 
+  approveModerationRecord(id: string, actorId: number): ApproveModerationRecordResult {
+    return this.store.approveModerationRecord(id, actorId);
+  }
+
+  rejectModerationRecord(id: string, actorId: number, reason: string): RejectModerationRecordResult {
+    return this.store.rejectModerationRecord(id, actorId, reason);
+  }
+
   operationRecords(limit = 100): BottleOperationRecord[] {
     return this.store.operationRecords(limit);
   }
@@ -318,28 +342,32 @@ export class DriftBottleApi implements Disposable {
     this.store.dispose();
   }
 
-  private async moderate(segments: BottleSegment[]) {
+  private async moderate(segments: BottleSegment[], context?: ModerationContext) {
     try {
-      return await this.moderator(segments);
+      return await this.moderator(segments, context);
     } catch (cause) {
       throw new DriftBottleApiError('moderation', { cause });
     }
   }
 
-  private async resolveApprovedSignature(
-    message: milky.IncomingMessage,
-  ): Promise<{ displayName?: string } | { rejected: string }> {
-    let signature: ResolvedBottleSignature;
+  private async resolveSignature(message: milky.IncomingMessage): Promise<ResolvedBottleSignature> {
     try {
-      signature = await resolveBottleSignature(this.client, this.store, message);
+      return await resolveBottleSignature(this.client, this.store, message);
     } catch (cause) {
       throw new DriftBottleApiError('resolve-signature', { cause });
     }
+  }
+
+  private async resolveApprovedSignature(
+    message: milky.IncomingMessage,
+    target: Extract<ModerationTarget, 'comment-signature'>,
+  ): Promise<{ displayName?: string } | { rejected: string }> {
+    const signature = await this.resolveSignature(message);
     if (!signature.displayName || !signature.needsModeration) {
       return { displayName: signature.displayName };
     }
 
-    const moderation = await this.moderate([{ type: 'text', data: { text: signature.displayName } }]);
+    const moderation = await this.moderate([{ type: 'text', data: { text: signature.displayName } }], { target });
     return moderation.approved ? { displayName: signature.displayName } : { rejected: moderation.reason };
   }
 }

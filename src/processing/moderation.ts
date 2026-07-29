@@ -3,7 +3,7 @@ import type { AiService } from '@fraqjs/plugin-ai';
 import { generateText, Output, type UserContent } from 'ai';
 import { z } from 'zod';
 
-import type { BottleSegment } from '../models/index.js';
+import type { BottleSegment, NewDriftBottle } from '../models/index.js';
 
 export interface ModerationResult {
   approved: boolean;
@@ -18,7 +18,19 @@ export interface ModerationUsage {
   totalTokens?: number;
 }
 
-export type BottleModerator = (segments: BottleSegment[]) => Promise<ModerationResult>;
+export type ModerationTarget =
+  | 'bottle-content'
+  | 'bottle-signature'
+  | 'comment-content'
+  | 'comment-signature'
+  | 'profile-signature';
+
+export interface ModerationContext {
+  target: ModerationTarget;
+  bottleDraft?: NewDriftBottle;
+}
+
+export type BottleModerator = (segments: BottleSegment[], context?: ModerationContext) => Promise<ModerationResult>;
 
 export async function moderateBottle(
   ai: AiService,

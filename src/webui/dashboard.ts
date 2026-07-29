@@ -132,6 +132,10 @@ function formatDomainOperation(record: BottleOperationRecord): DashboardOperatio
       return operation(record, '移除管理权限', joinDetail(actor, targetUser(record.targetUserId)), 'warning');
     case 'repeat-pick-updated':
       return operation(record, '更新重复捡取设置', joinDetail(actor, repeatPickLabel(record.detail)));
+    case 'moderation-approved':
+      return operation(record, '人工审核通过并投放', joinDetail(actor, bottle), 'success');
+    case 'moderation-rejected':
+      return operation(record, '人工审核拒绝并归档', joinDetail(actor, record.detail), 'danger');
   }
 }
 

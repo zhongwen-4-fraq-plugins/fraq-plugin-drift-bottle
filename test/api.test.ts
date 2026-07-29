@@ -2,6 +2,7 @@ import { createMockMilkyClient, inseg } from '@fraqjs/mock';
 
 import { DriftBottleApi } from '../src/index.js';
 import { BottleStore } from '../src/persistence/bottle-store.js';
+import type { ModerationContext } from '../src/processing/moderation.js';
 
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -57,4 +58,35 @@ test('公开 API 可以脱离命令路由完成漂流瓶操作', async (t) => {
       { action: 'signature-updated', actorId: 10001 },
     ],
   );
+});
+
+test('投瓶审核会携带人工投放所需的完整草稿上下文', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-api-review-'));
+  const client = createMockMilkyClient();
+  const store = new BottleStore(join(directory, 'bottles.db'));
+  await store.load();
+  const contexts: (ModerationContext | undefined)[] = [];
+  const api = new DriftBottleApi(client, store, async (_segments, context) => {
+    contexts.push(context);
+    return { approved: false, categories: ['profanity'], reason: '需要人工确认' };
+  });
+  t.after(async () => {
+    api.dispose();
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  const sender = client.inbox.group({ groupId: 20001, userId: 10001 }, [inseg.text('待人工审核')]);
+  const result = await api.createBottle(sender, [inseg.text('待人工审核')]);
+  assert.equal(result.status, 'rejected');
+  assert.deepEqual(contexts, [
+    {
+      target: 'bottle-content',
+      bottleDraft: {
+        senderId: 10001,
+        displayName: undefined,
+        source: { scene: 'group', peerId: 20001 },
+        segments: [inseg.text('待人工审核')],
+      },
+    },
+  ]);
 });

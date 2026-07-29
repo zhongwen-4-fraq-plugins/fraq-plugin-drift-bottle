@@ -38,6 +38,13 @@ test('WebUI 列表按页返回漂流瓶和待审核摘要', async (t) => {
     success: true,
     approved: false,
     totalTokens: 88,
+    target: 'bottle-content',
+    bottleDraft: {
+      senderId: 12345,
+      displayName: '海风',
+      source: { scene: 'group', peerId: 54321 },
+      segments: [inseg.text('需要人工确认'), inseg.image({ summary: '海边照片' })],
+    },
   });
   store.addModerationRecord({
     content: [inseg.video({ tempUrl: 'https://example.com/video' })],
@@ -63,6 +70,15 @@ test('WebUI 列表按页返回漂流瓶和待审核摘要', async (t) => {
   );
   assert.equal(pendingPage.items[1]?.reason, '内容需要确认');
   assert.deepEqual(pendingPage.items[1]?.categories, ['r18']);
+  assert.equal(pendingPage.items[1]?.target, '瓶子内容');
+  assert.equal(pendingPage.items[1]?.canApprove, true);
+  assert.deepEqual(pendingPage.items[1]?.bottleDraft, {
+    senderId: 12345,
+    displayName: '海风',
+    source: { scene: 'group', peerId: 54321 },
+  });
+  assert.equal(pendingPage.items[0]?.target, '历史记录');
+  assert.equal(pendingPage.items[0]?.canApprove, false);
   assert.deepEqual(summarizeSegments([inseg.text('你好'), inseg.image({ summary: '照片' })]), {
     preview: '你好 [图片：照片]',
     kinds: ['文字', '图片'],

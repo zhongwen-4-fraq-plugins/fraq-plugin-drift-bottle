@@ -1,5 +1,6 @@
 import type { HonoService } from '@fraqjs/plugin-hono';
 
+import type { ApproveModerationRecordResult, RejectModerationRecordResult } from '../persistence/bottle-store.js';
 import { isValidWebuiPassword, parseQqAccount, type WebuiAuth } from './auth.js';
 import type { DashboardSnapshot } from './dashboard.js';
 import type {
@@ -21,6 +22,9 @@ export interface WebuiRouteOptions {
   dashboard: () => DashboardSnapshot;
   bottles: (page: number) => WebuiListPage<WebuiBottleListItem>;
   pendingReviews: (page: number) => WebuiListPage<WebuiPendingReviewItem>;
+  canModerate: (userId: number) => boolean;
+  approveReview: (id: string, actorId: number) => ApproveModerationRecordResult;
+  rejectReview: (id: string, actorId: number, reason: string) => RejectModerationRecordResult;
   registration: Pick<WebuiRegistration, 'submit'>;
   registrationRequests: (page: number) => WebuiListPage<WebuiRegistrationRequestItem>;
   ownerIds: number[];
@@ -40,6 +44,7 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
         account: userId ? String(userId) : null,
         authenticated: userId !== undefined,
         isOwner: userId !== undefined && options.ownerIds.includes(userId),
+        canModerate: userId !== undefined && (options.ownerIds.includes(userId) || options.canModerate(userId)),
         avatarUrl: qqAvatarUrl(userId),
       },
       200,
@@ -75,6 +80,7 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
         authenticated: true,
         avatarUrl: qqAvatarUrl(userId),
         isOwner: options.ownerIds.includes(userId),
+        canModerate: options.ownerIds.includes(userId) || options.canModerate(userId),
       },
       200,
       {
@@ -146,6 +152,63 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
       'Cache-Control': 'no-store',
     });
   });
+  service.app.post(`${basePath}/api/reviews/:id/approve`, (context) => {
+    const userId = options.auth.sessionUserId(readSessionCookie(context.req.header('cookie')));
+    if (userId === undefined) {
+      return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
+    }
+    if (!options.ownerIds.includes(userId) && !options.canModerate(userId)) {
+      return context.json({ error: '仅插件主人或管理员可以处理审核记录' }, 403, { 'Cache-Control': 'no-store' });
+    }
+
+    const result = options.approveReview(context.req.param('id'), userId);
+    if (result.status === 'approved') {
+      return context.json({ status: result.status, bottleId: result.bottle.id }, 200, { 'Cache-Control': 'no-store' });
+    }
+    if (result.status === 'not-found') {
+      return context.json({ error: '没有找到这条审核记录' }, 404, { 'Cache-Control': 'no-store' });
+    }
+    if (result.status === 'publish-unavailable') {
+      return context.json({ error: '该记录缺少完整投瓶信息，不能通过投放' }, 409, { 'Cache-Control': 'no-store' });
+    }
+    return context.json({ error: '该记录已处理或不在待审核队列中' }, 409, { 'Cache-Control': 'no-store' });
+  });
+  service.app.post(`${basePath}/api/reviews/:id/reject`, async (context) => {
+    const userId = options.auth.sessionUserId(readSessionCookie(context.req.header('cookie')));
+    if (userId === undefined) {
+      return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
+    }
+    if (!options.ownerIds.includes(userId) && !options.canModerate(userId)) {
+      return context.json({ error: '仅插件主人或管理员可以处理审核记录' }, 403, { 'Cache-Control': 'no-store' });
+    }
+
+    let body: unknown;
+    try {
+      body = await context.req.json();
+    } catch {
+      return context.json({ error: '请输入拒绝理由' }, 400, { 'Cache-Control': 'no-store' });
+    }
+    const reason = readRejectionReason(body);
+    if (!reason) {
+      return context.json({ error: '拒绝理由不能为空，且不能超过 500 个字符' }, 400, {
+        'Cache-Control': 'no-store',
+      });
+    }
+
+    const result = options.rejectReview(context.req.param('id'), userId, reason);
+    if (result.status === 'rejected') {
+      return context.json({ status: result.status }, 200, { 'Cache-Control': 'no-store' });
+    }
+    if (result.status === 'not-found') {
+      return context.json({ error: '没有找到这条审核记录' }, 404, { 'Cache-Control': 'no-store' });
+    }
+    if (result.status === 'invalid-reason') {
+      return context.json({ error: '拒绝理由不能为空，且不能超过 500 个字符' }, 400, {
+        'Cache-Control': 'no-store',
+      });
+    }
+    return context.json({ error: '该记录已处理或不在待审核队列中' }, 409, { 'Cache-Control': 'no-store' });
+  });
   service.app.get(`${basePath}/api/bottles`, (context) => {
     if (!options.auth.isSessionValid(readSessionCookie(context.req.header('cookie')))) {
       return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
@@ -194,6 +257,14 @@ function readCredentials(body: unknown): { account: string; password: string } |
     return undefined;
   }
   return { account: body.account, password: body.password };
+}
+
+function readRejectionReason(body: unknown): string | undefined {
+  if (!body || typeof body !== 'object' || !('reason' in body) || typeof body.reason !== 'string') {
+    return undefined;
+  }
+  const reason = body.reason.trim();
+  return reason && [...reason].length <= 500 ? reason : undefined;
 }
 
 function readPage(value: string | undefined): number {

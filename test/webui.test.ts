@@ -29,6 +29,7 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   const [initialCredential] = await auth.initializeOwners([123456789]);
   assert.ok(initialCredential);
   const registrations: number[] = [];
+  const rejectedReviews: { actorId: number; id: string; reason: string }[] = [];
   const dashboard = {
     generatedAt: 1_700_000_001_000,
     instanceStartedAt: 1_700_000_000_000,
@@ -51,12 +52,30 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   const pendingReviews = { ...bottles, total: 2 };
   const basePath = registerWebuiRoutes(hono, {
     auth,
+    approveReview: (id) =>
+      id === 'admin-review'
+        ? {
+            status: 'approved',
+            bottle: {
+              id: 'published-bottle',
+              senderId: 10001,
+              createdAt: 1_700_000_002_000,
+              source: { scene: 'friend', peerId: 10001 },
+              segments: [],
+            },
+          }
+        : { status: 'not-found' },
     basePath: '/manage/drift-bottle/',
     bottles: () => bottles,
+    canModerate: (userId) => userId === 333333333,
     dashboard: () => dashboard,
     directory,
     ownerIds: [123456789],
     pendingReviews: () => pendingReviews,
+    rejectReview: (id, actorId, reason) => {
+      rejectedReviews.push({ actorId, id, reason });
+      return { status: 'rejected' };
+    },
     registration: {
       submit: async (userId, password) => {
         registrations.push(userId);
@@ -95,6 +114,7 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   assert.deepEqual(await anonymousSession.json(), {
     account: null,
     authenticated: false,
+    canModerate: false,
     isOwner: false,
   });
   assert.equal(anonymousSession.headers.get('cache-control'), 'no-store');
@@ -103,6 +123,11 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   assert.equal(anonymousDashboard.status, 401);
   assert.equal(anonymousDashboard.headers.get('cache-control'), 'no-store');
   assert.equal((await hono.app.request('http://localhost/manage/drift-bottle/api/reviews/pending')).status, 401);
+  assert.equal(
+    (await hono.app.request('http://localhost/manage/drift-bottle/api/reviews/review-1/approve', { method: 'POST' }))
+      .status,
+    401,
+  );
   assert.equal((await hono.app.request('http://localhost/manage/drift-bottle/api/bottles')).status, 401);
   assert.equal((await hono.app.request('http://localhost/manage/drift-bottle/api/registrations/pending')).status, 401);
 
@@ -119,12 +144,52 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
     account: '222222222',
     authenticated: true,
     avatarUrl: 'https://q1.qlogo.cn/g?b=qq&nk=222222222&s=640',
+    canModerate: false,
     isOwner: false,
   });
   assert.equal(
     (
       await hono.app.request('http://localhost/manage/drift-bottle/api/registrations/pending', {
         headers: { Cookie: memberCookie },
+      })
+    ).status,
+    403,
+  );
+
+  assert.equal(await auth.requestRegistration(333333333, 'AdminA123'), 'created');
+  assert.equal(auth.approveRegistration(333333333, 123456789), true);
+  const moderatorLogin = await hono.app.request('http://localhost/manage/drift-bottle/api/session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ account: '333333333', password: 'AdminA123' }),
+  });
+  const moderatorCookie = moderatorLogin.headers.get('set-cookie');
+  assert.ok(moderatorCookie);
+  assert.equal(
+    (
+      await hono.app.request('http://localhost/manage/drift-bottle/api/reviews/admin-review/approve', {
+        method: 'POST',
+        headers: { Cookie: moderatorCookie },
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (
+      (await (
+        await hono.app.request('http://localhost/manage/drift-bottle/api/session', {
+          headers: { Cookie: moderatorCookie },
+        })
+      ).json()) as { canModerate: boolean }
+    ).canModerate,
+    true,
+  );
+  assert.equal(
+    (
+      await hono.app.request('http://localhost/manage/drift-bottle/api/reviews/review-1/reject', {
+        method: 'POST',
+        headers: { Cookie: memberCookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: '成员不能审核' }),
       })
     ).status,
     403,
@@ -149,12 +214,36 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   assert.match(cookie, /HttpOnly/);
   assert.match(cookie, /SameSite=Strict/);
 
+  const missingReason = await hono.app.request('http://localhost/manage/drift-bottle/api/reviews/review-1/reject', {
+    method: 'POST',
+    headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason: '   ' }),
+  });
+  assert.equal(missingReason.status, 400);
+  const rejectedReview = await hono.app.request('http://localhost/manage/drift-bottle/api/reviews/review-1/reject', {
+    method: 'POST',
+    headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason: '不适合公开展示' }),
+  });
+  assert.equal(rejectedReview.status, 200);
+  assert.deepEqual(rejectedReviews, [{ actorId: 123456789, id: 'review-1', reason: '不适合公开展示' }]);
+  assert.equal(
+    (
+      await hono.app.request('http://localhost/manage/drift-bottle/api/reviews/missing/approve', {
+        method: 'POST',
+        headers: { Cookie: cookie },
+      })
+    ).status,
+    404,
+  );
+
   const authenticatedSession = await hono.app.request('http://localhost/manage/drift-bottle/api/session', {
     headers: { Cookie: cookie },
   });
   assert.deepEqual(await authenticatedSession.json(), {
     account: '123456789',
     authenticated: true,
+    canModerate: true,
     isOwner: true,
     avatarUrl: 'https://q1.qlogo.cn/g?b=qq&nk=123456789&s=640',
   });

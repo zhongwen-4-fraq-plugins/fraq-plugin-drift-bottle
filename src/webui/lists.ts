@@ -16,6 +16,13 @@ export interface WebuiPendingReviewItem {
   reason: string;
   categories: string[];
   totalTokens?: number;
+  target: string;
+  canApprove: boolean;
+  bottleDraft?: {
+    senderId: number;
+    displayName?: string;
+    source: { scene: string; peerId: number };
+  };
 }
 
 export interface WebuiBottleListItem {
@@ -90,6 +97,17 @@ function boundedPage(requestedPage: number, total: number): number {
 }
 
 function formatPendingReview(record: ModerationRecord): WebuiPendingReviewItem {
+  const context = {
+    target: moderationTargetLabel(record.target),
+    canApprove: Boolean(record.bottleDraft),
+    bottleDraft: record.bottleDraft
+      ? {
+          senderId: record.bottleDraft.senderId,
+          displayName: record.bottleDraft.displayName,
+          source: record.bottleDraft.source,
+        }
+      : undefined,
+  };
   if ('error' in record.process) {
     return {
       id: record.id,
@@ -99,6 +117,7 @@ function formatPendingReview(record: ModerationRecord): WebuiPendingReviewItem {
       reason: record.process.error.message,
       categories: [],
       totalTokens: record.totalTokens,
+      ...context,
     };
   }
 
@@ -110,7 +129,25 @@ function formatPendingReview(record: ModerationRecord): WebuiPendingReviewItem {
     reason: record.process.result.reason || 'AI 未提供具体原因',
     categories: record.process.result.categories,
     totalTokens: record.totalTokens,
+    ...context,
   };
+}
+
+function moderationTargetLabel(target: ModerationRecord['target']): string {
+  switch (target) {
+    case 'bottle-content':
+      return '瓶子内容';
+    case 'bottle-signature':
+      return '瓶子署名';
+    case 'comment-content':
+      return '评论内容';
+    case 'comment-signature':
+      return '评论署名';
+    case 'profile-signature':
+      return '署名设置';
+    default:
+      return '历史记录';
+  }
 }
 
 function formatBottle(bottle: DriftBottle): WebuiBottleListItem {

@@ -37,6 +37,8 @@ export type {
   NewBottleOperationRecord,
   NewDriftBottle,
 } from './models/index.js';
+export type { ApproveModerationRecordResult, RejectModerationRecordResult } from './persistence/bottle-store.js';
+export type { ModerationContext, ModerationTarget } from './processing/moderation.js';
 export type { ModerationProcess, ModerationRecord } from './processing/moderation-records.js';
 export type {
   DashboardOperation,
@@ -83,11 +85,14 @@ export default definePlugin({
     ctx.provide(DriftBottleApi, api);
     const webuiPath = registerWebuiRoutes(ctx.hono, {
       auth: webuiAuth,
+      approveReview: (id, actorId) => api.approveModerationRecord(id, actorId),
       basePath: options.webuiPath,
       bottles: (page) => createBottleListPage(api, page),
+      canModerate: (userId) => api.isModerator(userId),
       dashboard: () => createDashboardSnapshot(api, instanceStartedAt, runtime),
       ownerIds,
       pendingReviews: (page) => createPendingReviewListPage(api, page),
+      rejectReview: (id, actorId, reason) => api.rejectModerationRecord(id, actorId, reason),
       registration: webuiRegistration,
       registrationRequests: (page) => createRegistrationRequestListPage(store, page),
     });

@@ -832,6 +832,10 @@ textarea {
   table-layout: fixed;
 }
 
+.data-table--reviews {
+  min-width: 68rem;
+}
+
 .data-table th,
 .data-table td {
   padding: var(--space-sm) var(--space-md);
@@ -875,6 +879,11 @@ textarea {
 .data-table th:nth-child(4),
 .data-table td:nth-child(4) {
   width: 10rem;
+}
+
+.data-table--reviews .review-actions-heading,
+.data-table--reviews .review-actions-cell {
+  width: 17rem;
 }
 
 .data-table--bottles th:first-child,
@@ -1016,6 +1025,199 @@ textarea {
 .review-status--error {
   background: oklch(0.95 0.025 28);
   color: var(--color-error);
+}
+
+.review-bottle-context {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: var(--space-2xs) var(--space-sm);
+  margin-top: var(--space-xs);
+  color: var(--color-muted);
+  font-size: var(--text-meta);
+  line-height: 1.25rem;
+}
+
+.review-bottle-context span,
+.review-bottle-context small {
+  overflow-wrap: anywhere;
+}
+
+.review-action-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-xs);
+}
+
+.review-icon-action {
+  position: relative;
+  display: inline-flex;
+}
+
+.review-icon-button {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  place-items: center;
+  border: 0.0625rem solid var(--color-border);
+  border-radius: 0.625rem;
+  background: var(--color-background);
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
+}
+
+.review-icon-button svg {
+  width: 1.25rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.review-icon-button--approve {
+  color: var(--color-success);
+}
+
+.review-icon-button--reject {
+  color: var(--color-error);
+}
+
+.review-icon-button:active:not([aria-disabled="true"]) {
+  transform: scale(0.94);
+}
+
+.review-icon-button[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.review-action-tooltip {
+  position: absolute;
+  z-index: 4;
+  right: 0;
+  bottom: calc(100% + var(--space-xs));
+  width: max-content;
+  max-width: 14rem;
+  padding: var(--space-2xs) var(--space-xs);
+  border-radius: 0.375rem;
+  background: var(--color-ink);
+  color: var(--color-background);
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(0.25rem);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+}
+
+.review-icon-action:hover .review-action-tooltip,
+.review-icon-action:focus-within .review-action-tooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.review-action-panel {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  border: 0.0625rem solid var(--color-border);
+  border-radius: 0.625rem;
+  background: var(--color-surface);
+}
+
+.review-action-panel--approve {
+  border-color: color-mix(in oklch, var(--color-success) 32%, var(--color-border));
+}
+
+.review-action-panel--reject {
+  border-color: color-mix(in oklch, var(--color-error) 30%, var(--color-border));
+}
+
+.review-action-panel strong,
+.review-action-panel label {
+  color: var(--color-ink);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  line-height: 1.25rem;
+}
+
+.review-action-panel textarea {
+  width: 100%;
+  min-height: 4.25rem;
+  resize: vertical;
+  border: 0.0625rem solid var(--color-border);
+  border-radius: 0.5rem;
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--color-background);
+  color: var(--color-ink);
+  line-height: 1.4;
+}
+
+.review-action-panel textarea[aria-invalid="true"] {
+  border-color: var(--color-error);
+}
+
+.review-action-panel > small {
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+}
+
+.review-action-confirm-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.review-confirm-button,
+.review-cancel-button {
+  min-height: 2.5rem;
+  border: 0;
+  border-radius: 0.5rem;
+  padding-inline: var(--space-sm);
+  cursor: pointer;
+  font-size: var(--text-meta);
+  font-weight: 600;
+}
+
+.review-confirm-button--approve {
+  background: var(--color-success);
+  color: var(--color-background);
+}
+
+.review-confirm-button--reject {
+  background: var(--color-error);
+  color: var(--color-background);
+}
+
+.review-cancel-button {
+  background: var(--color-background);
+  color: var(--color-muted);
+}
+
+.review-confirm-button:disabled,
+.review-cancel-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.review-action-error {
+  margin: 0;
+  color: var(--color-error);
+  font-size: var(--text-meta);
+  line-height: 1.35;
 }
 
 .record-person strong {
@@ -1221,6 +1423,16 @@ textarea {
 
   .list-mobile-view {
     display: block;
+  }
+
+  .review-action-buttons {
+    justify-content: flex-start;
+    padding-top: var(--space-xs);
+    border-block-start: 0.0625rem solid var(--color-border);
+  }
+
+  .review-action-panel {
+    margin-top: var(--space-xs);
   }
 }
 
@@ -1812,6 +2024,13 @@ textarea {
   .list-pagination button {
     min-height: 3rem;
   }
+
+  .review-icon-button,
+  .review-confirm-button,
+  .review-cancel-button {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
 }
 
 @media (forced-colors: active) {
@@ -1822,6 +2041,12 @@ textarea {
   .list-surface,
   .list-pagination button,
   .registration-status {
+    border: 0.0625rem solid CanvasText;
+  }
+
+  .review-icon-button,
+  .review-action-panel,
+  .review-action-panel textarea {
     border: 0.0625rem solid CanvasText;
   }
 

@@ -15,6 +15,13 @@ interface PendingReviewItem {
   reason: string;
   categories: string[];
   totalTokens?: number;
+  target: string;
+  canApprove: boolean;
+  bottleDraft?: {
+    senderId: number;
+    displayName?: string;
+    source: { scene: string; peerId: number };
+  };
 }
 
 interface BottleItem {
@@ -42,6 +49,10 @@ interface BottleListProps {
   onSessionExpired: () => void;
 }
 
+interface PendingReviewListProps extends BottleListProps {
+  canModerate: boolean;
+}
+
 const dateTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
   year: 'numeric',
   month: '2-digit',
@@ -51,8 +62,29 @@ const dateTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
   hour12: false,
 });
 
-export function PendingReviewList({ onSessionExpired }: BottleListProps) {
+export function PendingReviewList({ canModerate, onSessionExpired }: PendingReviewListProps) {
   const list = useListPage<PendingReviewItem>('api/reviews/pending', onSessionExpired);
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => new Set());
+
+  async function submitReview(id: string, action: 'approve' | 'reject', reason?: string): Promise<string | undefined> {
+    const response = await fetch(webuiUrl(`api/reviews/${encodeURIComponent(id)}/${action}`), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: action === 'reject' ? JSON.stringify({ reason }) : undefined,
+    });
+    if (response.status === 401) {
+      onSessionExpired();
+      return '登录已过期，请重新登录';
+    }
+    const result = (await response.json().catch(() => undefined)) as { error?: string } | undefined;
+    if (!response.ok) {
+      return result?.error ?? '处理失败，请稍后重试';
+    }
+    setDismissedIds((current) => new Set(current).add(id));
+    list.retry();
+    return undefined;
+  }
 
   return (
     <ListPageFrame
@@ -65,7 +97,7 @@ export function PendingReviewList({ onSessionExpired }: BottleListProps) {
       {(data) => (
         <>
           <div className="data-table-scroll list-desktop-view">
-            <table className="data-table">
+            <table className="data-table data-table--reviews">
               <caption className="visually-hidden">待审核记录</caption>
               <thead>
                 <tr>
@@ -73,50 +105,235 @@ export function PendingReviewList({ onSessionExpired }: BottleListProps) {
                   <th scope="col">状态</th>
                   <th scope="col">原因</th>
                   <th scope="col">提交时间</th>
+                  {canModerate ? (
+                    <th scope="col" className="review-actions-heading">
+                      操作
+                    </th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody>
-                {data.items.map((item) => (
-                  <tr key={item.id}>
-                    <td>
-                      <ContentSummaryView content={item.content} />
-                    </td>
-                    <td>
-                      <ReviewStatus status={item.status} />
-                    </td>
-                    <td>
-                      <div className="review-reason">
-                        <span>{item.reason}</span>
-                        {item.categories.length ? <small>{item.categories.join(' · ')}</small> : null}
-                      </div>
-                    </td>
-                    <td>
-                      <FormattedTime value={item.createdAt} />
-                    </td>
-                  </tr>
-                ))}
+                {data.items
+                  .filter((item) => !dismissedIds.has(item.id))
+                  .map((item) => (
+                    <tr key={item.id}>
+                      <td>
+                        <ContentSummaryView content={item.content} />
+                        {item.bottleDraft ? <ReviewBottleContext draft={item.bottleDraft} /> : null}
+                      </td>
+                      <td>
+                        <ReviewStatus status={item.status} />
+                      </td>
+                      <td>
+                        <div className="review-reason">
+                          <span>{item.reason}</span>
+                          {item.categories.length ? <small>{item.categories.join(' · ')}</small> : null}
+                          <small>{item.target}</small>
+                        </div>
+                      </td>
+                      <td>
+                        <FormattedTime value={item.createdAt} />
+                      </td>
+                      {canModerate ? (
+                        <td className="review-actions-cell">
+                          <ReviewActions item={item} onSubmit={submitReview} />
+                        </td>
+                      ) : null}
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
           <ol className="mobile-record-list list-mobile-view">
-            {data.items.map((item) => (
-              <li key={item.id} className="mobile-record">
-                <div className="mobile-record-heading">
-                  <span className="record-id">#{shortId(item.id)}</span>
-                  <ReviewStatus status={item.status} />
-                </div>
-                <ContentSummaryView content={item.content} />
-                <div className="review-reason">
-                  <span>{item.reason}</span>
-                  {item.categories.length ? <small>{item.categories.join(' · ')}</small> : null}
-                </div>
-                <FormattedTime value={item.createdAt} />
-              </li>
-            ))}
+            {data.items
+              .filter((item) => !dismissedIds.has(item.id))
+              .map((item) => (
+                <li key={item.id} className="mobile-record">
+                  <div className="mobile-record-heading">
+                    <span className="record-id">#{shortId(item.id)}</span>
+                    <ReviewStatus status={item.status} />
+                  </div>
+                  <ContentSummaryView content={item.content} />
+                  <div className="review-reason">
+                    <span>{item.reason}</span>
+                    {item.categories.length ? <small>{item.categories.join(' · ')}</small> : null}
+                    <small>{item.target}</small>
+                  </div>
+                  {item.bottleDraft ? <ReviewBottleContext draft={item.bottleDraft} /> : null}
+                  <FormattedTime value={item.createdAt} />
+                  {canModerate ? <ReviewActions item={item} onSubmit={submitReview} /> : null}
+                </li>
+              ))}
           </ol>
         </>
       )}
     </ListPageFrame>
+  );
+}
+
+function ReviewBottleContext({ draft }: { draft: NonNullable<PendingReviewItem['bottleDraft']> }) {
+  return (
+    <div className="review-bottle-context">
+      <span>
+        {draft.displayName || '匿名'} · QQ {draft.senderId}
+      </span>
+      <small>
+        {sourceScene(draft.source.scene)} {draft.source.peerId}
+      </small>
+    </div>
+  );
+}
+
+function ReviewActions({
+  item,
+  onSubmit,
+}: {
+  item: PendingReviewItem;
+  onSubmit: (id: string, action: 'approve' | 'reject', reason?: string) => Promise<string | undefined>;
+}) {
+  const [mode, setMode] = useState<'approve' | 'reject'>();
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const errorId = `review-action-error-${item.id}`;
+  const reasonHelpId = `review-reason-help-${item.id}`;
+
+  function close() {
+    if (submitting) return;
+    setMode(undefined);
+    setReason('');
+    setError('');
+  }
+
+  async function submit(action: 'approve' | 'reject') {
+    const normalizedReason = reason.trim();
+    if (action === 'reject' && !normalizedReason) {
+      setError('请输入拒绝理由');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    try {
+      const nextError = await onSubmit(item.id, action, normalizedReason);
+      if (nextError) setError(nextError);
+    } catch {
+      setError('网络连接异常，请稍后重试');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (mode === 'approve') {
+    return (
+      <div className="review-action-panel review-action-panel--approve" aria-busy={submitting}>
+        <strong>确认通过并立即投放？</strong>
+        <div className="review-action-confirm-buttons">
+          <button
+            type="button"
+            className="review-confirm-button review-confirm-button--approve"
+            disabled={submitting}
+            onClick={() => void submit('approve')}
+          >
+            确认投放
+          </button>
+          <button type="button" className="review-cancel-button" disabled={submitting} onClick={close}>
+            取消
+          </button>
+        </div>
+        {error ? (
+          <p id={errorId} className="review-action-error" role="alert">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (mode === 'reject') {
+    return (
+      <div className="review-action-panel review-action-panel--reject" aria-busy={submitting}>
+        <label htmlFor={`review-reason-${item.id}`}>拒绝理由</label>
+        <textarea
+          id={`review-reason-${item.id}`}
+          value={reason}
+          maxLength={500}
+          rows={2}
+          autoFocus
+          disabled={submitting}
+          aria-describedby={`${reasonHelpId}${error ? ` ${errorId}` : ''}`}
+          aria-invalid={Boolean(error)}
+          onChange={(event) => {
+            setReason(event.target.value);
+            if (error) setError('');
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') close();
+          }}
+        />
+        <small id={reasonHelpId}>必填，最多 500 个字符</small>
+        <div className="review-action-confirm-buttons">
+          <button
+            type="button"
+            className="review-confirm-button review-confirm-button--reject"
+            disabled={submitting}
+            onClick={() => void submit('reject')}
+          >
+            确认拒绝
+          </button>
+          <button type="button" className="review-cancel-button" disabled={submitting} onClick={close}>
+            取消
+          </button>
+        </div>
+        {error ? (
+          <p id={errorId} className="review-action-error" role="alert">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="review-action-buttons" aria-label="审核操作">
+      <IconActionButton
+        action="approve"
+        label={item.canApprove ? '通过并投放' : '缺少完整投瓶信息，无法通过'}
+        disabled={!item.canApprove}
+        onClick={() => setMode('approve')}
+      />
+      <IconActionButton action="reject" label="拒绝并归档" onClick={() => setMode('reject')} />
+    </div>
+  );
+}
+
+function IconActionButton({
+  action,
+  label,
+  disabled = false,
+  onClick,
+}: {
+  action: 'approve' | 'reject';
+  label: string;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <span className="review-icon-action">
+      <button
+        type="button"
+        className={`review-icon-button review-icon-button--${action}`}
+        aria-label={label}
+        aria-disabled={disabled}
+        onClick={disabled ? undefined : onClick}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d={action === 'approve' ? 'm5 12.5 4.25 4.25L19 7' : 'M6 6l12 12M18 6 6 18'} />
+        </svg>
+      </button>
+      <span className="review-action-tooltip" role="tooltip">
+        {label}
+      </span>
+    </span>
   );
 }
 

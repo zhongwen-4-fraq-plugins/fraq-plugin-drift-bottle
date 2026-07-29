@@ -25,7 +25,14 @@ test('AI 审核成功和失败都会写入数据库', async (t) => {
     reason: '包含不适宜内容',
     usage: { inputTokens: 120, outputTokens: 30, totalTokens: 150 },
   }));
-  await successfulModerator([inseg.text('待审核内容')]);
+  await successfulModerator([inseg.text('待审核内容')], {
+    target: 'bottle-content',
+    bottleDraft: {
+      senderId: 10001,
+      source: { scene: 'friend', peerId: 10001 },
+      segments: [inseg.text('待审核内容')],
+    },
+  });
 
   const failedModerator = withModerationRecords(store, { info: (message) => logs.push(message) }, async () => {
     throw new Error('AI unavailable');
@@ -50,6 +57,8 @@ test('AI 审核成功和失败都会写入数据库', async (t) => {
     result: { approved: false, categories: ['r18'], reason: '包含不适宜内容' },
   });
   assert.deepEqual([success.inputTokens, success.outputTokens, success.totalTokens], [120, 30, 150]);
+  assert.equal(success.target, 'bottle-content');
+  assert.equal(success.bottleDraft?.senderId, 10001);
   assert.ok(failure);
   assert.equal(failure.approved, undefined);
   assert.deepEqual(failure.content, [inseg.text('审核失败内容')]);
@@ -64,4 +73,58 @@ test('AI 审核成功和失败都会写入数据库', async (t) => {
     ],
   );
   assert.deepEqual(logs, ['漂流瓶 AI 审核 Token：输入 120，输出 30，总计 150']);
+});
+
+test('人工审核可投放完整草稿，并要求拒绝理由后归档', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-review-'));
+  const store = new BottleStore(join(directory, 'bottles.db'));
+  await store.load();
+  t.after(async () => {
+    store.dispose();
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  const publishable = store.addModerationRecord({
+    content: [inseg.text('需要主人确认')],
+    process: { result: { approved: false, categories: ['profanity'], reason: '需要人工确认' } },
+    success: true,
+    approved: false,
+    target: 'bottle-content',
+    bottleDraft: {
+      senderId: 10001,
+      displayName: '海风',
+      source: { scene: 'group', peerId: 20001 },
+      segments: [inseg.text('需要主人确认')],
+    },
+  });
+  const approved = store.approveModerationRecord(publishable.id, 90001);
+  assert.equal(approved.status, 'approved');
+  if (approved.status === 'approved') {
+    assert.equal(approved.bottle.senderId, 10001);
+    assert.equal(store.hasBottle(approved.bottle.id), true);
+  }
+  assert.equal(store.approveModerationRecord(publishable.id, 90001).status, 'already-resolved');
+
+  const legacy = store.addModerationRecord({
+    content: [inseg.text('旧审核记录')],
+    process: { error: { name: 'Error', message: '模型不可用' } },
+    success: false,
+  });
+  assert.equal(store.approveModerationRecord(legacy.id, 90001).status, 'publish-unavailable');
+  assert.equal(store.rejectModerationRecord(legacy.id, 90001, '   ').status, 'invalid-reason');
+  assert.equal(store.rejectModerationRecord(legacy.id, 90001, '缺少可信投瓶上下文').status, 'rejected');
+  assert.equal(store.pendingModerationCount(), 0);
+
+  const records = store.moderationRecords();
+  const approvedRecord = records.find((record) => record.id === publishable.id);
+  const rejectedRecord = records.find((record) => record.id === legacy.id);
+  assert.equal(approvedRecord?.resolution, 'approved');
+  assert.equal(approvedRecord?.resolvedBy, 90001);
+  assert.ok(approvedRecord?.publishedBottleId);
+  assert.equal(rejectedRecord?.resolution, 'rejected');
+  assert.equal(rejectedRecord?.rejectionReason, '缺少可信投瓶上下文');
+  assert.deepEqual(
+    store.operationRecords().map(({ action }) => action),
+    ['moderation-rejected', 'moderation-approved'],
+  );
 });

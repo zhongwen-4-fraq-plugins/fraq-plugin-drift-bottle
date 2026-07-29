@@ -7,7 +7,13 @@ import { RegistrationRequests } from './RegistrationRequests';
 
 type View = 'checking' | 'login' | 'main';
 type AuthMode = 'login' | 'register';
-type Session = { account?: string | null; authenticated?: boolean; avatarUrl?: string; isOwner?: boolean };
+type Session = {
+  account?: string | null;
+  authenticated?: boolean;
+  avatarUrl?: string;
+  isOwner?: boolean;
+  canModerate?: boolean;
+};
 type SidebarIconName = 'accounts' | 'bottles' | 'collapse' | 'expand' | 'home' | 'review' | 'settings';
 
 export function App() {
@@ -23,6 +29,7 @@ export function App() {
   const [avatarUrl, setAvatarUrl] = useState<string>();
   const [loginAvatarFailed, setLoginAvatarFailed] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  const [canModerate, setCanModerate] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [succeeded, setSucceeded] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
@@ -41,6 +48,7 @@ export function App() {
         const page = requestedPage === 'registrations' && !owner ? 'home' : requestedPage;
         setAvatarUrl(session?.avatarUrl);
         setIsOwner(owner);
+        setCanModerate(Boolean(session?.canModerate));
         setMainPage(page);
         setView(authenticated ? 'main' : 'login');
         syncLocation(authenticated, page);
@@ -84,6 +92,7 @@ export function App() {
     setRegistrationMessage('');
     setSucceeded(false);
     setIsOwner(false);
+    setCanModerate(false);
     setError('登录已过期，请重新登录');
     setView('login');
     syncLocation(false, 'home');
@@ -124,7 +133,7 @@ export function App() {
         body: JSON.stringify({ account, password }),
       });
       const result = (await response.json().catch(() => undefined)) as
-        | { avatarUrl?: string; error?: string; isOwner?: boolean; message?: string }
+        | { avatarUrl?: string; canModerate?: boolean; error?: string; isOwner?: boolean; message?: string }
         | undefined;
       if (!response.ok) {
         setError(result?.error ?? (authMode === 'login' ? '登录失败，请稍后重试' : '申请提交失败，请稍后重试'));
@@ -144,6 +153,7 @@ export function App() {
       const owner = Boolean(result?.isOwner);
       setAvatarUrl(result?.avatarUrl ?? qqAvatarUrl(account));
       setIsOwner(owner);
+      setCanModerate(Boolean(result?.canModerate));
       await new Promise((resolve) =>
         window.setTimeout(resolve, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 120 : 420),
       );
@@ -266,7 +276,9 @@ export function App() {
         </aside>
         <main id="app-main" className="app-main" aria-label={pageLabel} tabIndex={-1}>
           {mainPage === 'home' ? <Dashboard onSessionExpired={handleSessionExpired} /> : null}
-          {mainPage === 'pending' ? <PendingReviewList onSessionExpired={handleSessionExpired} /> : null}
+          {mainPage === 'pending' ? (
+            <PendingReviewList canModerate={canModerate} onSessionExpired={handleSessionExpired} />
+          ) : null}
           {mainPage === 'bottles' ? <AllBottleList onSessionExpired={handleSessionExpired} /> : null}
           {mainPage === 'registrations' && isOwner ? (
             <RegistrationRequests onSessionExpired={handleSessionExpired} />

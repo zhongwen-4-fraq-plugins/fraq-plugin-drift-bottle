@@ -2,7 +2,12 @@ import type { Logger } from '@fraqjs/fraq';
 
 import type { BottleSegment } from '../models/index.js';
 import type { BottleStore } from '../persistence/bottle-store.js';
-import { type BottleModerator, formatModerationUsage, type ModerationResult } from './moderation.js';
+import {
+  type BottleModerator,
+  formatModerationUsage,
+  type ModerationContext,
+  type ModerationResult,
+} from './moderation.js';
 
 export type ModerationProcess =
   | {
@@ -25,6 +30,13 @@ export interface ModerationRecord {
   totalTokens?: number;
   success: boolean;
   approved?: boolean;
+  target?: ModerationContext['target'];
+  bottleDraft?: ModerationContext['bottleDraft'];
+  resolution?: 'approved' | 'rejected';
+  resolvedBy?: number;
+  resolvedAt?: number;
+  rejectionReason?: string;
+  publishedBottleId?: string;
 }
 
 export type NewModerationRecord = Omit<ModerationRecord, 'id' | 'createdAt'>;
@@ -34,15 +46,16 @@ export function withModerationRecords(
   logger: Pick<Logger, 'info'>,
   moderator: BottleModerator,
 ): BottleModerator {
-  return async (segments) => {
+  return async (segments, context) => {
     let result: ModerationResult;
     try {
-      result = await moderator(segments);
+      result = await moderator(segments, context);
     } catch (error) {
       store.addModerationRecord({
         content: segments,
         process: { error: describeError(error) },
         success: false,
+        ...context,
       });
       throw error;
     }
@@ -61,6 +74,7 @@ export function withModerationRecords(
       totalTokens: result.usage?.totalTokens,
       success: true,
       approved: result.approved,
+      ...context,
     });
     if (result.usage) {
       logger.info(formatModerationUsage(result.usage));
