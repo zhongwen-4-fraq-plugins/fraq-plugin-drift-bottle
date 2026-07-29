@@ -353,32 +353,39 @@ export function AllBottleList({ onSessionExpired }: BottleListProps) {
           <div className="data-table-scroll list-desktop-view">
             <table className="data-table data-table--bottles">
               <caption className="visually-hidden">全部漂流瓶</caption>
+              <colgroup>
+                <col className="bottle-column-id" />
+                <col className="bottle-column-time" />
+                <col className="bottle-column-source" />
+                <col className="bottle-column-types" />
+                <col className="bottle-column-content" />
+              </colgroup>
               <thead>
                 <tr>
-                  <th scope="col">内容</th>
-                  <th scope="col">投瓶者</th>
-                  <th scope="col">来源</th>
-                  <th scope="col">创建时间</th>
                   <th scope="col">瓶子 ID</th>
+                  <th scope="col">时间</th>
+                  <th scope="col">来源</th>
+                  <th scope="col">消息段类型</th>
+                  <th scope="col">内容</th>
                 </tr>
               </thead>
               <tbody>
                 {data.items.map((item) => (
                   <tr key={item.id}>
                     <td>
-                      <ContentSummaryView content={item.content} />
-                    </td>
-                    <td>
-                      <Author item={item} />
-                    </td>
-                    <td>
-                      <Source item={item} />
+                      <span className="record-id record-id--full">{item.id}</span>
                     </td>
                     <td>
                       <FormattedTime value={item.createdAt} />
                     </td>
                     <td>
-                      <span className="record-id">{shortId(item.id)}</span>
+                      <BottleSource item={item} />
+                    </td>
+                    <td>
+                      <ContentTypeTags kinds={item.content.kinds} />
+                    </td>
+                    <td>
+                      <ContentPreview preview={item.content.preview} />
                     </td>
                   </tr>
                 ))}
@@ -388,15 +395,38 @@ export function AllBottleList({ onSessionExpired }: BottleListProps) {
           <ol className="mobile-record-list list-mobile-view">
             {data.items.map((item) => (
               <li key={item.id} className="mobile-record">
-                <div className="mobile-record-heading">
-                  <Author item={item} />
-                  <span className="record-id">#{shortId(item.id)}</span>
-                </div>
-                <ContentSummaryView content={item.content} />
-                <div className="mobile-record-meta">
-                  <Source item={item} />
-                  <FormattedTime value={item.createdAt} />
-                </div>
+                <dl className="mobile-bottle-fields">
+                  <div className="mobile-bottle-field">
+                    <dt>瓶子 ID</dt>
+                    <dd>
+                      <span className="record-id record-id--full">{item.id}</span>
+                    </dd>
+                  </div>
+                  <div className="mobile-bottle-field">
+                    <dt>时间</dt>
+                    <dd>
+                      <FormattedTime value={item.createdAt} />
+                    </dd>
+                  </div>
+                  <div className="mobile-bottle-field">
+                    <dt>来源</dt>
+                    <dd>
+                      <BottleSource item={item} />
+                    </dd>
+                  </div>
+                  <div className="mobile-bottle-field">
+                    <dt>消息段类型</dt>
+                    <dd>
+                      <ContentTypeTags kinds={item.content.kinds} />
+                    </dd>
+                  </div>
+                  <div className="mobile-bottle-field">
+                    <dt>内容</dt>
+                    <dd>
+                      <ContentPreview preview={item.content.preview} />
+                    </dd>
+                  </div>
+                </dl>
               </li>
             ))}
           </ol>
@@ -527,15 +557,25 @@ export function useListPage<T>(endpoint: string, onSessionExpired: () => void) {
 function ContentSummaryView({ content }: { content: ContentSummary }) {
   return (
     <div className="content-summary">
-      <span>{content.preview}</span>
-      <ul className="content-type-tags" aria-label="内容类型">
-        {content.kinds.map((kind) => (
-          <li key={kind} className="content-type-tag">
-            {kind}
-          </li>
-        ))}
-      </ul>
+      <ContentPreview preview={content.preview} />
+      <ContentTypeTags kinds={content.kinds} />
     </div>
+  );
+}
+
+function ContentPreview({ preview }: { preview: string }) {
+  return <span className="content-preview">{preview}</span>;
+}
+
+function ContentTypeTags({ kinds }: { kinds: string[] }) {
+  return (
+    <ul className="content-type-tags" aria-label="消息段类型">
+      {kinds.map((kind) => (
+        <li key={kind} className="content-type-tag">
+          {kind}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -543,20 +583,13 @@ function ReviewStatus({ status }: { status: PendingReviewItem['status'] }) {
   return <span className={`review-status review-status--${status}`}>{status === 'error' ? '审核中断' : '未通过'}</span>;
 }
 
-function Author({ item }: { item: BottleItem }) {
-  return (
-    <div className="record-person">
-      <strong>{item.displayName || '匿名'}</strong>
-      <small>QQ {item.senderId}</small>
-    </div>
-  );
-}
-
-function Source({ item }: { item: BottleItem }) {
+function BottleSource({ item }: { item: BottleItem }) {
   return (
     <div className="record-source">
-      <span>{sourceScene(item.source.scene)}</span>
-      <small>{item.source.peerId}</small>
+      <span>QQ {item.senderId}</span>
+      <small>
+        {item.source.scene === 'group' ? '群' : sourceScene(item.source.scene)} {item.source.peerId}
+      </small>
     </div>
   );
 }

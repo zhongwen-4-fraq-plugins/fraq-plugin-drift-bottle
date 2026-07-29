@@ -836,6 +836,10 @@ textarea {
   min-width: 68rem;
 }
 
+.data-table--bottles {
+  min-width: 56rem;
+}
+
 .data-table th,
 .data-table td {
   padding: var(--space-sm) var(--space-md);
@@ -886,26 +890,24 @@ textarea {
   width: 17rem;
 }
 
-.data-table--bottles th:first-child,
-.data-table--bottles td:first-child {
-  width: 34%;
-}
-
-.data-table--bottles th:nth-child(2),
-.data-table--bottles td:nth-child(2),
-.data-table--bottles th:nth-child(3),
-.data-table--bottles td:nth-child(3) {
-  width: 8.5rem;
-}
-
-.data-table--bottles th:nth-child(4),
-.data-table--bottles td:nth-child(4) {
+.data-table--bottles .bottle-column-id {
   width: 10rem;
 }
 
-.data-table--bottles th:nth-child(5),
-.data-table--bottles td:nth-child(5) {
-  width: 7rem;
+.data-table--bottles .bottle-column-time {
+  width: 10rem;
+}
+
+.data-table--bottles .bottle-column-source {
+  width: 12rem;
+}
+
+.data-table--bottles .bottle-column-types {
+  width: 11rem;
+}
+
+.data-table--bottles .bottle-column-content {
+  width: auto;
 }
 
 .data-table--registrations {
@@ -952,7 +954,7 @@ textarea {
   gap: var(--space-2xs);
 }
 
-.content-summary > span {
+.content-preview {
   display: block;
   width: 100%;
   max-width: 65ch;
@@ -1229,9 +1231,16 @@ textarea {
 }
 
 .record-source > span {
+  overflow-wrap: anywhere;
   color: var(--color-ink);
   font-size: var(--text-ui);
+  font-variant-numeric: tabular-nums;
   line-height: 1.25rem;
+}
+
+.record-source small {
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
 }
 
 .record-id,
@@ -1245,6 +1254,11 @@ textarea {
 
 .record-id {
   font-weight: 500;
+}
+
+.record-id--full {
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .list-mobile-view {
@@ -1272,6 +1286,33 @@ textarea {
 
 .mobile-record:last-child {
   border-block-end: 0;
+}
+
+.mobile-bottle-fields {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin: 0;
+}
+
+.mobile-bottle-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.mobile-bottle-field dt {
+  color: var(--color-muted);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  line-height: 1.25rem;
+}
+
+.mobile-bottle-field dd {
+  min-width: 0;
+  margin: 0;
 }
 
 .mobile-record-heading,
