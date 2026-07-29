@@ -1,11 +1,11 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: 待审核操作栏已完成现状检查；审核记录缺少重新投放上下文，等待确认操作语义与权限范围。
+Focus: 待审核内容类型标签已完成；完整人工审核与主人、管理员权限已确认，等待设计简报确认。
 
 ## In flight
 
 - `ai-schema-response` — 根因已确认，等待实施诊断记录、精确提示词与受限修复/重试。
-- `pending-review-actions` — 内容类型标签已完成，等待确认人工操作语义与权限。
+- `pending-review-actions` — 内容类型标签已完成，完整人工审核方向处于 Impeccable 设计简报确认门槛。
 
 ## Next
 
