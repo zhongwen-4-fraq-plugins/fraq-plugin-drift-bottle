@@ -1,10 +1,10 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: `v0.3.13` 已发布，Fraq 宿主已更新到 `0.3.13`，所有 Fraq 实例均已关闭。
+Focus: 已确认 AI 审核失败源于 OpenAI-compatible 未发送 JSON Schema，模型返回的 JSON 未通过 Zod 校验；等待确认是否实施修复。
 
 ## In flight
 
-无。
+- `ai-schema-response` — 根因已确认，等待实施诊断记录、精确提示词与受限修复/重试。
 
 ## Next
 
