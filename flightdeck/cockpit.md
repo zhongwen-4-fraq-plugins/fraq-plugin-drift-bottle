@@ -1,11 +1,11 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: 待审核内容类型标签已完成；操作栏确定为勾/叉图标，拒绝必须填写理由，等待修订设计简报确认。
+Focus: 待审核勾/叉操作、拒绝理由与设计简报已确认，正在完成 Impeccable 视觉方向门槛。
 
 ## In flight
 
 - `ai-schema-response` — 根因已确认，等待实施诊断记录、精确提示词与受限修复/重试。
-- `pending-review-actions` — 勾/叉人工审核、拒绝理由及权限方向已确认，处于 Impeccable 设计简报确认门槛。
+- `pending-review-actions` — 设计简报已确认，处于 Impeccable Codex Step A 视觉方向问题。
 
 ## Next
 
