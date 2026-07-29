@@ -18,6 +18,7 @@
 - `src/webui/routes.ts`
 - `test/webui-lists.test.ts`
 - `flightdeck/knowledge/moderation/pending-record-publication-context.md`
+- `flightdeck/knowledge/webui/icon-only-actions.md`
 
 ## Read if
 
@@ -33,6 +34,7 @@ Done:
 - 桌面与移动列表的内容类型均改为可换行的语义化标签组。
 - 用户确认操作为“通过并投放 / 拒绝并归档”。
 - 用户确认插件主人和管理员均可执行人工审核。
+- 用户要求操作栏使用勾和叉图标；叉号操作必须填写拒绝理由。
 
 Current:
 - Impeccable shape 设计简报确认门槛。
