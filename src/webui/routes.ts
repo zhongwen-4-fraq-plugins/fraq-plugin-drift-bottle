@@ -10,6 +10,13 @@ import type {
   WebuiRegistrationRequestItem,
 } from './lists.js';
 import type { WebuiRegistration } from './registration.js';
+import {
+  type EditableWebuiSettings,
+  normalizeModerationModel,
+  normalizeOwnerIds,
+  normalizeWebuiPath,
+  type WebuiSettingsSnapshot,
+} from './settings.js';
 
 import { readFile } from 'node:fs/promises';
 import { extname, isAbsolute, relative, resolve } from 'node:path';
@@ -28,12 +35,14 @@ export interface WebuiRouteOptions {
   registration: Pick<WebuiRegistration, 'submit'>;
   registrationRequests: (page: number) => WebuiListPage<WebuiRegistrationRequestItem>;
   ownerIds: number[];
+  settings: () => WebuiSettingsSnapshot;
+  updateSettings: (settings: EditableWebuiSettings) => Promise<WebuiSettingsSnapshot>;
 }
 
 const SESSION_COOKIE = 'drift_bottle_session';
 
 export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: WebuiRouteOptions): string {
-  const basePath = normalizeBasePath(options.basePath ?? '/drift-bottle');
+  const basePath = normalizeWebuiPath(options.basePath ?? '/drift-bottle');
   const directory = options.directory ?? fileURLToPath(new URL('./webui/', import.meta.url));
 
   service.app.get(basePath, (context) => context.redirect(`${basePath}/`, 308));
@@ -227,6 +236,77 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
       'Cache-Control': 'no-store',
     });
   });
+  service.app.get(`${basePath}/api/settings`, (context) => {
+    const userId = options.auth.sessionUserId(readSessionCookie(context.req.header('cookie')));
+    if (userId === undefined) {
+      return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
+    }
+    if (!options.ownerIds.includes(userId)) {
+      return context.json({ error: '仅插件主人可以查看插件配置' }, 403, { 'Cache-Control': 'no-store' });
+    }
+    return context.json(options.settings(), 200, { 'Cache-Control': 'no-store' });
+  });
+  service.app.put(`${basePath}/api/settings`, async (context) => {
+    const userId = options.auth.sessionUserId(readSessionCookie(context.req.header('cookie')));
+    if (userId === undefined) {
+      return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
+    }
+    if (!options.ownerIds.includes(userId)) {
+      return context.json({ error: '仅插件主人可以修改插件配置' }, 403, { 'Cache-Control': 'no-store' });
+    }
+
+    let body: unknown;
+    try {
+      body = await context.req.json();
+    } catch {
+      return context.json({ error: '请求格式无效' }, 400, { 'Cache-Control': 'no-store' });
+    }
+    const settings = readSettings(body);
+    if ('error' in settings) {
+      return context.json({ error: settings.error }, 400, { 'Cache-Control': 'no-store' });
+    }
+    if (!settings.value.ownerIds.includes(userId)) {
+      return context.json({ error: '为避免失去设置权限，主人列表必须保留当前账号' }, 400, {
+        'Cache-Control': 'no-store',
+      });
+    }
+
+    try {
+      return context.json(await options.updateSettings(settings.value), 200, { 'Cache-Control': 'no-store' });
+    } catch {
+      return context.json({ error: '配置暂时无法保存，请稍后重试' }, 500, { 'Cache-Control': 'no-store' });
+    }
+  });
+  service.app.put(`${basePath}/api/account/password`, async (context) => {
+    const token = readSessionCookie(context.req.header('cookie'));
+    const userId = options.auth.sessionUserId(token);
+    if (userId === undefined) {
+      return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
+    }
+
+    let body: unknown;
+    try {
+      body = await context.req.json();
+    } catch {
+      return context.json({ error: '请求格式无效' }, 400, { 'Cache-Control': 'no-store' });
+    }
+    const passwords = readPasswordChange(body);
+    if (!passwords) {
+      return context.json({ error: '请输入当前密码和新密码' }, 400, { 'Cache-Control': 'no-store' });
+    }
+    if (!isValidWebuiPassword(passwords.newPassword)) {
+      return context.json({ error: '新密码必须为 6–10 位，并同时包含大写字母、小写字母和数字' }, 400, {
+        'Cache-Control': 'no-store',
+      });
+    }
+    if (passwords.currentPassword === passwords.newPassword) {
+      return context.json({ error: '新密码不能与当前密码相同' }, 400, { 'Cache-Control': 'no-store' });
+    }
+    if (!(await options.auth.changePassword(userId, passwords.currentPassword, passwords.newPassword, token))) {
+      return context.json({ error: '当前密码不正确，请重新输入' }, 400, { 'Cache-Control': 'no-store' });
+    }
+    return context.json({ status: 'changed' }, 200, { 'Cache-Control': 'no-store' });
+  });
   service.app.get(`${basePath}/`, async () => serveWebuiFile(directory, 'index.html'));
   service.app.get(`${basePath}/*`, async (context) => {
     let requestPath: string;
@@ -267,6 +347,48 @@ function readRejectionReason(body: unknown): string | undefined {
   return reason && [...reason].length <= 500 ? reason : undefined;
 }
 
+function readSettings(body: unknown): { value: EditableWebuiSettings } | { error: string } {
+  if (
+    !body ||
+    typeof body !== 'object' ||
+    !('moderationModel' in body) ||
+    typeof body.moderationModel !== 'string' ||
+    !('ownerIds' in body) ||
+    !Array.isArray(body.ownerIds) ||
+    body.ownerIds.some((ownerId) => typeof ownerId !== 'number') ||
+    !('webuiPath' in body) ||
+    typeof body.webuiPath !== 'string'
+  ) {
+    return { error: '请填写完整的插件配置' };
+  }
+
+  try {
+    return {
+      value: {
+        moderationModel: normalizeModerationModel(body.moderationModel),
+        ownerIds: normalizeOwnerIds(body.ownerIds as number[]),
+        webuiPath: normalizeWebuiPath(body.webuiPath),
+      },
+    };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : '插件配置无效' };
+  }
+}
+
+function readPasswordChange(body: unknown): { currentPassword: string; newPassword: string } | undefined {
+  if (
+    !body ||
+    typeof body !== 'object' ||
+    !('currentPassword' in body) ||
+    typeof body.currentPassword !== 'string' ||
+    !('newPassword' in body) ||
+    typeof body.newPassword !== 'string'
+  ) {
+    return undefined;
+  }
+  return { currentPassword: body.currentPassword, newPassword: body.newPassword };
+}
+
 function readPage(value: string | undefined): number {
   const page = Number(value);
   return Number.isSafeInteger(page) && page > 0 ? page : 1;
@@ -304,14 +426,6 @@ function sessionCookie(token: string, basePath: string, secure: boolean, maxAge 
     attributes.push('Secure');
   }
   return attributes.join('; ');
-}
-
-function normalizeBasePath(path: string): string {
-  const normalized = `/${path.trim().split('/').filter(Boolean).join('/')}`;
-  if (normalized === '/' || path.includes('?') || path.includes('#')) {
-    throw new Error('WebUI 挂载路径必须是非根路径，且不能包含查询参数或片段');
-  }
-  return normalized;
 }
 
 async function serveWebuiFile(directory: string, requestPath: string): Promise<Response> {

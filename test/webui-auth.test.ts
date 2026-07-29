@@ -73,6 +73,31 @@ test('旧版单密码哈希会迁移到首位主人 QQ 账号', async (t) => {
   assert.ok(await auth.createSession(987654321, credentials[0]?.password ?? ''));
 });
 
+test('修改密码会保留当前会话并注销同账号的其他会话', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-auth-password-'));
+  const store = new BottleStore(join(directory, 'bottles.db'));
+  await store.load();
+  t.after(async () => {
+    store.dispose();
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  const auth = new WebuiAuth(store);
+  const [credential] = await auth.initializeOwners([123456789]);
+  assert.ok(credential);
+  const currentSession = await auth.createSession(123456789, credential.password);
+  const otherSession = await auth.createSession(123456789, credential.password);
+  assert.ok(currentSession);
+  assert.ok(otherSession);
+
+  assert.equal(await auth.changePassword(123456789, 'WrongA1', 'ChangedA1', currentSession), false);
+  assert.equal(await auth.changePassword(123456789, credential.password, 'ChangedA1', currentSession), true);
+  assert.equal(auth.sessionUserId(currentSession), 123456789);
+  assert.equal(auth.sessionUserId(otherSession), undefined);
+  assert.equal(await auth.createSession(123456789, credential.password), undefined);
+  assert.ok(await auth.createSession(123456789, 'ChangedA1'));
+});
+
 function legacyPasswordHash(password: string): Promise<string> {
   const salt = Buffer.from('migration-test-salt');
   return new Promise((resolve, reject) => {

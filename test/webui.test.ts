@@ -4,6 +4,7 @@ import { BottleStore } from '../src/persistence/bottle-store.js';
 import { WebuiAuth } from '../src/webui/auth.js';
 import { createRegistrationRequestListPage } from '../src/webui/lists.js';
 import { registerWebuiRoutes } from '../src/webui/routes.js';
+import type { WebuiSettingsSnapshot } from '../src/webui/settings.js';
 import { buildWebuiUrl } from '../src/webui/url.js';
 
 import assert from 'node:assert/strict';
@@ -50,6 +51,14 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
     items: [],
   };
   const pendingReviews = { ...bottles, total: 2 };
+  let pluginSettings: WebuiSettingsSnapshot = {
+    activeWebuiPath: '/manage/drift-bottle',
+    moderationModel: 'openai/gpt-4o-mini',
+    ownerIds: [123456789],
+    restartRequired: false,
+    storagePath: './data/drift-bottles.db',
+    webuiPath: '/manage/drift-bottle',
+  };
   const basePath = registerWebuiRoutes(hono, {
     auth,
     approveReview: (id) =>
@@ -83,6 +92,16 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
       },
     },
     registrationRequests: (requestPage) => createRegistrationRequestListPage(store, requestPage),
+    settings: () => pluginSettings,
+    updateSettings: async (settings) => {
+      pluginSettings = {
+        ...settings,
+        activeWebuiPath: pluginSettings.activeWebuiPath,
+        restartRequired: settings.webuiPath !== pluginSettings.activeWebuiPath,
+        storagePath: pluginSettings.storagePath,
+      };
+      return pluginSettings;
+    },
   });
   assert.equal(basePath, '/manage/drift-bottle');
   assert.equal(buildWebuiUrl(hono, basePath), 'http://127.0.0.1:4649/manage/drift-bottle/');
@@ -105,6 +124,7 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   assert.equal(frontendRoute.status, 200);
   assert.match(await frontendRoute.text(), /漂流瓶管理后台/);
   assert.equal((await hono.app.request('http://localhost/manage/drift-bottle/accounts/requests')).status, 200);
+  assert.equal((await hono.app.request('http://localhost/manage/drift-bottle/settings')).status, 200);
 
   const missingAsset = await hono.app.request('http://localhost/manage/drift-bottle/assets/missing.js');
   assert.equal(missingAsset.status, 404);
@@ -130,6 +150,11 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   );
   assert.equal((await hono.app.request('http://localhost/manage/drift-bottle/api/bottles')).status, 401);
   assert.equal((await hono.app.request('http://localhost/manage/drift-bottle/api/registrations/pending')).status, 401);
+  assert.equal((await hono.app.request('http://localhost/manage/drift-bottle/api/settings')).status, 401);
+  assert.equal(
+    (await hono.app.request('http://localhost/manage/drift-bottle/api/account/password', { method: 'PUT' })).status,
+    401,
+  );
 
   assert.equal(await auth.requestRegistration(222222222, 'MemberA123'), 'created');
   assert.equal(auth.approveRegistration(222222222, 123456789), true);
@@ -150,6 +175,21 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   assert.equal(
     (
       await hono.app.request('http://localhost/manage/drift-bottle/api/registrations/pending', {
+        headers: { Cookie: memberCookie },
+      })
+    ).status,
+    403,
+  );
+  const memberPasswordChange = await hono.app.request('http://localhost/manage/drift-bottle/api/account/password', {
+    method: 'PUT',
+    headers: { Cookie: memberCookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currentPassword: 'MemberA123', newPassword: 'MemberB123' }),
+  });
+  assert.equal(memberPasswordChange.status, 200);
+  assert.ok(await auth.createSession(222222222, 'MemberB123'));
+  assert.equal(
+    (
+      await hono.app.request('http://localhost/manage/drift-bottle/api/settings', {
         headers: { Cookie: memberCookie },
       })
     ).status,
@@ -247,6 +287,72 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
     isOwner: true,
     avatarUrl: 'https://q1.qlogo.cn/g?b=qq&nk=123456789&s=640',
   });
+
+  const settings = await hono.app.request('http://localhost/manage/drift-bottle/api/settings', {
+    headers: { Cookie: cookie },
+  });
+  assert.equal(settings.status, 200);
+  assert.deepEqual(await settings.json(), pluginSettings);
+
+  const selfRemoval = await hono.app.request('http://localhost/manage/drift-bottle/api/settings', {
+    method: 'PUT',
+    headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ moderationModel: '', ownerIds: [987654321], webuiPath: '/drift-bottle' }),
+  });
+  assert.equal(selfRemoval.status, 400);
+
+  const invalidSettings = await hono.app.request('http://localhost/manage/drift-bottle/api/settings', {
+    method: 'PUT',
+    headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ moderationModel: '', ownerIds: ['123456789'], webuiPath: '/' }),
+  });
+  assert.equal(invalidSettings.status, 400);
+
+  const updatedSettings = await hono.app.request('http://localhost/manage/drift-bottle/api/settings', {
+    method: 'PUT',
+    headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      moderationModel: ' openai/gpt-5-mini ',
+      ownerIds: [123456789, 987654321],
+      webuiPath: '/new/drift-bottle/',
+    }),
+  });
+  assert.equal(updatedSettings.status, 200);
+  assert.deepEqual(await updatedSettings.json(), {
+    activeWebuiPath: '/manage/drift-bottle',
+    moderationModel: 'openai/gpt-5-mini',
+    ownerIds: [123456789, 987654321],
+    restartRequired: true,
+    storagePath: './data/drift-bottles.db',
+    webuiPath: '/new/drift-bottle',
+  });
+
+  const incorrectPassword = await hono.app.request('http://localhost/manage/drift-bottle/api/account/password', {
+    method: 'PUT',
+    headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currentPassword: 'WrongA1', newPassword: 'ChangedA1' }),
+  });
+  assert.equal(incorrectPassword.status, 400);
+  const weakPassword = await hono.app.request('http://localhost/manage/drift-bottle/api/account/password', {
+    method: 'PUT',
+    headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currentPassword: initialCredential.password, newPassword: 'weak' }),
+  });
+  assert.equal(weakPassword.status, 400);
+  const unchangedPassword = await hono.app.request('http://localhost/manage/drift-bottle/api/account/password', {
+    method: 'PUT',
+    headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currentPassword: initialCredential.password, newPassword: initialCredential.password }),
+  });
+  assert.equal(unchangedPassword.status, 400);
+  const changedPassword = await hono.app.request('http://localhost/manage/drift-bottle/api/account/password', {
+    method: 'PUT',
+    headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currentPassword: initialCredential.password, newPassword: 'ChangedA1' }),
+  });
+  assert.equal(changedPassword.status, 200);
+  assert.ok(await auth.createSession(123456789, 'ChangedA1'));
+  assert.equal(await auth.createSession(123456789, initialCredential.password), undefined);
 
   const invalidRegistration = await hono.app.request('http://localhost/manage/drift-bottle/api/registrations', {
     method: 'POST',

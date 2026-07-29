@@ -111,6 +111,26 @@ export class WebuiAuth {
     }
   }
 
+  async changePassword(
+    userId: number,
+    currentPassword: string,
+    newPassword: string,
+    activeToken?: string,
+  ): Promise<boolean> {
+    const passwordHash = this.store.webuiAccountPasswordHash(userId);
+    if (!passwordHash || !(await verifyPassword(currentPassword, passwordHash))) {
+      return false;
+    }
+
+    this.store.setWebuiAccount(userId, await hashPassword(newPassword));
+    for (const [token, session] of this.sessions) {
+      if (session.userId === userId && token !== activeToken) {
+        this.sessions.delete(token);
+      }
+    }
+    return true;
+  }
+
   private pruneExpiredSessions(): void {
     const now = Date.now();
     for (const [token, session] of this.sessions) {

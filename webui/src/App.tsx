@@ -3,7 +3,9 @@ import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { AllBottleList, PendingReviewList } from './BottleLists';
 import { Dashboard } from './Dashboard';
 import { type AppPage, pageFromLocation, pageUrl, webuiUrl } from './location';
+import { PasswordVisibilityButton } from './PasswordVisibilityButton';
 import { RegistrationRequests } from './RegistrationRequests';
+import { SettingsPage } from './Settings';
 
 type View = 'checking' | 'login' | 'main';
 type AuthMode = 'login' | 'register';
@@ -192,7 +194,9 @@ export function App() {
           ? '全部瓶子'
           : mainPage === 'registrations'
             ? '账号请求'
-            : '主页';
+            : mainPage === 'settings'
+              ? '设置'
+              : '主页';
     return (
       <div className={`app-shell${sidebarCollapsed ? ' app-shell--sidebar-collapsed' : ''}`}>
         <a className="skip-link" href="#app-main">
@@ -267,7 +271,9 @@ export function App() {
             <button
               type="button"
               className="sidebar-nav-button sidebar-nav-button--settings"
+              aria-current={mainPage === 'settings' ? 'page' : undefined}
               title={sidebarCollapsed ? '设置' : undefined}
+              onClick={() => openMainPage('settings')}
             >
               <SidebarIcon name="settings" />
               <span className="sidebar-nav-label">设置</span>
@@ -283,6 +289,7 @@ export function App() {
           {mainPage === 'registrations' && isOwner ? (
             <RegistrationRequests onSessionExpired={handleSessionExpired} />
           ) : null}
+          {mainPage === 'settings' ? <SettingsPage isOwner={isOwner} onSessionExpired={handleSessionExpired} /> : null}
         </main>
       </div>
     );
@@ -454,33 +461,6 @@ export function App() {
         )}
       </form>
     </main>
-  );
-}
-
-function PasswordVisibilityButton({
-  visible,
-  disabled,
-  onToggle,
-}: {
-  visible: boolean;
-  disabled: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className="password-toggle"
-      aria-label={visible ? '隐藏密码' : '查看密码'}
-      aria-pressed={visible}
-      onClick={onToggle}
-      disabled={disabled}
-    >
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M2.75 12s3.25-5 9.25-5 9.25 5 9.25 5-3.25 5-9.25 5-9.25-5-9.25-5Z" />
-        <circle cx="12" cy="12" r="2.25" />
-        {visible ? <path d="m4 4 16 16" /> : null}
-      </svg>
-    </button>
   );
 }
 

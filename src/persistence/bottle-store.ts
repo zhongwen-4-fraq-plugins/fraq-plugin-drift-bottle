@@ -69,6 +69,12 @@ export interface WebuiRegistrationRequestRecord {
   createdAt: number;
 }
 
+export interface PersistedWebuiSettings {
+  moderationModel?: string;
+  ownerIds: unknown;
+  webuiPath: string;
+}
+
 export type ApproveModerationRecordResult =
   | { status: 'approved'; bottle: DriftBottle }
   | { status: 'not-found' | 'already-resolved' | 'not-pending' | 'publish-unavailable' };
@@ -214,6 +220,15 @@ export class BottleStore implements Disposable {
       );
       CREATE INDEX IF NOT EXISTS bottle_operation_records_created_at
       ON bottle_operation_records (created_at, id);
+    `);
+    this.database.exec(`
+      CREATE TABLE IF NOT EXISTS bottle_webui_settings (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        moderation_model TEXT,
+        owner_ids TEXT NOT NULL,
+        webui_path TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
     `);
   }
 
@@ -730,6 +745,39 @@ export class BottleStore implements Disposable {
       `)
       .all(limit, offset) as { user_id: number; created_at: number }[];
     return rows.map((row) => ({ userId: row.user_id, createdAt: row.created_at }));
+  }
+
+  webuiSettings(): PersistedWebuiSettings | undefined {
+    const row = this.getDatabase()
+      .prepare('SELECT moderation_model, owner_ids, webui_path FROM bottle_webui_settings WHERE id = 1')
+      .get() as { moderation_model: string | null; owner_ids: string; webui_path: string } | undefined;
+    if (!row) return undefined;
+
+    let ownerIds: unknown;
+    try {
+      ownerIds = JSON.parse(row.owner_ids);
+    } catch {
+      ownerIds = undefined;
+    }
+    return {
+      ...(row.moderation_model === null ? {} : { moderationModel: row.moderation_model }),
+      ownerIds,
+      webuiPath: row.webui_path,
+    };
+  }
+
+  setWebuiSettings(settings: Omit<PersistedWebuiSettings, 'ownerIds'> & { ownerIds: number[] }): void {
+    this.getDatabase()
+      .prepare(`
+        INSERT INTO bottle_webui_settings (id, moderation_model, owner_ids, webui_path, updated_at)
+        VALUES (1, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          moderation_model = excluded.moderation_model,
+          owner_ids = excluded.owner_ids,
+          webui_path = excluded.webui_path,
+          updated_at = excluded.updated_at
+      `)
+      .run(settings.moderationModel ?? null, JSON.stringify(settings.ownerIds), settings.webuiPath, Date.now());
   }
 
   setSignature(senderId: number, signature: BottleSignature): void {

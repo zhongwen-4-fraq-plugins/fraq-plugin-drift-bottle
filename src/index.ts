@@ -13,6 +13,7 @@ import { createDashboardSnapshot, type DashboardRuntimeInfo } from './webui/dash
 import { createBottleListPage, createPendingReviewListPage, createRegistrationRequestListPage } from './webui/lists.js';
 import { WebuiRegistration } from './webui/registration.js';
 import { registerWebuiRoutes } from './webui/routes.js';
+import { WebuiSettings } from './webui/settings.js';
 import { buildWebuiUrl } from './webui/url.js';
 
 import { readFileSync } from 'node:fs';
@@ -74,20 +75,21 @@ export default definePlugin({
     const instanceStartedAt = Date.now();
     const store = new BottleStore(options.storagePath ?? './data/drift-bottles.db');
     await store.load();
-    const ownerIds = options.ownerIds ?? [];
+    const webuiSettings = new WebuiSettings(store, options);
+    const ownerIds = webuiSettings.ownerIds;
     const webuiAuth = new WebuiAuth(store);
     const runtime: DashboardRuntimeInfo = { fraqVersion: readFraqVersion() };
     pendingOwnerInitializations.set(ctx, { auth: webuiAuth, ownerIds, runtime });
     const webuiRegistration = new WebuiRegistration(webuiAuth, ctx.client, ownerIds, ctx.logger);
     const moderator = withModerationRecords(store, ctx.logger, (segments) =>
-      moderateBottle(ctx.ai, segments, options.moderationModel),
+      moderateBottle(ctx.ai, segments, webuiSettings.moderationModel),
     );
     const api = new DriftBottleApi(ctx.client, store, moderator);
     ctx.provide(DriftBottleApi, api);
     const webuiPath = registerWebuiRoutes(ctx.hono, {
       auth: webuiAuth,
       approveReview: (id, actorId) => api.approveModerationRecord(id, actorId),
-      basePath: options.webuiPath,
+      basePath: webuiSettings.webuiPath,
       bottles: (page) => createBottleListPage(api, page),
       canModerate: (userId) => api.isModerator(userId),
       dashboard: () => createDashboardSnapshot(api, instanceStartedAt, runtime),
@@ -96,7 +98,20 @@ export default definePlugin({
       rejectReview: (id, actorId, reason) => api.rejectModerationRecord(id, actorId, reason),
       registration: webuiRegistration,
       registrationRequests: (page) => createRegistrationRequestListPage(store, page),
+      settings: () => webuiSettings.snapshot(),
+      updateSettings: async (settings) => {
+        webuiSettings.update(settings);
+        webuiRegistration.setOwnerIds(ownerIds);
+        try {
+          const credentials = await webuiAuth.initializeOwners(ownerIds);
+          await Promise.all(credentials.map((credential) => sendInitialPassword(ctx, webuiAuth, credential)));
+        } catch (error) {
+          ctx.logger.error('初始化新增 WebUI 主人账号失败，将在下次启动时重试', error);
+        }
+        return webuiSettings.snapshot();
+      },
     });
+    webuiSettings.setActiveWebuiPath(webuiPath);
     ctx.logger.info(`漂流瓶 WebUI：${buildWebuiUrl(ctx.hono, webuiPath)}`);
     buildDriftBottleCommands(ctx, api, webuiRegistration, ownerIds);
   },

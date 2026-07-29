@@ -16,6 +16,10 @@ export class WebuiRegistration {
     this.ownerIds = [...new Set(ownerIds.filter((ownerId) => Number.isSafeInteger(ownerId) && ownerId > 0))];
   }
 
+  setOwnerIds(ownerIds: number[]): void {
+    this.ownerIds.splice(0, this.ownerIds.length, ...new Set(ownerIds));
+  }
+
   async submit(userId: number, password: string): Promise<RegistrationSubmissionResult> {
     if (this.ownerIds.length === 0) {
       return 'notification-unavailable';
