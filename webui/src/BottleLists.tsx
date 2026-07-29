@@ -311,7 +311,13 @@ function ContentSummaryView({ content }: { content: ContentSummary }) {
   return (
     <div className="content-summary">
       <span>{content.preview}</span>
-      <small>{content.kinds.join(' · ')}</small>
+      <ul className="content-type-tags" aria-label="内容类型">
+        {content.kinds.map((kind) => (
+          <li key={kind} className="content-type-tag">
+            {kind}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

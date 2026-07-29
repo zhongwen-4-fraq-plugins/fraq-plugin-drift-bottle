@@ -5,7 +5,7 @@ Focus: 待审核操作栏已完成现状检查；审核记录缺少重新投放�
 ## In flight
 
 - `ai-schema-response` — 根因已确认，等待实施诊断记录、精确提示词与受限修复/重试。
-- `pending-review-actions` — 等待确认人工操作语义与权限；内容类型将改为标签。
+- `pending-review-actions` — 内容类型标签已完成，等待确认人工操作语义与权限。
 
 ## Next
 
