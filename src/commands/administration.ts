@@ -103,7 +103,7 @@ export function registerAdministrationCommands(ctx: Context, api: DriftBottleApi
       for (const userId of userIds) {
         api.addModerator(userId, session.raw.sender_id);
       }
-      await session.reply(`已允许 ${userIds.join('、')} 删除漂流瓶。`);
+      await session.reply(`已授予 ${userIds.join('、')} 漂流瓶管理权限。`);
     });
 
   permissions.command('删除').execute(async (session) => {
@@ -124,7 +124,7 @@ export function registerAdministrationCommands(ctx: Context, api: DriftBottleApi
       }
       const removed = userIds.filter((userId) => api.removeModerator(userId, session.raw.sender_id));
       await session.reply(
-        removed.length > 0 ? `已移除 ${removed.join('、')} 的删除权限。` : '这些用户都不在权限列表中。',
+        removed.length > 0 ? `已移除 ${removed.join('、')} 的漂流瓶管理权限。` : '这些用户都不在权限列表中。',
       );
     });
 
@@ -134,6 +134,6 @@ export function registerAdministrationCommands(ctx: Context, api: DriftBottleApi
       return;
     }
     const users = api.moderators();
-    await session.reply(users.length > 0 ? `漂流瓶删除权限列表：\n${users.join('\n')}` : '漂流瓶删除权限列表为空。');
+    await session.reply(users.length > 0 ? `漂流瓶管理权限列表：\n${users.join('\n')}` : '漂流瓶管理权限列表为空。');
   });
 }
