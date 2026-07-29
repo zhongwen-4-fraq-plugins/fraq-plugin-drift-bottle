@@ -38,6 +38,8 @@ test('公开 API 可以脱离命令路由完成漂流瓶操作', async (t) => {
     api.commentsFor(created.bottle.id)?.comments.map(({ senderId, content }) => ({ senderId, content })),
     [{ senderId: 10002, content: '写得真好' }],
   );
+  assert.equal(api.commentCountFor(created.bottle.id), 1);
+  assert.equal(api.commentCountFor('missing-bottle'), 0);
 
   api.setRepeatPick(10002, true);
   assert.equal((await api.pickBottle(10002, 0))?.id, created.bottle.id);

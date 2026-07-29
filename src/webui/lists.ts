@@ -28,6 +28,7 @@ export interface WebuiPendingReviewItem {
 export interface WebuiBottleListItem {
   id: string;
   createdAt: number;
+  commentCount: number;
   senderId: number;
   displayName?: string;
   content: WebuiContentSummary;
@@ -69,7 +70,13 @@ export function createPendingReviewListPage(
 export function createBottleListPage(api: DriftBottleApi, requestedPage: number): WebuiListPage<WebuiBottleListItem> {
   const total = api.count();
   const page = boundedPage(requestedPage, total);
-  return createPage(page, total, api.bottles(PAGE_SIZE, (page - 1) * PAGE_SIZE).map(formatBottle));
+  return createPage(
+    page,
+    total,
+    api
+      .bottles(PAGE_SIZE, (page - 1) * PAGE_SIZE)
+      .map((bottle) => formatBottle(bottle, api.commentCountFor(bottle.id))),
+  );
 }
 
 export function createRegistrationRequestListPage(
@@ -161,10 +168,11 @@ function moderationTargetLabel(target: ModerationRecord['target']): string {
   }
 }
 
-function formatBottle(bottle: DriftBottle): WebuiBottleListItem {
+function formatBottle(bottle: DriftBottle, commentCount: number): WebuiBottleListItem {
   return {
     id: bottle.id,
     createdAt: bottle.createdAt,
+    commentCount,
     senderId: bottle.senderId,
     displayName: bottle.displayName,
     content: summarizeSegments(bottle.segments as BottleSegment[]),

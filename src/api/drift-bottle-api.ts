@@ -207,6 +207,10 @@ export class DriftBottleApi implements Disposable {
     };
   }
 
+  commentCountFor(bottleId: string): number {
+    return this.store.commentCount(bottleId);
+  }
+
   async bottleIdFromReply(
     reply: Extract<milky.IncomingSegment, { type: 'reply' }>,
     message: milky.IncomingMessage,

@@ -1,5 +1,6 @@
 import type { HonoService } from '@fraqjs/plugin-hono';
 
+import type { BottleComments } from '../api/drift-bottle-api.js';
 import type { ApproveModerationRecordResult, RejectModerationRecordResult } from '../persistence/bottle-store.js';
 import { isValidWebuiPassword, parseQqAccount, type WebuiAuth } from './auth.js';
 import type { DashboardSnapshot } from './dashboard.js';
@@ -29,6 +30,7 @@ export interface WebuiRouteOptions {
   auth: WebuiAuth;
   dashboard: () => DashboardSnapshot;
   bottles: (page: number) => WebuiListPage<WebuiBottleListItem>;
+  bottleComments: (id: string) => BottleComments | undefined;
   pendingReviews: (page: number) => WebuiListPage<WebuiPendingReviewItem>;
   canModerate: (userId: number) => boolean;
   approveReview: (id: string, actorId: number) => ApproveModerationRecordResult;
@@ -224,6 +226,16 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
       return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
     }
     return context.json(options.bottles(readPage(context.req.query('page'))), 200, { 'Cache-Control': 'no-store' });
+  });
+  service.app.get(`${basePath}/api/bottles/:id/comments`, (context) => {
+    if (!options.auth.isSessionValid(readSessionCookie(context.req.header('cookie')))) {
+      return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
+    }
+    const comments = options.bottleComments(context.req.param('id'));
+    if (!comments) {
+      return context.json({ error: '没有找到这个漂流瓶' }, 404, { 'Cache-Control': 'no-store' });
+    }
+    return context.json(comments, 200, { 'Cache-Control': 'no-store' });
   });
   service.app.get(`${basePath}/api/registrations/pending`, (context) => {
     const userId = options.auth.sessionUserId(readSessionCookie(context.req.header('cookie')));

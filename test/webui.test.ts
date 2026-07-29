@@ -76,6 +76,22 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
           }
         : { status: 'not-found' },
     basePath: '/manage/drift-bottle/',
+    bottleComments: (id) =>
+      id === 'bottle-with-comments'
+        ? {
+            comments: [
+              {
+                id: 'comment-1',
+                bottleId: id,
+                senderId: 456789123,
+                createdAt: 1_700_000_003_000,
+                displayName: '海风',
+                content: '写得真好',
+              },
+            ],
+            total: 1,
+          }
+        : undefined,
     bottles: () => bottles,
     canModerate: (userId) => userId === 333333333,
     dashboard: () => dashboard,
@@ -150,6 +166,10 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
     401,
   );
   assert.equal((await hono.app.request('http://localhost/manage/drift-bottle/api/bottles')).status, 401);
+  assert.equal(
+    (await hono.app.request('http://localhost/manage/drift-bottle/api/bottles/bottle-with-comments/comments')).status,
+    401,
+  );
   assert.equal((await hono.app.request('http://localhost/manage/drift-bottle/api/registrations/pending')).status, 401);
   assert.equal((await hono.app.request('http://localhost/manage/drift-bottle/api/settings')).status, 401);
   assert.equal(
@@ -422,6 +442,34 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   });
   assert.equal(authenticatedBottles.status, 200);
   assert.deepEqual(await authenticatedBottles.json(), bottles);
+
+  const authenticatedComments = await hono.app.request(
+    'http://localhost/manage/drift-bottle/api/bottles/bottle-with-comments/comments',
+    { headers: { Cookie: cookie } },
+  );
+  assert.equal(authenticatedComments.status, 200);
+  assert.deepEqual(await authenticatedComments.json(), {
+    comments: [
+      {
+        id: 'comment-1',
+        bottleId: 'bottle-with-comments',
+        senderId: 456789123,
+        createdAt: 1_700_000_003_000,
+        displayName: '海风',
+        content: '写得真好',
+      },
+    ],
+    total: 1,
+  });
+  assert.equal(authenticatedComments.headers.get('cache-control'), 'no-store');
+  assert.equal(
+    (
+      await hono.app.request('http://localhost/manage/drift-bottle/api/bottles/missing/comments', {
+        headers: { Cookie: cookie },
+      })
+    ).status,
+    404,
+  );
 
   const logout = await hono.app.request('http://localhost/manage/drift-bottle/api/session', {
     method: 'DELETE',

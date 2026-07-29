@@ -25,12 +25,15 @@ test('WebUI 列表按页返回漂流瓶和待审核摘要', async (t) => {
   });
 
   for (let index = 0; index < 21; index += 1) {
-    await store.add({
+    const bottle = await store.add({
       senderId: 10_000 + index,
       displayName: index === 20 ? '海风' : undefined,
       source: { scene: index === 20 ? 'friend' : 'group', peerId: 20_000 + index },
       segments: [inseg.text(`漂流瓶 ${index}`)],
     });
+    if (index === 20) {
+      store.addComment({ bottleId: bottle.id, senderId: 30001, displayName: '浪花', content: '第一条评论' });
+    }
   }
   store.addModerationRecord({
     content: [inseg.text('需要人工确认'), inseg.image({ summary: '海边照片' })],
@@ -70,9 +73,12 @@ test('WebUI 列表按页返回漂流瓶和待审核摘要', async (t) => {
   assert.equal(firstBottlePage.items.length, 20);
   assert.equal(firstBottlePage.items[0]?.displayName, '海风');
   assert.equal(firstBottlePage.items[0]?.content.preview, '漂流瓶 20');
+  assert.equal(firstBottlePage.items[0]?.commentCount, 1);
+  assert.equal(firstBottlePage.items[1]?.commentCount, 0);
   const lastBottlePage = createBottleListPage(api, 99);
   assert.equal(lastBottlePage.page, 2);
   assert.equal(lastBottlePage.items.length, 1);
+  assert.equal(lastBottlePage.items[0]?.commentCount, 0);
 
   const pendingPage = createPendingReviewListPage(api, 1);
   assert.equal(pendingPage.total, 3);

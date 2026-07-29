@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 
 import { webuiUrl } from './location';
 
@@ -27,6 +27,7 @@ interface PendingReviewItem {
 interface BottleItem {
   id: string;
   createdAt: number;
+  commentCount: number;
   senderId: number;
   displayName?: string;
   content: ContentSummary;
@@ -34,6 +35,26 @@ interface BottleItem {
     scene: string;
     peerId: number;
   };
+}
+
+interface BottleComment {
+  id: string;
+  bottleId: string;
+  senderId: number;
+  createdAt: number;
+  displayName?: string;
+  content: string;
+}
+
+interface BottleCommentsResponse {
+  comments: BottleComment[];
+  total: number;
+}
+
+interface BottleCommentsState {
+  data?: BottleCommentsResponse;
+  error?: string;
+  loading: boolean;
 }
 
 export interface ListPage<T> {
@@ -339,6 +360,41 @@ function IconActionButton({
 
 export function AllBottleList({ onSessionExpired }: BottleListProps) {
   const list = useListPage<BottleItem>('api/bottles', onSessionExpired);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
+  const [commentsByBottle, setCommentsByBottle] = useState<Record<string, BottleCommentsState>>({});
+
+  async function loadComments(id: string) {
+    setCommentsByBottle((current) => ({ ...current, [id]: { ...current[id], error: undefined, loading: true } }));
+    try {
+      const response = await fetch(webuiUrl(`api/bottles/${encodeURIComponent(id)}/comments`), {
+        credentials: 'same-origin',
+      });
+      if (response.status === 401) {
+        onSessionExpired();
+        return;
+      }
+      if (!response.ok) throw new Error(`评论请求失败，状态码 ${response.status}`);
+      const data = (await response.json()) as BottleCommentsResponse;
+      setCommentsByBottle((current) => ({ ...current, [id]: { data, loading: false } }));
+    } catch {
+      setCommentsByBottle((current) => ({
+        ...current,
+        [id]: { ...current[id], error: '评论暂时无法载入，请稍后重试。', loading: false },
+      }));
+    }
+  }
+
+  function toggleComments(item: BottleItem) {
+    const opening = !expandedIds.has(item.id);
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      if (opening) next.add(item.id);
+      else next.delete(item.id);
+      return next;
+    });
+    const comments = commentsByBottle[item.id];
+    if (opening && !comments?.data && !comments?.loading) void loadComments(item.id);
+  }
 
   return (
     <ListPageFrame
@@ -370,25 +426,52 @@ export function AllBottleList({ onSessionExpired }: BottleListProps) {
                 </tr>
               </thead>
               <tbody>
-                {data.items.map((item) => (
-                  <tr key={item.id}>
-                    <td>
-                      <span className="record-id record-id--full">{item.id}</span>
-                    </td>
-                    <td>
-                      <FormattedTime value={item.createdAt} />
-                    </td>
-                    <td>
-                      <BottleSource item={item} />
-                    </td>
-                    <td>
-                      <ContentTypeTags kinds={item.content.kinds} />
-                    </td>
-                    <td>
-                      <ContentPreview preview={item.content.preview} />
-                    </td>
-                  </tr>
-                ))}
+                {data.items.map((item) => {
+                  const open = expandedIds.has(item.id);
+                  return (
+                    <Fragment key={item.id}>
+                      <tr className={item.commentCount > 0 ? 'bottle-row bottle-row--expandable' : 'bottle-row'}>
+                        <td>
+                          <span className="record-id record-id--full">{item.id}</span>
+                        </td>
+                        <td>
+                          <FormattedTime value={item.createdAt} />
+                        </td>
+                        <td>
+                          <BottleSource item={item} />
+                        </td>
+                        <td>
+                          <ContentTypeTags kinds={item.content.kinds} />
+                        </td>
+                        <td>
+                          <div className="bottle-content-cell">
+                            <ContentPreview preview={item.content.preview} />
+                            {item.commentCount > 0 ? (
+                              <BottleCommentsToggle
+                                item={item}
+                                open={open}
+                                view="desktop"
+                                onToggle={() => toggleComments(item)}
+                              />
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                      {item.commentCount > 0 ? (
+                        <tr className="bottle-comments-row">
+                          <td colSpan={5}>
+                            <BottleCommentsPanel
+                              id={`bottle-comments-desktop-${item.id}`}
+                              open={open}
+                              state={commentsByBottle[item.id]}
+                              onRetry={() => void loadComments(item.id)}
+                            />
+                          </td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -427,12 +510,118 @@ export function AllBottleList({ onSessionExpired }: BottleListProps) {
                     </dd>
                   </div>
                 </dl>
+                {item.commentCount > 0 ? (
+                  <>
+                    <BottleCommentsToggle
+                      item={item}
+                      open={expandedIds.has(item.id)}
+                      view="mobile"
+                      onToggle={() => toggleComments(item)}
+                    />
+                    <BottleCommentsPanel
+                      id={`bottle-comments-mobile-${item.id}`}
+                      open={expandedIds.has(item.id)}
+                      state={commentsByBottle[item.id]}
+                      onRetry={() => void loadComments(item.id)}
+                    />
+                  </>
+                ) : null}
               </li>
             ))}
           </ol>
         </>
       )}
     </ListPageFrame>
+  );
+}
+
+function BottleCommentsToggle({
+  item,
+  open,
+  view,
+  onToggle,
+}: {
+  item: BottleItem;
+  open: boolean;
+  view: 'desktop' | 'mobile';
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="bottle-comments-toggle"
+      aria-expanded={open}
+      aria-controls={`bottle-comments-${view}-${item.id}`}
+      onClick={onToggle}
+    >
+      <span>{item.commentCount} 条评论</span>
+      <svg viewBox="0 0 20 20" aria-hidden="true">
+        <path d="m5 7.5 5 5 5-5" />
+      </svg>
+    </button>
+  );
+}
+
+function BottleCommentsPanel({
+  id,
+  open,
+  state,
+  onRetry,
+}: {
+  id: string;
+  open: boolean;
+  state?: BottleCommentsState;
+  onRetry: () => void;
+}) {
+  return (
+    <div
+      id={id}
+      className={`bottle-comments-collapse${open ? ' bottle-comments-collapse--open' : ''}`}
+      aria-hidden={!open}
+    >
+      <div className="bottle-comments-overflow">
+        <div className="bottle-comments-panel">
+          {state?.loading ? (
+            <div className="bottle-comments-loading" role="status">
+              正在载入评论…
+            </div>
+          ) : null}
+          {state?.error ? (
+            <div className="bottle-comments-error" role="alert">
+              <span>{state.error}</span>
+              <button type="button" onClick={onRetry}>
+                重试
+              </button>
+            </div>
+          ) : null}
+          {state?.data ? (
+            <>
+              {state.data.comments.length > 0 ? (
+                <ol className="bottle-comment-list">
+                  {state.data.comments.map((comment) => (
+                    <li key={comment.id} className="bottle-comment">
+                      <div className="bottle-comment-meta">
+                        <strong>{comment.displayName || '匿名'}</strong>
+                        <span>QQ {comment.senderId}</span>
+                        <FormattedTime value={comment.createdAt} />
+                      </div>
+                      <p>{comment.content}</p>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="bottle-comments-empty">暂时没有评论。</p>
+              )}
+              {state.data.total > state.data.comments.length ? (
+                <p className="bottle-comments-limit">
+                  仅显示最新 {state.data.comments.length} 条，共 {state.data.total} 条。
+                </p>
+              ) : null}
+            </>
+          ) : null}
+        </div>
+      </div>
+    </div>
   );
 }
 

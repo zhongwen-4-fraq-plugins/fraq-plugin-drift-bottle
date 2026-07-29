@@ -972,6 +972,174 @@ textarea {
   text-wrap: pretty;
 }
 
+.bottle-content-cell {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.bottle-comments-toggle {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: var(--space-2xs);
+  border: 0;
+  border-radius: 0.5rem;
+  padding: var(--space-2xs) var(--space-xs);
+  background: transparent;
+  color: var(--color-primary);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  line-height: 1.25rem;
+  cursor: pointer;
+  transition:
+    background-color 160ms cubic-bezier(0.25, 1, 0.5, 1),
+    color 160ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.bottle-comments-toggle svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.75;
+  transition: transform 180ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.bottle-comments-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.bottle-comments-row > td {
+  padding: 0;
+  border-block-end: 0;
+}
+
+.bottle-comments-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    grid-template-rows 200ms cubic-bezier(0.25, 1, 0.5, 1),
+    opacity 140ms cubic-bezier(0.25, 1, 0.5, 1),
+    visibility 200ms;
+}
+
+.bottle-comments-collapse--open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+}
+
+.bottle-comments-overflow {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.bottle-comments-panel {
+  margin-inline: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border-block-start: 0.0625rem solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.bottle-comment-list {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  flex-direction: column;
+  list-style: none;
+}
+
+.bottle-comment {
+  min-width: 0;
+  padding-block: var(--space-sm);
+}
+
+.bottle-comment + .bottle-comment {
+  border-block-start: 0.0625rem solid var(--color-border);
+}
+
+.bottle-comment-meta {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-xs);
+  color: var(--color-muted);
+  font-size: var(--text-meta);
+  line-height: 1.25rem;
+}
+
+.bottle-comment-meta strong {
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.bottle-comment-meta time {
+  margin-inline-start: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.bottle-comment p {
+  max-width: 65ch;
+  margin: var(--space-xs) 0 0;
+  padding-inline-start: 3em;
+  overflow-wrap: anywhere;
+  color: var(--color-ink);
+  font-size: var(--text-body);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.bottle-comments-loading,
+.bottle-comments-empty,
+.bottle-comments-limit {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: var(--text-meta);
+  line-height: 1.5;
+}
+
+.bottle-comments-loading {
+  padding-block: var(--space-sm);
+}
+
+.bottle-comments-error {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding-block: var(--space-xs);
+  color: var(--color-error);
+  font-size: var(--text-meta);
+  line-height: 1.5;
+}
+
+.bottle-comments-error button {
+  min-height: 2rem;
+  border: 0.0625rem solid currentColor;
+  border-radius: 0.5rem;
+  padding-inline: var(--space-sm);
+  background: transparent;
+  color: var(--color-error);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.bottle-comments-limit {
+  padding-block-start: var(--space-sm);
+  border-block-start: 0.0625rem solid var(--color-border);
+}
+
 .content-summary small,
 .review-reason small,
 .record-person small,
@@ -1298,6 +1466,15 @@ textarea {
 
 .mobile-record:last-child {
   border-block-end: 0;
+}
+
+.mobile-record > .bottle-comments-toggle {
+  align-self: flex-start;
+}
+
+.mobile-record .bottle-comments-panel {
+  margin-inline: 0;
+  padding-inline: var(--space-sm);
 }
 
 .mobile-bottle-fields {
@@ -2230,6 +2407,15 @@ textarea {
   .settings-load-error button:hover {
     background: var(--color-primary-hover);
   }
+
+  .bottle-comments-toggle:hover {
+    background: var(--color-surface);
+    color: var(--color-primary-hover);
+  }
+
+  .bottle-comments-error button:hover {
+    background: oklch(0.95 0.025 28);
+  }
 }
 
 @media (max-width: 47.999rem) {
@@ -2411,6 +2597,11 @@ textarea {
     min-height: 2.75rem;
   }
 
+  .bottle-comments-toggle,
+  .bottle-comments-error button {
+    min-height: 2.75rem;
+  }
+
   .settings-field > input,
   .settings-field > select,
   .settings-password-control,
@@ -2434,6 +2625,12 @@ textarea {
   .review-icon-button,
   .review-action-panel,
   .review-action-panel textarea {
+    border: 0.0625rem solid CanvasText;
+  }
+
+  .bottle-comments-toggle,
+  .bottle-comments-error button,
+  .bottle-comments-panel {
     border: 0.0625rem solid CanvasText;
   }
 
@@ -2479,6 +2676,12 @@ textarea {
   .forgot-password-button,
   .about-actions a,
   .about-actions a::after {
+    transition: none;
+  }
+
+  .bottle-comments-toggle,
+  .bottle-comments-toggle svg,
+  .bottle-comments-collapse {
     transition: none;
   }
 
