@@ -40,6 +40,12 @@ test('主页概览汇总瓶子、待审核、更新日志和完整操作记录',
     process: { manual: { reason: '等待人工审核' } },
     success: true,
     approved: false,
+    target: 'bottle-content',
+    bottleDraft: {
+      senderId: 10002,
+      source: { scene: 'group', peerId: 20001 },
+      segments: [inseg.text('等待人工审核')],
+    },
   });
 
   const instanceStartedAt = Date.now() - 5000;
@@ -57,6 +63,10 @@ test('主页概览汇总瓶子、待审核、更新日志和完整操作记录',
   assert.equal(snapshot.changelog[0]?.version, '0.3.16');
   assert.ok(snapshot.operations.some((operation) => operation.title === '投递漂流瓶'));
   assert.ok(snapshot.operations.some((operation) => operation.title === 'AI 审核未通过'));
-  assert.ok(snapshot.operations.some((operation) => operation.title === '等待人工审核'));
+  assert.ok(
+    snapshot.operations.some(
+      (operation) => operation.title === '提交漂流瓶审核' && operation.detail === 'QQ 10002 · 等待人工审核',
+    ),
+  );
   assert.ok(snapshot.operations.every((operation) => operation.createdAt > 0));
 });

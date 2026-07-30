@@ -1,6 +1,6 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: v0.3.16 已收录人工投瓶审核、机器人审核命令和评论展开，等待宿主回归。
+Focus: 人工投瓶提交现已明确写入主页操作记录，等待验证与下一版本发布。
 
 ## In flight
 

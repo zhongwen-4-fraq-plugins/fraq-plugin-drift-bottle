@@ -168,8 +168,11 @@ function formatModerationOperation(record: ModerationRecord): DashboardOperation
     return {
       id: `moderation-${record.id}`,
       createdAt: record.createdAt,
-      title: '等待人工审核',
-      detail: record.process.manual.reason,
+      title: '提交漂流瓶审核',
+      detail: joinDetail(
+        record.bottleDraft ? `QQ ${record.bottleDraft.senderId}` : undefined,
+        record.process.manual.reason,
+      ),
       tone: 'warning',
     };
   }
