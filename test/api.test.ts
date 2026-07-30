@@ -13,6 +13,9 @@ import test from 'node:test';
 test('公开 API 可以脱离命令路由完成漂流瓶操作', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-api-'));
   const client = createMockMilkyClient();
+  client.stubApi('get_resource_temp_url', ({ resource_id }) => ({
+    url: `https://cdn.example.com/${resource_id}.jpg`,
+  }));
   const store = new BottleStore(join(directory, 'bottles.db'));
   await store.load();
   const api = new DriftBottleApi(client, store, async () => ({ approved: true, categories: [], reason: '' }));
@@ -24,12 +27,21 @@ test('公开 API 可以脱离命令路由完成漂流瓶操作', async (t) => {
   const sender = client.inbox.group({ groupId: 20001, userId: 10001 }, [inseg.text('调用 API')]);
   assert.deepEqual(await api.updateSignature(sender, { type: 'alias', name: '海风' }), { status: 'updated' });
 
-  const created = await api.createBottle(sender, [inseg.text('来自 API 的漂流瓶')]);
+  const created = await api.createBottle(sender, [
+    inseg.text('来自 API 的漂流瓶'),
+    inseg.image({ resourceId: 'image-resource', tempUrl: 'https://old.example.com/image.jpg' }),
+  ]);
   assert.equal(created.status, 'created');
   if (created.status !== 'created') {
     return;
   }
   assert.equal(created.bottle.displayName, '海风');
+  assert.deepEqual(await api.bottleImage(created.bottle.id, 1), {
+    status: 'found',
+    url: 'https://cdn.example.com/image-resource.jpg',
+  });
+  assert.deepEqual(await api.bottleImage(created.bottle.id, 0), { status: 'not-image' });
+  assert.deepEqual(await api.bottleImage('missing-bottle', 0), { status: 'not-found' });
 
   const commenter = client.inbox.group({ groupId: 20001, userId: 10002 }, [inseg.text('评论')]);
   const comment = await api.publishComment(commenter, created.bottle.id, '写得真好');

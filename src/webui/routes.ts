@@ -1,6 +1,6 @@
 import type { HonoService } from '@fraqjs/plugin-hono';
 
-import type { BottleComments } from '../api/drift-bottle-api.js';
+import type { BottleComments, BottleImageResult } from '../api/drift-bottle-api.js';
 import type { ApproveModerationRecordResult, RejectModerationRecordResult } from '../persistence/bottle-store.js';
 import { isValidWebuiPassword, parseQqAccount, type WebuiAuth } from './auth.js';
 import type { DashboardSnapshot } from './dashboard.js';
@@ -31,6 +31,7 @@ export interface WebuiRouteOptions {
   dashboard: () => DashboardSnapshot;
   bottles: (page: number) => WebuiListPage<WebuiBottleListItem>;
   bottleComments: (id: string) => BottleComments | undefined;
+  bottleImage: (id: string, segmentIndex: number) => Promise<BottleImageResult>;
   pendingReviews: (page: number) => WebuiListPage<WebuiPendingReviewItem>;
   canModerate: (userId: number) => boolean;
   approveReview: (id: string, actorId: number) => ApproveModerationRecordResult;
@@ -226,6 +227,26 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
       return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
     }
     return context.json(options.bottles(readPage(context.req.query('page'))), 200, { 'Cache-Control': 'no-store' });
+  });
+  service.app.get(`${basePath}/api/bottles/:id/images/:index`, async (context) => {
+    if (!options.auth.isSessionValid(readSessionCookie(context.req.header('cookie')))) {
+      return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
+    }
+    const segmentIndex = Number(context.req.param('index'));
+    if (!Number.isSafeInteger(segmentIndex) || segmentIndex < 0) {
+      return context.json({ error: '图片索引无效' }, 400, { 'Cache-Control': 'no-store' });
+    }
+    const image = await options.bottleImage(context.req.param('id'), segmentIndex);
+    if (image.status === 'found') {
+      return context.json({ url: image.url }, 200, { 'Cache-Control': 'no-store' });
+    }
+    if (image.status === 'not-found') {
+      return context.json({ error: '没有找到这个漂流瓶' }, 404, { 'Cache-Control': 'no-store' });
+    }
+    if (image.status === 'not-image') {
+      return context.json({ error: '这个消息段不是图片' }, 400, { 'Cache-Control': 'no-store' });
+    }
+    return context.json({ error: '图片地址暂时不可用' }, 502, { 'Cache-Control': 'no-store' });
   });
   service.app.get(`${basePath}/api/bottles/:id/comments`, (context) => {
     if (!options.auth.isSessionValid(readSessionCookie(context.req.header('cookie')))) {

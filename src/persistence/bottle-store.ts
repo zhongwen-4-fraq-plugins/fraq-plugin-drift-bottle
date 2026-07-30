@@ -323,6 +323,11 @@ export class BottleStore implements Disposable {
     return rows.map((row) => this.toBottle(row));
   }
 
+  bottle(id: string): DriftBottle | undefined {
+    const row = this.getDatabase().prepare('SELECT * FROM bottles WHERE id = ?').get(id) as BottleRow | undefined;
+    return row ? this.toBottle(row) : undefined;
+  }
+
   deleteBottle(id: string): boolean {
     const database = this.getDatabase();
     database.exec('BEGIN IMMEDIATE');

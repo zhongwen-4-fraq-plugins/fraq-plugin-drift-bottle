@@ -1,6 +1,6 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: AI 明确拒绝的瓶子不再进入待审核列表，等待验证与下一版本发布。
+Focus: 全部瓶子列表已支持“[点击查看图片]”并按需刷新资源预览，等待验证与下一版本发布。
 
 ## In flight
 

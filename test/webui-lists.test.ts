@@ -93,5 +93,9 @@ test('WebUI 列表按页返回漂流瓶和待审核摘要', async (t) => {
   assert.deepEqual(summarizeSegments([inseg.text('你好'), inseg.image({ summary: '照片' })]), {
     preview: '你好 [图片：照片]',
     kinds: ['文字', '图片'],
+    parts: [
+      { segmentIndex: 0, text: '你好', imageSegmentIndex: undefined },
+      { segmentIndex: 1, text: '[图片：照片]', imageSegmentIndex: 1 },
+    ],
   });
 });

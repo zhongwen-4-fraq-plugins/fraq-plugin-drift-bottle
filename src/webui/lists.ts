@@ -6,6 +6,13 @@ import type { ModerationRecord } from '../processing/moderation-records.js';
 export interface WebuiContentSummary {
   preview: string;
   kinds: string[];
+  parts: WebuiContentPart[];
+}
+
+export interface WebuiContentPart {
+  segmentIndex: number;
+  text: string;
+  imageSegmentIndex?: number;
 }
 
 export interface WebuiPendingReviewItem {
@@ -185,11 +192,15 @@ function formatBottle(bottle: DriftBottle, commentCount: number): WebuiBottleLis
 
 export function summarizeSegments(segments: BottleSegment[]): WebuiContentSummary {
   const kinds = [...new Set(segments.map((segment) => segmentKind(segment.type)))];
-  const summary = segments.map(summarizeSegment).filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
-  const preview = summary || '无法预览的内容';
+  const parts = segments.flatMap((segment, segmentIndex) => {
+    const text = summarizeSegment(segment).replace(/\s+/g, ' ').trim();
+    return text ? [{ segmentIndex, text, imageSegmentIndex: segment.type === 'image' ? segmentIndex : undefined }] : [];
+  });
+  const preview = parts.map((part) => part.text).join(' ') || '无法预览的内容';
   return {
     preview,
     kinds,
+    parts,
   };
 }
 

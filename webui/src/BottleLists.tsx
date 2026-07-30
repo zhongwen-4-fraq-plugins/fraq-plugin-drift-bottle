@@ -1,10 +1,17 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 
 import { webuiUrl } from './location';
 
 interface ContentSummary {
   preview: string;
   kinds: string[];
+  parts: ContentPart[];
+}
+
+interface ContentPart {
+  segmentIndex: number;
+  text: string;
+  imageSegmentIndex?: number;
 }
 
 interface PendingReviewItem {
@@ -53,6 +60,14 @@ interface BottleCommentsResponse {
 
 interface BottleCommentsState {
   data?: BottleCommentsResponse;
+  error?: string;
+  loading: boolean;
+}
+
+interface BottleImageViewerState {
+  bottleId: string;
+  segmentIndex: number;
+  url?: string;
   error?: string;
   loading: boolean;
 }
@@ -110,7 +125,7 @@ export function PendingReviewList({ canModerate, onSessionExpired }: PendingRevi
   return (
     <ListPageFrame
       title="待审核"
-      description="等待人工处理、AI 未通过或审核中断的内容会集中在这里。"
+      description="人工提交或 AI 审核中断、尚无明确结论的内容会集中在这里。"
       emptyTitle="没有待审核记录"
       emptyDescription="需要人工处理的投瓶内容会自动出现在这里。"
       {...list}
@@ -362,6 +377,7 @@ export function AllBottleList({ onSessionExpired }: BottleListProps) {
   const list = useListPage<BottleItem>('api/bottles', onSessionExpired);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
   const [commentsByBottle, setCommentsByBottle] = useState<Record<string, BottleCommentsState>>({});
+  const [imageViewer, setImageViewer] = useState<BottleImageViewerState>();
 
   async function loadComments(id: string) {
     setCommentsByBottle((current) => ({ ...current, [id]: { ...current[id], error: undefined, loading: true } }));
@@ -396,142 +412,257 @@ export function AllBottleList({ onSessionExpired }: BottleListProps) {
     if (opening && !comments?.data && !comments?.loading) void loadComments(item.id);
   }
 
+  async function loadBottleImage(bottleId: string, segmentIndex: number) {
+    setImageViewer({ bottleId, segmentIndex, loading: true });
+    try {
+      const response = await fetch(webuiUrl(`api/bottles/${encodeURIComponent(bottleId)}/images/${segmentIndex}`), {
+        credentials: 'same-origin',
+      });
+      if (response.status === 401) {
+        setImageViewer(undefined);
+        onSessionExpired();
+        return;
+      }
+      const result = (await response.json().catch(() => undefined)) as { error?: string; url?: string } | undefined;
+      if (!response.ok || !result?.url) {
+        throw new Error(result?.error ?? '图片地址请求失败');
+      }
+      setImageViewer((current) =>
+        current?.bottleId === bottleId && current.segmentIndex === segmentIndex
+          ? { bottleId, segmentIndex, url: result.url, loading: false }
+          : current,
+      );
+    } catch {
+      setImageViewer((current) =>
+        current?.bottleId === bottleId && current.segmentIndex === segmentIndex
+          ? { bottleId, segmentIndex, error: '图片暂时无法载入，请稍后重试。', loading: false }
+          : current,
+      );
+    }
+  }
+
   return (
-    <ListPageFrame
-      title="全部瓶子"
-      description="浏览目前仍在海面上的全部漂流瓶。"
-      emptyTitle="海面上还没有漂流瓶"
-      emptyDescription="用户投递的漂流瓶会自动出现在这里。"
-      {...list}
-    >
-      {(data) => (
-        <>
-          <div className="data-table-scroll list-desktop-view">
-            <table className="data-table data-table--bottles">
-              <caption className="visually-hidden">全部漂流瓶</caption>
-              <colgroup>
-                <col className="bottle-column-id" />
-                <col className="bottle-column-time" />
-                <col className="bottle-column-source" />
-                <col className="bottle-column-types" />
-                <col className="bottle-column-content" />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th scope="col">瓶子 ID</th>
-                  <th scope="col">时间</th>
-                  <th scope="col">来源</th>
-                  <th scope="col">消息段类型</th>
-                  <th scope="col">内容</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.items.map((item) => {
-                  const open = expandedIds.has(item.id);
-                  return (
-                    <Fragment key={item.id}>
-                      <tr className={item.commentCount > 0 ? 'bottle-row bottle-row--expandable' : 'bottle-row'}>
-                        <td>
-                          <span className="record-id record-id--full">{item.id}</span>
-                        </td>
-                        <td>
-                          <FormattedTime value={item.createdAt} />
-                        </td>
-                        <td>
-                          <BottleSource item={item} />
-                        </td>
-                        <td>
-                          <ContentTypeTags kinds={item.content.kinds} />
-                        </td>
-                        <td>
-                          <div className="bottle-content-cell">
-                            <ContentPreview preview={item.content.preview} />
-                            {item.commentCount > 0 ? (
-                              <BottleCommentsToggle
-                                item={item}
-                                open={open}
-                                view="desktop"
-                                onToggle={() => toggleComments(item)}
+    <>
+      <ListPageFrame
+        title="全部瓶子"
+        description="浏览目前仍在海面上的全部漂流瓶。"
+        emptyTitle="海面上还没有漂流瓶"
+        emptyDescription="用户投递的漂流瓶会自动出现在这里。"
+        {...list}
+      >
+        {(data) => (
+          <>
+            <div className="data-table-scroll list-desktop-view">
+              <table className="data-table data-table--bottles">
+                <caption className="visually-hidden">全部漂流瓶</caption>
+                <colgroup>
+                  <col className="bottle-column-id" />
+                  <col className="bottle-column-time" />
+                  <col className="bottle-column-source" />
+                  <col className="bottle-column-types" />
+                  <col className="bottle-column-content" />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th scope="col">瓶子 ID</th>
+                    <th scope="col">时间</th>
+                    <th scope="col">来源</th>
+                    <th scope="col">消息段类型</th>
+                    <th scope="col">内容</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.items.map((item) => {
+                    const open = expandedIds.has(item.id);
+                    return (
+                      <Fragment key={item.id}>
+                        <tr className={item.commentCount > 0 ? 'bottle-row bottle-row--expandable' : 'bottle-row'}>
+                          <td>
+                            <span className="record-id record-id--full">{item.id}</span>
+                          </td>
+                          <td>
+                            <FormattedTime value={item.createdAt} />
+                          </td>
+                          <td>
+                            <BottleSource item={item} />
+                          </td>
+                          <td>
+                            <ContentTypeTags kinds={item.content.kinds} />
+                          </td>
+                          <td>
+                            <div className="bottle-content-cell">
+                              <ContentPreview
+                                content={item.content}
+                                onImageClick={(segmentIndex) => void loadBottleImage(item.id, segmentIndex)}
                               />
-                            ) : null}
-                          </div>
-                        </td>
-                      </tr>
-                      {item.commentCount > 0 ? (
-                        <tr className="bottle-comments-row">
-                          <td colSpan={5}>
-                            <BottleCommentsPanel
-                              id={`bottle-comments-desktop-${item.id}`}
-                              open={open}
-                              state={commentsByBottle[item.id]}
-                              onRetry={() => void loadComments(item.id)}
-                            />
+                              {item.commentCount > 0 ? (
+                                <BottleCommentsToggle
+                                  item={item}
+                                  open={open}
+                                  view="desktop"
+                                  onToggle={() => toggleComments(item)}
+                                />
+                              ) : null}
+                            </div>
                           </td>
                         </tr>
-                      ) : null}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <ol className="mobile-record-list list-mobile-view">
-            {data.items.map((item) => (
-              <li key={item.id} className="mobile-record">
-                <dl className="mobile-bottle-fields">
-                  <div className="mobile-bottle-field">
-                    <dt>瓶子 ID</dt>
-                    <dd>
-                      <span className="record-id record-id--full">{item.id}</span>
-                    </dd>
-                  </div>
-                  <div className="mobile-bottle-field">
-                    <dt>时间</dt>
-                    <dd>
-                      <FormattedTime value={item.createdAt} />
-                    </dd>
-                  </div>
-                  <div className="mobile-bottle-field">
-                    <dt>来源</dt>
-                    <dd>
-                      <BottleSource item={item} />
-                    </dd>
-                  </div>
-                  <div className="mobile-bottle-field">
-                    <dt>消息段类型</dt>
-                    <dd>
-                      <ContentTypeTags kinds={item.content.kinds} />
-                    </dd>
-                  </div>
-                  <div className="mobile-bottle-field">
-                    <dt>内容</dt>
-                    <dd>
-                      <ContentPreview preview={item.content.preview} />
-                    </dd>
-                  </div>
-                </dl>
-                {item.commentCount > 0 ? (
-                  <>
-                    <BottleCommentsToggle
-                      item={item}
-                      open={expandedIds.has(item.id)}
-                      view="mobile"
-                      onToggle={() => toggleComments(item)}
-                    />
-                    <BottleCommentsPanel
-                      id={`bottle-comments-mobile-${item.id}`}
-                      open={expandedIds.has(item.id)}
-                      state={commentsByBottle[item.id]}
-                      onRetry={() => void loadComments(item.id)}
-                    />
-                  </>
-                ) : null}
-              </li>
-            ))}
-          </ol>
-        </>
-      )}
-    </ListPageFrame>
+                        {item.commentCount > 0 ? (
+                          <tr className="bottle-comments-row">
+                            <td colSpan={5}>
+                              <BottleCommentsPanel
+                                id={`bottle-comments-desktop-${item.id}`}
+                                open={open}
+                                state={commentsByBottle[item.id]}
+                                onRetry={() => void loadComments(item.id)}
+                              />
+                            </td>
+                          </tr>
+                        ) : null}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <ol className="mobile-record-list list-mobile-view">
+              {data.items.map((item) => (
+                <li key={item.id} className="mobile-record">
+                  <dl className="mobile-bottle-fields">
+                    <div className="mobile-bottle-field">
+                      <dt>瓶子 ID</dt>
+                      <dd>
+                        <span className="record-id record-id--full">{item.id}</span>
+                      </dd>
+                    </div>
+                    <div className="mobile-bottle-field">
+                      <dt>时间</dt>
+                      <dd>
+                        <FormattedTime value={item.createdAt} />
+                      </dd>
+                    </div>
+                    <div className="mobile-bottle-field">
+                      <dt>来源</dt>
+                      <dd>
+                        <BottleSource item={item} />
+                      </dd>
+                    </div>
+                    <div className="mobile-bottle-field">
+                      <dt>消息段类型</dt>
+                      <dd>
+                        <ContentTypeTags kinds={item.content.kinds} />
+                      </dd>
+                    </div>
+                    <div className="mobile-bottle-field">
+                      <dt>内容</dt>
+                      <dd>
+                        <ContentPreview
+                          content={item.content}
+                          onImageClick={(segmentIndex) => void loadBottleImage(item.id, segmentIndex)}
+                        />
+                      </dd>
+                    </div>
+                  </dl>
+                  {item.commentCount > 0 ? (
+                    <>
+                      <BottleCommentsToggle
+                        item={item}
+                        open={expandedIds.has(item.id)}
+                        view="mobile"
+                        onToggle={() => toggleComments(item)}
+                      />
+                      <BottleCommentsPanel
+                        id={`bottle-comments-mobile-${item.id}`}
+                        open={expandedIds.has(item.id)}
+                        state={commentsByBottle[item.id]}
+                        onRetry={() => void loadComments(item.id)}
+                      />
+                    </>
+                  ) : null}
+                </li>
+              ))}
+            </ol>
+          </>
+        )}
+      </ListPageFrame>
+      {imageViewer ? (
+        <BottleImageDialog
+          state={imageViewer}
+          onClose={() => setImageViewer(undefined)}
+          onImageError={() =>
+            setImageViewer((current) =>
+              current ? { ...current, url: undefined, error: '图片加载失败，请重试。', loading: false } : current,
+            )
+          }
+          onRetry={() => void loadBottleImage(imageViewer.bottleId, imageViewer.segmentIndex)}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function BottleImageDialog({
+  state,
+  onClose,
+  onImageError,
+  onRetry,
+}: {
+  state: BottleImageViewerState;
+  onClose: () => void;
+  onImageError: () => void;
+  onRetry: () => void;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+    return () => {
+      if (dialog?.open) dialog.close();
+    };
+  }, []);
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="bottle-image-dialog"
+      aria-labelledby="bottle-image-dialog-title"
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div className="bottle-image-dialog-content">
+        <header>
+          <h2 id="bottle-image-dialog-title">查看图片</h2>
+          <button type="button" aria-label="关闭图片预览" onClick={onClose}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 6l12 12M18 6 6 18" />
+            </svg>
+          </button>
+        </header>
+        <div className="bottle-image-dialog-body" aria-busy={state.loading}>
+          {state.loading ? (
+            <p className="bottle-image-dialog-status" role="status">
+              正在载入图片…
+            </p>
+          ) : null}
+          {state.error ? (
+            <div className="bottle-image-dialog-error" role="alert">
+              <p>{state.error}</p>
+              <button type="button" onClick={onRetry}>
+                重试
+              </button>
+            </div>
+          ) : null}
+          {state.url ? (
+            <img src={state.url} alt="漂流瓶图片" referrerPolicy="no-referrer" onError={onImageError} />
+          ) : null}
+        </div>
+      </div>
+    </dialog>
   );
 }
 
@@ -772,14 +903,40 @@ export function useListPage<T>(endpoint: string, onSessionExpired: () => void) {
 function ContentSummaryView({ content }: { content: ContentSummary }) {
   return (
     <div className="content-summary">
-      <ContentPreview preview={content.preview} />
+      <ContentPreview content={content} />
       <ContentTypeTags kinds={content.kinds} />
     </div>
   );
 }
 
-function ContentPreview({ preview }: { preview: string }) {
-  return <span className="content-preview">{preview}</span>;
+function ContentPreview({
+  content,
+  onImageClick,
+}: {
+  content: ContentSummary;
+  onImageClick?: (segmentIndex: number) => void;
+}) {
+  const parts = content.parts.length ? content.parts : [{ segmentIndex: 0, text: content.preview }];
+  return (
+    <span className="content-preview">
+      {parts.map((part, index) => (
+        <Fragment key={part.segmentIndex}>
+          {index > 0 ? ' ' : null}
+          {part.imageSegmentIndex !== undefined && onImageClick ? (
+            <button
+              type="button"
+              className="content-image-button"
+              onClick={() => onImageClick(part.imageSegmentIndex as number)}
+            >
+              [点击查看图片]
+            </button>
+          ) : (
+            part.text
+          )}
+        </Fragment>
+      ))}
+    </span>
+  );
 }
 
 function ContentTypeTags({ kinds }: { kinds: string[] }) {

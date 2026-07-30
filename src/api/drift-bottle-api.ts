@@ -65,6 +65,10 @@ export interface BottleComments {
   total: number;
 }
 
+export type BottleImageResult =
+  | { status: 'found'; url: string }
+  | { status: 'not-found' | 'not-image' | 'unavailable' };
+
 export class DriftBottleApi implements Disposable {
   constructor(
     private readonly client: MilkyClient,
@@ -209,6 +213,34 @@ export class DriftBottleApi implements Disposable {
 
   commentCountFor(bottleId: string): number {
     return this.store.commentCount(bottleId);
+  }
+
+  async bottleImage(bottleId: string, segmentIndex: number): Promise<BottleImageResult> {
+    const bottle = this.store.bottle(bottleId);
+    if (!bottle) {
+      return { status: 'not-found' };
+    }
+    const segment = bottle.segments[segmentIndex];
+    if (segment?.type !== 'image') {
+      return { status: 'not-image' };
+    }
+
+    let url = segment.data.temp_url;
+    if (segment.data.resource_id) {
+      try {
+        url = (await this.client.get_resource_temp_url({ resource_id: segment.data.resource_id })).url;
+      } catch {
+        // The stored temporary URL remains a useful fallback when Milky cannot refresh the resource.
+      }
+    }
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+        ? { status: 'found', url: parsed.toString() }
+        : { status: 'unavailable' };
+    } catch {
+      return { status: 'unavailable' };
+    }
   }
 
   async bottleIdFromReply(

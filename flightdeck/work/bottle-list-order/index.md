@@ -14,6 +14,7 @@
 - `flightdeck/knowledge/webui/nested-route-urls.md`
 - `flightdeck/knowledge/integration/fraq-hono-webui.md`
 - `flightdeck/knowledge/webui/responsive-list-detail-expansion.md`
+- `flightdeck/knowledge/webui/protected-media-preview.md`
 
 ## Read if
 
@@ -29,10 +30,11 @@ Done:
 - 桌面和移动端共用展开状态及按瓶子缓存，首次展开时按需加载。
 - 评论区支持加载、失败重试、空结果、总数提示和减少动态效果偏好。
 - 评论正文保持左对齐，评论者名字前显示 QQ 头像；头像加载失败时回退到用户图标。
+- 全部瓶子列表将图片显示为“[点击查看图片]”，点击后通过认证接口刷新 QQ 资源地址并在响应式对话框中预览。
 
 Current:
 
-- 等待评论头像与无缩进布局发布，并在真实 Fraq 宿主回归。
+- 等待图片点击预览、评论头像与无缩进布局发布，并在真实 Fraq 宿主回归。
 
 Verified:
 

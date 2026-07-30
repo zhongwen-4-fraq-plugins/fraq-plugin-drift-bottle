@@ -92,6 +92,7 @@ export default definePlugin({
       approveReview: (id, actorId) => api.approveModerationRecord(id, actorId),
       basePath: webuiSettings.webuiPath,
       bottleComments: (id) => api.commentsFor(id),
+      bottleImage: (id, segmentIndex) => api.bottleImage(id, segmentIndex),
       bottles: (page) => createBottleListPage(api, page),
       canModerate: (userId) => api.isModerator(userId),
       dashboard: () => createDashboardSnapshot(api, instanceStartedAt, runtime),

@@ -92,6 +92,12 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
             total: 1,
           }
         : undefined,
+    bottleImage: async (id, segmentIndex) => {
+      if (id === 'bottle-with-image' && segmentIndex === 2) {
+        return { status: 'found', url: 'https://cdn.example.com/bottle-image.jpg' };
+      }
+      return id === 'missing' ? { status: 'not-found' } : { status: 'not-image' };
+    },
     bottles: () => bottles,
     canModerate: (userId) => userId === 333333333,
     dashboard: () => dashboard,
@@ -168,6 +174,10 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   assert.equal((await hono.app.request('http://localhost/manage/drift-bottle/api/bottles')).status, 401);
   assert.equal(
     (await hono.app.request('http://localhost/manage/drift-bottle/api/bottles/bottle-with-comments/comments')).status,
+    401,
+  );
+  assert.equal(
+    (await hono.app.request('http://localhost/manage/drift-bottle/api/bottles/bottle-with-image/images/2')).status,
     401,
   );
   assert.equal((await hono.app.request('http://localhost/manage/drift-bottle/api/registrations/pending')).status, 401);
@@ -465,6 +475,30 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   assert.equal(
     (
       await hono.app.request('http://localhost/manage/drift-bottle/api/bottles/missing/comments', {
+        headers: { Cookie: cookie },
+      })
+    ).status,
+    404,
+  );
+
+  const authenticatedImage = await hono.app.request(
+    'http://localhost/manage/drift-bottle/api/bottles/bottle-with-image/images/2',
+    { headers: { Cookie: cookie } },
+  );
+  assert.equal(authenticatedImage.status, 200);
+  assert.deepEqual(await authenticatedImage.json(), { url: 'https://cdn.example.com/bottle-image.jpg' });
+  assert.equal(authenticatedImage.headers.get('cache-control'), 'no-store');
+  assert.equal(
+    (
+      await hono.app.request('http://localhost/manage/drift-bottle/api/bottles/bottle-with-image/images/not-a-number', {
+        headers: { Cookie: cookie },
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await hono.app.request('http://localhost/manage/drift-bottle/api/bottles/missing/images/0', {
         headers: { Cookie: cookie },
       })
     ).status,
