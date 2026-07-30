@@ -1,6 +1,6 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: 人工投瓶提交现已明确写入主页操作记录，等待验证与下一版本发布。
+Focus: 评论列表改为无正文缩进，并在评论者名字前显示 QQ 头像，等待验证与下一版本发布。
 
 ## In flight
 

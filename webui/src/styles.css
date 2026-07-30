@@ -1069,11 +1069,40 @@ textarea {
   display: flex;
   min-width: 0;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-xs);
   color: var(--color-muted);
   font-size: var(--text-meta);
   line-height: 1.25rem;
+}
+
+.bottle-comment-avatar {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 2rem;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--color-background);
+  color: var(--color-primary);
+}
+
+.bottle-comment-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bottle-comment-avatar svg {
+  width: 1.125rem;
+  height: 1.125rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
 }
 
 .bottle-comment-meta strong {
@@ -1089,7 +1118,6 @@ textarea {
 .bottle-comment p {
   max-width: 65ch;
   margin: var(--space-xs) 0 0;
-  padding-inline-start: 3em;
   overflow-wrap: anywhere;
   color: var(--color-ink);
   font-size: var(--text-body);
@@ -2630,7 +2658,8 @@ textarea {
 
   .bottle-comments-toggle,
   .bottle-comments-error button,
-  .bottle-comments-panel {
+  .bottle-comments-panel,
+  .bottle-comment-avatar {
     border: 0.0625rem solid CanvasText;
   }
 

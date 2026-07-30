@@ -601,6 +601,7 @@ function BottleCommentsPanel({
                   {state.data.comments.map((comment) => (
                     <li key={comment.id} className="bottle-comment">
                       <div className="bottle-comment-meta">
+                        <BottleCommentAvatar senderId={comment.senderId} />
                         <strong>{comment.displayName || '匿名'}</strong>
                         <span>QQ {comment.senderId}</span>
                         <FormattedTime value={comment.createdAt} />
@@ -622,6 +623,31 @@ function BottleCommentsPanel({
         </div>
       </div>
     </div>
+  );
+}
+
+function BottleCommentAvatar({ senderId }: { senderId: number }) {
+  const [failed, setFailed] = useState(false);
+
+  return (
+    <span className="bottle-comment-avatar" aria-hidden="true">
+      {failed ? (
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="8" r="3.25" />
+          <path d="M5.75 19c.45-3.35 2.53-5.25 6.25-5.25s5.8 1.9 6.25 5.25" />
+        </svg>
+      ) : (
+        <img
+          src={`https://q1.qlogo.cn/g?b=qq&nk=${senderId}&s=100`}
+          alt=""
+          width="32"
+          height="32"
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+        />
+      )}
+    </span>
   );
 }
 
