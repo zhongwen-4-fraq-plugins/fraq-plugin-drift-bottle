@@ -1,12 +1,12 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: 全部瓶子列表已支持“[点击查看图片]”并按需刷新资源预览，等待验证与下一版本发布。
+Focus: v0.3.17 已发布图片按需预览、评论头像与待审核过滤，等待真实 Fraq 宿主回归。
 
 ## In flight
 
 - `manual-bottle-moderation` — 已随 v0.3.16 发布，AI/人工投瓶审核可即时切换，等待宿主回归。
 - `ai-schema-response` — 已随 v0.3.15 发布，仍待真实网关内容审核回归。
-- `bottle-list-order` — 已随 v0.3.16 发布，有评论的瓶子可在桌面和移动端按需展开，等待宿主回归。
+- `bottle-list-order` — 已随 v0.3.17 发布，评论展开、评论头像和图片按需预览等待宿主回归。
 
 ## Next
 
