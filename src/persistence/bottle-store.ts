@@ -484,7 +484,8 @@ export class BottleStore implements Disposable {
     const rows = this.getDatabase()
       .prepare(`
         SELECT * FROM bottle_moderation_records
-        WHERE resolution IS NULL AND (success = 0 OR approved = 0)
+        WHERE resolution IS NULL
+          AND (success = 0 OR json_type(process, '$.manual') = 'object')
         ORDER BY created_at DESC, rowid DESC
         LIMIT ? OFFSET ?
       `)
@@ -495,7 +496,10 @@ export class BottleStore implements Disposable {
   pendingModerationCount(): number {
     const row = this.getDatabase()
       .prepare(
-        'SELECT COUNT(*) AS count FROM bottle_moderation_records WHERE resolution IS NULL AND (success = 0 OR approved = 0)',
+        `SELECT COUNT(*) AS count
+         FROM bottle_moderation_records
+         WHERE resolution IS NULL
+           AND (success = 0 OR json_type(process, '$.manual') = 'object')`,
       )
       .get() as { count: number };
     return row.count;
@@ -893,6 +897,7 @@ export class BottleStore implements Disposable {
 
 function moderationActionUnavailable(row: ModerationRecordRow): 'already-resolved' | 'not-pending' | undefined {
   if (row.resolution) return 'already-resolved';
-  if (row.success !== 0 && row.approved !== 0) return 'not-pending';
+  const process = JSON.parse(row.process) as ModerationProcess;
+  if (row.success !== 0 && !('manual' in process)) return 'not-pending';
   return undefined;
 }

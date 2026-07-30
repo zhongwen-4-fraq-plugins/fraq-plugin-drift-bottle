@@ -35,7 +35,7 @@ test('WebUI 列表按页返回漂流瓶和待审核摘要', async (t) => {
       store.addComment({ bottleId: bottle.id, senderId: 30001, displayName: '浪花', content: '第一条评论' });
     }
   }
-  store.addModerationRecord({
+  const explicitlyRejected = store.addModerationRecord({
     content: [inseg.text('需要人工确认'), inseg.image({ summary: '海边照片' })],
     process: { result: { approved: false, categories: ['r18'], reason: '内容需要确认' } },
     success: true,
@@ -81,23 +81,15 @@ test('WebUI 列表按页返回漂流瓶和待审核摘要', async (t) => {
   assert.equal(lastBottlePage.items[0]?.commentCount, 0);
 
   const pendingPage = createPendingReviewListPage(api, 1);
-  assert.equal(pendingPage.total, 3);
+  assert.equal(pendingPage.total, 2);
   assert.deepEqual(
     pendingPage.items.map(({ status }) => status),
-    ['pending', 'error', 'rejected'],
+    ['pending', 'error'],
   );
   assert.equal(pendingPage.items[0]?.reason, '等待人工审核');
-  assert.equal(pendingPage.items[2]?.reason, '内容需要确认');
-  assert.deepEqual(pendingPage.items[2]?.categories, ['r18']);
-  assert.equal(pendingPage.items[2]?.target, '瓶子内容');
-  assert.equal(pendingPage.items[2]?.canApprove, true);
-  assert.deepEqual(pendingPage.items[2]?.bottleDraft, {
-    senderId: 12345,
-    displayName: '海风',
-    source: { scene: 'group', peerId: 54321 },
-  });
   assert.equal(pendingPage.items[1]?.target, '历史记录');
   assert.equal(pendingPage.items[1]?.canApprove, false);
+  assert.ok(pendingPage.items.every((item) => item.id !== explicitlyRejected.id));
   assert.deepEqual(summarizeSegments([inseg.text('你好'), inseg.image({ summary: '照片' })]), {
     preview: '你好 [图片：照片]',
     kinds: ['文字', '图片'],

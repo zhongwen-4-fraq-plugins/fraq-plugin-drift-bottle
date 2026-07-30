@@ -65,13 +65,10 @@ test('AI 审核成功和失败都会写入数据库', async (t) => {
   assert.deepEqual(failure.content, [inseg.text('审核失败内容')]);
   assert.deepEqual(failure.process, { error: { name: 'Error', message: 'AI unavailable' } });
   assert.ok(records.every((record) => record.createdAt > 0));
-  assert.equal(store.pendingModerationCount(), 2);
+  assert.equal(store.pendingModerationCount(), 1);
   assert.deepEqual(
     store.pendingModerationRecords().map(({ success, approved }) => ({ success, approved })),
-    [
-      { success: false, approved: undefined },
-      { success: true, approved: false },
-    ],
+    [{ success: false, approved: undefined }],
   );
   assert.deepEqual(logs, ['漂流瓶 AI 审核 Token：输入 120，输出 30，总计 150']);
 });
@@ -122,7 +119,7 @@ test('AI 结构校验失败会保存响应摘要、原因、Token 和 provider w
   assert.deepEqual([record.inputTokens, record.outputTokens, record.totalTokens], [21, 4, 25]);
 });
 
-test('人工审核可投放完整草稿，并要求拒绝理由后归档', async (t) => {
+test('只有人工提交或 AI 失败记录可以处理，明确拒绝不会进入待审核', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-review-'));
   const store = new BottleStore(join(directory, 'bottles.db'));
   await store.load();
@@ -131,7 +128,7 @@ test('人工审核可投放完整草稿，并要求拒绝理由后归档', async
     await rm(directory, { recursive: true, force: true });
   });
 
-  const publishable = store.addModerationRecord({
+  const explicitlyRejected = store.addModerationRecord({
     content: [inseg.text('需要主人确认')],
     process: { result: { approved: false, categories: ['profanity'], reason: '需要人工确认' } },
     success: true,
@@ -144,6 +141,24 @@ test('人工审核可投放完整草稿，并要求拒绝理由后归档', async
       segments: [inseg.text('需要主人确认')],
     },
   });
+  assert.equal(store.pendingModerationCount(), 0);
+  assert.equal(store.approveModerationRecord(explicitlyRejected.id, 90001).status, 'not-pending');
+  assert.equal(store.rejectModerationRecord(explicitlyRejected.id, 90001, '维持 AI 结论').status, 'not-pending');
+
+  const publishable = store.addModerationRecord({
+    content: [inseg.text('等待主人确认')],
+    process: { manual: { reason: '等待人工审核' } },
+    success: true,
+    approved: false,
+    target: 'bottle-content',
+    bottleDraft: {
+      senderId: 10001,
+      displayName: '海风',
+      source: { scene: 'group', peerId: 20001 },
+      segments: [inseg.text('等待主人确认')],
+    },
+  });
+  assert.equal(store.pendingModerationCount(), 1);
   const approved = store.approveModerationRecord(publishable.id, 90001);
   assert.equal(approved.status, 'approved');
   if (approved.status === 'approved') {
@@ -163,8 +178,10 @@ test('人工审核可投放完整草稿，并要求拒绝理由后归档', async
   assert.equal(store.pendingModerationCount(), 0);
 
   const records = store.moderationRecords();
+  const explicitlyRejectedRecord = records.find((record) => record.id === explicitlyRejected.id);
   const approvedRecord = records.find((record) => record.id === publishable.id);
   const rejectedRecord = records.find((record) => record.id === legacy.id);
+  assert.equal(explicitlyRejectedRecord?.resolution, undefined);
   assert.equal(approvedRecord?.resolution, 'approved');
   assert.equal(approvedRecord?.resolvedBy, 90001);
   assert.ok(approvedRecord?.publishedBottleId);
