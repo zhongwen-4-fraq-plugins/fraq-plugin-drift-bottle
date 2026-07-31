@@ -2,9 +2,9 @@ import { Context, type milky } from '@fraqjs/fraq';
 import { createMockMilkyClient, inseg } from '@fraqjs/mock';
 
 import { registerWebuiAccountCommands } from '../src/commands/webui-accounts.js';
-import { BottleStore } from '../src/persistence/bottle-store.js';
 import { WebuiAuth } from '../src/webui/auth.js';
 import { WebuiRegistration } from '../src/webui/registration.js';
+import { createTestStore } from './store.js';
 
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -14,13 +14,12 @@ import test from 'node:test';
 
 test('WebUI 注册申请通知所有主人，任一主人同意后广播审批者昵称', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-registration-'));
-  const store = new BottleStore(join(directory, 'bottles.db'));
-  await store.load();
+  const store = await createTestStore(t, join(directory, 'bottles.db'));
   const client = createMockMilkyClient();
   const ctx = Context.fromClient(client);
   t.after(async () => {
     await ctx.stop();
-    store.dispose();
+    await store.dispose();
     await rm(directory, { recursive: true, force: true });
   });
 

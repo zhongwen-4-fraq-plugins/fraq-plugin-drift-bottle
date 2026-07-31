@@ -4,8 +4,8 @@ import { createMockMilkyClient, inmsg, inseg } from '@fraqjs/mock';
 import { DriftBottleApi } from '../src/api/drift-bottle-api.js';
 import { registerDriftBottleCommands } from '../src/commands/bottle.js';
 import type { BottleSegment } from '../src/models/index.js';
-import { BottleStore } from '../src/persistence/bottle-store.js';
 import type { BottleModerator } from '../src/processing/moderation.js';
+import { createTestStore } from './store.js';
 
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -17,11 +17,10 @@ test('所有非文字瓶子的 ID 和内容会分别发送', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-'));
   const client = createMockMilkyClient();
   const ctx = Context.fromClient(client);
-  const store = new BottleStore(join(directory, 'bottles.db'));
-  await store.load();
+  const store = await createTestStore(t, join(directory, 'bottles.db'));
   t.after(async () => {
     await ctx.stop();
-    store.dispose();
+    await store.dispose();
     await rm(directory, { recursive: true, force: true });
   });
 

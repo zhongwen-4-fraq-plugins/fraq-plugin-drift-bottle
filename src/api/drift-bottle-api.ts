@@ -1,4 +1,4 @@
-import type { Disposable, MilkyClient, milky } from '@fraqjs/fraq';
+import type { MilkyClient, milky } from '@fraqjs/fraq';
 
 import type {
   BottleComment,
@@ -69,7 +69,7 @@ export type BottleImageResult =
   | { status: 'found'; url: string }
   | { status: 'not-found' | 'not-image' | 'unavailable' };
 
-export class DriftBottleApi implements Disposable {
+export class DriftBottleApi {
   constructor(
     private readonly client: MilkyClient,
     private readonly store: BottleStore,
@@ -111,7 +111,7 @@ export class DriftBottleApi implements Disposable {
     };
 
     if (this.moderationMode() === 'manual') {
-      const review = queueBottleForManualReview(this.store, bottleDraft);
+      const review = await queueBottleForManualReview(this.store, bottleDraft);
       return { status: 'pending', reviewId: review.id };
     }
 
@@ -131,7 +131,7 @@ export class DriftBottleApi implements Disposable {
     }
 
     const bottle = await this.store.add(bottleDraft);
-    this.store.addOperationRecord({
+    await this.store.addOperationRecord({
       action: 'bottle-created',
       actorId: message.sender_id,
       bottleId: bottle.id,
@@ -140,10 +140,10 @@ export class DriftBottleApi implements Disposable {
   }
 
   async pickBottle(userId: number, randomValue?: number): Promise<DriftBottle | undefined> {
-    const removeAfterPick = !(this.store.repeatPickFor(userId) ?? false);
+    const removeAfterPick = !((await this.store.repeatPickFor(userId)) ?? false);
     const bottle = await this.store.pick(removeAfterPick, randomValue);
     if (bottle) {
-      this.store.addOperationRecord({
+      await this.store.addOperationRecord({
         action: 'bottle-picked',
         actorId: userId,
         bottleId: bottle.id,
@@ -162,7 +162,7 @@ export class DriftBottleApi implements Disposable {
     bottleId: string,
     content: string,
   ): Promise<PublishCommentResult> {
-    if (!this.store.hasBottle(bottleId)) {
+    if (!(await this.store.hasBottle(bottleId))) {
       return { status: 'not-found' };
     }
     if ([...content].length > 500) {
@@ -182,14 +182,14 @@ export class DriftBottleApi implements Disposable {
     }
 
     try {
-      const comment = this.store.addComment({
+      const comment = await this.store.addComment({
         bottleId,
         senderId: message.sender_id,
         displayName: signature.displayName,
         content,
       });
       if (comment) {
-        this.store.addOperationRecord({
+        await this.store.addOperationRecord({
           action: 'comment-created',
           actorId: message.sender_id,
           bottleId,
@@ -201,22 +201,22 @@ export class DriftBottleApi implements Disposable {
     }
   }
 
-  commentsFor(bottleId: string, limit = 20): BottleComments | undefined {
-    if (!this.store.hasBottle(bottleId)) {
+  async commentsFor(bottleId: string, limit = 20): Promise<BottleComments | undefined> {
+    if (!(await this.store.hasBottle(bottleId))) {
       return undefined;
     }
     return {
-      comments: this.store.commentsFor(bottleId, limit),
-      total: this.store.commentCount(bottleId),
+      comments: await this.store.commentsFor(bottleId, limit),
+      total: await this.store.commentCount(bottleId),
     };
   }
 
-  commentCountFor(bottleId: string): number {
+  commentCountFor(bottleId: string): Promise<number> {
     return this.store.commentCount(bottleId);
   }
 
   async bottleImage(bottleId: string, segmentIndex: number): Promise<BottleImageResult> {
-    const bottle = this.store.bottle(bottleId);
+    const bottle = await this.store.bottle(bottleId);
     if (!bottle) {
       return { status: 'not-found' };
     }
@@ -262,8 +262,8 @@ export class DriftBottleApi implements Disposable {
 
   async updateSignature(message: milky.IncomingMessage, signature: BottleSignature): Promise<UpdateSignatureResult> {
     if (signature.type !== 'alias') {
-      this.store.setSignature(message.sender_id, signature);
-      this.store.addOperationRecord({
+      await this.store.setSignature(message.sender_id, signature);
+      await this.store.addOperationRecord({
         action: 'signature-updated',
         actorId: message.sender_id,
         detail: signature.type,
@@ -280,8 +280,8 @@ export class DriftBottleApi implements Disposable {
     if (!moderation.approved) {
       return { status: 'rejected', reason: moderation.reason };
     }
-    this.store.setSignature(message.sender_id, signature);
-    this.store.addOperationRecord({
+    await this.store.setSignature(message.sender_id, signature);
+    await this.store.addOperationRecord({
       action: 'signature-updated',
       actorId: message.sender_id,
       detail: signature.type,
@@ -289,101 +289,97 @@ export class DriftBottleApi implements Disposable {
     return { status: 'updated' };
   }
 
-  signatureFor(userId: number): BottleSignature {
+  signatureFor(userId: number): Promise<BottleSignature> {
     return this.store.signatureFor(userId);
   }
 
-  hasBottle(id: string): boolean {
+  hasBottle(id: string): Promise<boolean> {
     return this.store.hasBottle(id);
   }
 
-  isBottleOwner(id: string, userId: number): boolean {
+  isBottleOwner(id: string, userId: number): Promise<boolean> {
     return this.store.isBottleOwner(id, userId);
   }
 
-  deleteBottle(id: string, actorId?: number): boolean {
-    const deleted = this.store.deleteBottle(id);
+  async deleteBottle(id: string, actorId?: number): Promise<boolean> {
+    const deleted = await this.store.deleteBottle(id);
     if (deleted) {
-      this.store.addOperationRecord({ action: 'bottle-deleted', actorId, bottleId: id });
+      await this.store.addOperationRecord({ action: 'bottle-deleted', actorId, bottleId: id });
     }
     return deleted;
   }
 
-  addModerator(userId: number, actorId?: number): void {
-    if (this.store.addModerator(userId)) {
-      this.store.addOperationRecord({ action: 'moderator-added', actorId, targetUserId: userId });
+  async addModerator(userId: number, actorId?: number): Promise<void> {
+    if (await this.store.addModerator(userId)) {
+      await this.store.addOperationRecord({ action: 'moderator-added', actorId, targetUserId: userId });
     }
   }
 
-  removeModerator(userId: number, actorId?: number): boolean {
-    const removed = this.store.removeModerator(userId);
+  async removeModerator(userId: number, actorId?: number): Promise<boolean> {
+    const removed = await this.store.removeModerator(userId);
     if (removed) {
-      this.store.addOperationRecord({ action: 'moderator-removed', actorId, targetUserId: userId });
+      await this.store.addOperationRecord({ action: 'moderator-removed', actorId, targetUserId: userId });
     }
     return removed;
   }
 
-  isModerator(userId: number): boolean {
+  isModerator(userId: number): Promise<boolean> {
     return this.store.isModerator(userId);
   }
 
-  moderators(): number[] {
+  moderators(): Promise<number[]> {
     return this.store.moderators();
   }
 
-  setRepeatPick(userId: number, enabled?: boolean): void {
-    this.store.setRepeatPick(userId, enabled);
-    this.store.addOperationRecord({
+  async setRepeatPick(userId: number, enabled?: boolean): Promise<void> {
+    await this.store.setRepeatPick(userId, enabled);
+    await this.store.addOperationRecord({
       action: 'repeat-pick-updated',
       actorId: userId,
       detail: enabled === undefined ? 'default' : enabled ? 'enabled' : 'disabled',
     });
   }
 
-  repeatPickFor(userId: number): boolean | undefined {
+  repeatPickFor(userId: number): Promise<boolean | undefined> {
     return this.store.repeatPickFor(userId);
   }
 
-  moderationRecords(limit = 100): ModerationRecord[] {
+  moderationRecords(limit = 100): Promise<ModerationRecord[]> {
     return this.store.moderationRecords(limit);
   }
 
-  pendingModerationRecords(limit = 20, offset = 0): ModerationRecord[] {
+  pendingModerationRecords(limit = 20, offset = 0): Promise<ModerationRecord[]> {
     return this.store.pendingModerationRecords(limit, offset);
   }
 
-  pendingModerationCount(): number {
+  pendingModerationCount(): Promise<number> {
     return this.store.pendingModerationCount();
   }
 
-  approveModerationRecord(id: string, actorId: number): ApproveModerationRecordResult {
+  approveModerationRecord(id: string, actorId: number): Promise<ApproveModerationRecordResult> {
     return this.store.approveModerationRecord(id, actorId);
   }
 
-  rejectModerationRecord(id: string, actorId: number, reason: string): RejectModerationRecordResult {
+  rejectModerationRecord(id: string, actorId: number, reason: string): Promise<RejectModerationRecordResult> {
     return this.store.rejectModerationRecord(id, actorId, reason);
   }
 
-  operationRecords(limit = 100): BottleOperationRecord[] {
+  operationRecords(limit = 100): Promise<BottleOperationRecord[]> {
     return this.store.operationRecords(limit);
   }
 
   async add(input: NewDriftBottle): Promise<DriftBottle> {
     const bottle = await this.store.add(input);
-    this.store.addOperationRecord({ action: 'bottle-created', actorId: input.senderId, bottleId: bottle.id });
+    await this.store.addOperationRecord({ action: 'bottle-created', actorId: input.senderId, bottleId: bottle.id });
     return bottle;
   }
 
-  count(): number {
+  count(): Promise<number> {
     return this.store.count();
   }
 
-  bottles(limit = 20, offset = 0): DriftBottle[] {
+  bottles(limit = 20, offset = 0): Promise<DriftBottle[]> {
     return this.store.bottles(limit, offset);
-  }
-
-  dispose(): void {
-    this.store.dispose();
   }
 
   private async moderate(segments: BottleSegment[], context?: ModerationContext) {

@@ -1,6 +1,6 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: v0.3.17 已发布图片按需预览、评论头像与待审核过滤，等待真实 Fraq 宿主回归。
+Focus: Kysely 持久层迁移已完成，等待真实 Fraq 宿主旧数据库回归与后续发布。
 
 ## In flight
 
@@ -10,11 +10,11 @@ Focus: v0.3.17 已发布图片按需预览、评论头像与待审核过滤，�
 
 ## Next
 
+- 在宿主配置 `fraqjs/kysely.sqliteUrl` 指向现有漂流瓶数据库，验证 schema 原地迁移和完整业务流程。
 - 在宿主完成投瓶入队、机器人审核命令和人工通过回归。
 - 完成 AI 结构化响应修复的真实网关回归。
 - 在真实 Fraq 宿主中回归全部瓶子评论展开；后续按需增加评论管理操作。
 
 ## Open questions
 
-- 是否将自建 `node:sqlite` 持久层迁移到 `@fraqjs/plugin-kysely`，以及如何无损兼容现有 `storagePath` 数据库。
 - WebUI 是否继续保留 QQ 账号、主人审批和角色权限，还是切换到 `@fraqjs/plugin-webui-gateway` 的宿主级统一 access token。

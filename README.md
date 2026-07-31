@@ -17,7 +17,7 @@ export default definePlugin({
   requires: [DriftBottleApi],
   inject: { driftBottle: DriftBottleApi },
   async apply(ctx) {
-    const count = ctx.driftBottle.count();
+    const count = await ctx.driftBottle.count();
     ctx.logger.info(`当前有 ${count} 个可捡取的漂流瓶`);
   },
 });
@@ -26,7 +26,7 @@ export default definePlugin({
 `DriftBottleApi` 提供投递、捡取、评论、署名、删除、权限、重复捡取偏好和审核记录等操作；命令层只负责参数解析和回复构建。源码按职责分为：
 
 - `src/api/`：供命令和其他插件复用的业务 API。
-- `src/persistence/`：SQLite 持久化。
+- `src/persistence/`：基于 Kysely 的 SQLite 持久化。
 - `src/models/`：公开数据模型。
 - `src/processing/`：消息转换、署名解析和 AI 审核处理。
 - `src/commands/`：Fraq 命令构建与用户交互。
@@ -39,7 +39,7 @@ Fraq 漂流瓶插件，支持投递、随机捡取、匿名、原名或别名署
 
 ## 使用 Fraq CLI
 
-在 `fraq.yml` 中先配置 `fraqjs/hono` 和 `fraqjs/ai`，再添加 `drift-bottle`：
+在 `fraq.yml` 中先配置 `fraqjs/hono`、`fraqjs/ai` 和 `fraqjs/kysely`，再添加 `drift-bottle`：
 
 ```yaml
 configVersion: 1
@@ -62,8 +62,10 @@ plugins:
         models: [deepseek-chat]
     defaultModel: deepseek/deepseek-chat
 
+  fraqjs/kysely:
+    sqliteUrl: file:./data/drift-bottles.db
+
   drift-bottle:
-    storagePath: ./data/drift-bottles.db
     moderationMode: ai
     moderationModel: deepseek/deepseek-chat
     ownerIds: [123456789]
@@ -82,13 +84,13 @@ fraq lock
 fraq start
 ```
 
-Fraq CLI 会把 `drift-bottle` 解析为 npm 包 `fraq-plugin-drift-bottle`，并检查其依赖的 `fraqjs/hono` 和 `fraqjs/ai` 插件是否已经配置。
+Fraq CLI 会把 `drift-bottle` 解析为 npm 包 `fraq-plugin-drift-bottle`，并检查其依赖的 `fraqjs/hono`、`fraqjs/ai` 和 `fraqjs/kysely` 插件是否已经配置。
 
 WebUI 由 Fraq Hono 插件统一提供服务，默认地址为 `http://127.0.0.1:4649/drift-bottle/`。
 
 插件载入时会扫描 `ownerIds`，为其中每个尚无账号的主人创建 WebUI 账号，分别生成一段 6–10 位、同时包含大写字母、小写字母和数字的随机密码，并将密码私聊发送给对应主人。SQLite 仅保存带盐密码哈希；已有账号不会在重启时被覆盖或重复发送，旧版单密码会自动迁移到首位主人账号。
 
-登录后可以在“设置”页面修改当前账号密码。插件主人还可以修改投瓶审核方式、AI 审核模型、主人 QQ 号列表和 WebUI 路径；审核方式、审核模型与主人列表立即生效，WebUI 路径在重启 Fraq 后生效。设置页面中的数据库路径仅供查看，如需修改请调整 Fraq 插件配置并重启。
+登录后可以在“设置”页面修改当前账号密码。插件主人还可以修改投瓶审核方式、AI 审核模型、主人 QQ 号列表和 WebUI 路径；审核方式、审核模型与主人列表立即生效，WebUI 路径在重启 Fraq 后生效。数据库位置由 `fraqjs/kysely.sqliteUrl` 统一管理。
 
 其他 QQ 号可以在登录页设置 6–10 位、同时包含大小写英文字母和数字的密码并提交注册申请。机器人会私聊所有主人；任一主人引用回复该注册请求并发送：
 
@@ -101,18 +103,19 @@ WebUI 由 Fraq Hono 插件统一提供服务，默认地址为 `http://127.0.0.1
 ## 代码安装
 
 ```bash
-pnpm add fraq-plugin-drift-bottle @fraqjs/plugin-hono @fraqjs/plugin-ai ai zod
+pnpm add fraq-plugin-drift-bottle @fraqjs/plugin-hono @fraqjs/plugin-ai @fraqjs/plugin-kysely ai kysely zod
 ```
 
 使用前需按照 [Fraq AI 插件文档](https://fraq.dev/docs/plugins/ai) 安装并配置 `@fraqjs/plugin-ai`。
 
 ```ts
 import HonoPlugin from '@fraqjs/plugin-hono';
+import KyselyPlugin from '@fraqjs/plugin-kysely';
 import DriftBottlePlugin from 'fraq-plugin-drift-bottle';
 
 ctx.install(HonoPlugin, { host: '127.0.0.1', port: 4649 });
+ctx.install(KyselyPlugin, { sqliteUrl: 'file:./data/drift-bottles.db' });
 ctx.install(DriftBottlePlugin, {
-  storagePath: './data/drift-bottles.db',
   moderationMode: 'ai',
   moderationModel: 'fast',
   ownerIds: [123456789],
@@ -125,11 +128,25 @@ ctx.install(DriftBottlePlugin, {
 
 | 字段 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
-| `storagePath` | `string` | `./data/drift-bottles.db` | SQLite 数据库路径；父目录会自动创建。 |
 | `moderationMode` | `'ai' \| 'manual'` | `'ai'` | 投瓶审核方式；人工模式会先进入待审核列表，通过后才公开。 |
 | `moderationModel` | `string` | AI 插件默认模型 | AI 模型别名或 `提供商/模型`；需支持所投递的图片或视频。 |
 | `ownerIds` | `number[]` | `[]` | 插件主人 QQ 号；可删除和审核漂流瓶，并管理数据库授权列表。 |
 | `webuiPath` | `string` | `/drift-bottle` | WebUI 在 Fraq Hono 服务上的挂载路径。 |
+
+### 从旧版数据库升级
+
+0.3.17 及更早版本通过本插件的 `storagePath` 直接打开 SQLite。升级后，请删除 `drift-bottle.storagePath`，并把同一文件配置为 Kysely 数据库：
+
+```yaml
+plugins:
+  fraqjs/kysely:
+    sqliteUrl: file:./data/drift-bottles.db
+
+  drift-bottle:
+    moderationMode: ai
+```
+
+首次启动时，Kysely 会在原文件中登记并执行漂流瓶 schema 迁移；现有表名和数据保持不变。插件不会自动复制或删除旧数据库文件。相对路径仍以 Fraq 进程的工作目录为基准，因此升级前应确认 `sqliteUrl` 指向原 `storagePath` 文件。
 
 ## 审核记录
 

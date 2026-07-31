@@ -4,7 +4,7 @@ import { type DriftBottleApi, DriftBottleApiError, type PublishCommentResult } f
 
 export function registerCommentCommands(ctx: Context, api: DriftBottleApi): void {
   async function showComments(session: Session, bottleId: string): Promise<void> {
-    const result = api.commentsFor(bottleId);
+    const result = await api.commentsFor(bottleId);
     if (!result) {
       await session.reply('没有找到这个漂流瓶。');
       return;

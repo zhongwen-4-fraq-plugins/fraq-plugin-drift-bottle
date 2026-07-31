@@ -7,7 +7,7 @@ export function registerPickPreferenceCommand(ctx: Context, api: DriftBottleApi)
     .command('漂流瓶重复捡')
     .describe('设置个人捡取后是否保留漂流瓶')
     .execute(async (session) => {
-      const repeatPick = api.repeatPickFor(session.raw.sender_id);
+      const repeatPick = await api.repeatPickFor(session.raw.sender_id);
       const enabled = repeatPick ?? false;
       await session.reply(
         `当前设置：${enabled ? '开启' : '关闭'}${repeatPick === undefined ? '（默认）' : ''}。\n` +
@@ -21,13 +21,13 @@ export function registerPickPreferenceCommand(ctx: Context, api: DriftBottleApi)
     .arg('mode', param.union('开启', '关闭', '默认', '是', '否'))
     .execute(async (session, { mode }) => {
       if (mode === '默认') {
-        api.setRepeatPick(session.raw.sender_id);
+        await api.setRepeatPick(session.raw.sender_id);
         await session.reply('已恢复默认设置，之后捡到的瓶子会删除。');
         return;
       }
 
       const enabled = mode === '开启' || mode === '是';
-      api.setRepeatPick(session.raw.sender_id, enabled);
+      await api.setRepeatPick(session.raw.sender_id, enabled);
       await session.reply(
         enabled ? '已开启重复捡瓶子，之后捡到的瓶子会保留。' : '已关闭重复捡瓶子，之后捡到的瓶子会删除。',
       );

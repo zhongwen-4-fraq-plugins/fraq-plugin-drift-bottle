@@ -6,17 +6,15 @@ const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const HASH_PREFIX = 'scrypt-v1';
 
 export interface WebuiCredentialStore {
-  webuiPasswordHash(): string | undefined;
-  setWebuiPasswordHash(hash: string): void;
-  clearWebuiPasswordHash(): void;
-  webuiAccountCount(): number;
-  webuiAccountPasswordHash(userId: number): string | undefined;
-  setWebuiAccount(userId: number, passwordHash: string, approvedBy?: number): void;
-  removeWebuiAccount(userId: number): void;
-  hasWebuiRegistrationRequest(userId: number): boolean;
-  createWebuiRegistrationRequest(userId: number, passwordHash: string): void;
-  removeWebuiRegistrationRequest(userId: number): void;
-  approveWebuiRegistrationRequest(userId: number, approvedBy: number): boolean;
+  webuiPasswordHash(): Promise<string | undefined>;
+  clearWebuiPasswordHash(): Promise<void>;
+  webuiAccountPasswordHash(userId: number): Promise<string | undefined>;
+  setWebuiAccount(userId: number, passwordHash: string, approvedBy?: number): Promise<void>;
+  removeWebuiAccount(userId: number): Promise<void>;
+  hasWebuiRegistrationRequest(userId: number): Promise<boolean>;
+  createWebuiRegistrationRequest(userId: number, passwordHash: string): Promise<void>;
+  removeWebuiRegistrationRequest(userId: number): Promise<void>;
+  approveWebuiRegistrationRequest(userId: number, approvedBy: number): Promise<boolean>;
 }
 
 export type WebuiRegistrationRequestResult = 'account-exists' | 'created' | 'pending';
@@ -34,31 +32,31 @@ export class WebuiAuth {
   async initializeOwners(ownerIds: number[]): Promise<WebuiInitialCredential[]> {
     const owners = [...new Set(ownerIds.filter(isValidQqNumber))];
     if (owners.length === 0) return [];
-    const legacyPasswordHash = this.store.webuiPasswordHash();
+    const legacyPasswordHash = await this.store.webuiPasswordHash();
     if (legacyPasswordHash) {
       const firstOwnerId = owners[0];
-      if (!this.store.webuiAccountPasswordHash(firstOwnerId)) {
-        this.store.setWebuiAccount(firstOwnerId, legacyPasswordHash, firstOwnerId);
+      if (!(await this.store.webuiAccountPasswordHash(firstOwnerId))) {
+        await this.store.setWebuiAccount(firstOwnerId, legacyPasswordHash, firstOwnerId);
       }
-      this.store.clearWebuiPasswordHash();
+      await this.store.clearWebuiPasswordHash();
     }
 
     const credentials: WebuiInitialCredential[] = [];
     for (const userId of owners) {
-      if (this.store.webuiAccountPasswordHash(userId)) continue;
+      if (await this.store.webuiAccountPasswordHash(userId)) continue;
       const password = generateInitialPassword();
-      this.store.setWebuiAccount(userId, await hashPassword(password), userId);
+      await this.store.setWebuiAccount(userId, await hashPassword(password), userId);
       credentials.push({ password, userId });
     }
     return credentials;
   }
 
-  removeAccount(userId: number): void {
-    this.store.removeWebuiAccount(userId);
+  async removeAccount(userId: number): Promise<void> {
+    await this.store.removeWebuiAccount(userId);
   }
 
   async createSession(userId: number, password: string): Promise<string | undefined> {
-    const passwordHash = this.store.webuiAccountPasswordHash(userId);
+    const passwordHash = await this.store.webuiAccountPasswordHash(userId);
     if (!passwordHash || !(await verifyPassword(password, passwordHash))) {
       return undefined;
     }
@@ -70,21 +68,21 @@ export class WebuiAuth {
   }
 
   async requestRegistration(userId: number, password: string): Promise<WebuiRegistrationRequestResult> {
-    if (this.store.webuiAccountPasswordHash(userId)) {
+    if (await this.store.webuiAccountPasswordHash(userId)) {
       return 'account-exists';
     }
-    if (this.store.hasWebuiRegistrationRequest(userId)) {
+    if (await this.store.hasWebuiRegistrationRequest(userId)) {
       return 'pending';
     }
-    this.store.createWebuiRegistrationRequest(userId, await hashPassword(password));
+    await this.store.createWebuiRegistrationRequest(userId, await hashPassword(password));
     return 'created';
   }
 
-  cancelRegistration(userId: number): void {
-    this.store.removeWebuiRegistrationRequest(userId);
+  async cancelRegistration(userId: number): Promise<void> {
+    await this.store.removeWebuiRegistrationRequest(userId);
   }
 
-  approveRegistration(userId: number, approvedBy: number): boolean {
+  async approveRegistration(userId: number, approvedBy: number): Promise<boolean> {
     return this.store.approveWebuiRegistrationRequest(userId, approvedBy);
   }
 
@@ -117,12 +115,12 @@ export class WebuiAuth {
     newPassword: string,
     activeToken?: string,
   ): Promise<boolean> {
-    const passwordHash = this.store.webuiAccountPasswordHash(userId);
+    const passwordHash = await this.store.webuiAccountPasswordHash(userId);
     if (!passwordHash || !(await verifyPassword(currentPassword, passwordHash))) {
       return false;
     }
 
-    this.store.setWebuiAccount(userId, await hashPassword(newPassword));
+    await this.store.setWebuiAccount(userId, await hashPassword(newPassword));
     for (const [token, session] of this.sessions) {
       if (session.userId === userId && token !== activeToken) {
         this.sessions.delete(token);

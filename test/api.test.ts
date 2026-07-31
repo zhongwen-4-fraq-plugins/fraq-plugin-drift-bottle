@@ -1,8 +1,8 @@
 import { createMockMilkyClient, inseg } from '@fraqjs/mock';
 
 import { DriftBottleApi } from '../src/index.js';
-import { BottleStore } from '../src/persistence/bottle-store.js';
 import type { ModerationContext } from '../src/processing/moderation.js';
+import { createTestStore } from './store.js';
 
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -16,11 +16,10 @@ test('公开 API 可以脱离命令路由完成漂流瓶操作', async (t) => {
   client.stubApi('get_resource_temp_url', ({ resource_id }) => ({
     url: `https://cdn.example.com/${resource_id}.jpg`,
   }));
-  const store = new BottleStore(join(directory, 'bottles.db'));
-  await store.load();
+  const store = await createTestStore(t, join(directory, 'bottles.db'));
   const api = new DriftBottleApi(client, store, async () => ({ approved: true, categories: [], reason: '' }));
   t.after(async () => {
-    api.dispose();
+    await store.dispose();
     await rm(directory, { recursive: true, force: true });
   });
 
@@ -46,22 +45,23 @@ test('公开 API 可以脱离命令路由完成漂流瓶操作', async (t) => {
   const commenter = client.inbox.group({ groupId: 20001, userId: 10002 }, [inseg.text('评论')]);
   const comment = await api.publishComment(commenter, created.bottle.id, '写得真好');
   assert.equal(comment.status, 'created');
+  const comments = await api.commentsFor(created.bottle.id);
   assert.deepEqual(
-    api.commentsFor(created.bottle.id)?.comments.map(({ senderId, content }) => ({ senderId, content })),
+    comments?.comments.map(({ senderId, content }) => ({ senderId, content })),
     [{ senderId: 10002, content: '写得真好' }],
   );
-  assert.equal(api.commentCountFor(created.bottle.id), 1);
-  assert.equal(api.commentCountFor('missing-bottle'), 0);
+  assert.equal(await api.commentCountFor(created.bottle.id), 1);
+  assert.equal(await api.commentCountFor('missing-bottle'), 0);
 
-  api.setRepeatPick(10002, true);
+  await api.setRepeatPick(10002, true);
   assert.equal((await api.pickBottle(10002, 0))?.id, created.bottle.id);
-  assert.equal(api.count(), 1);
+  assert.equal(await api.count(), 1);
 
-  api.setRepeatPick(10002, false);
+  await api.setRepeatPick(10002, false);
   assert.equal((await api.pickBottle(10002, 0))?.id, created.bottle.id);
-  assert.equal(api.count(), 0);
+  assert.equal(await api.count(), 0);
   assert.deepEqual(
-    api.operationRecords().map(({ action, actorId }) => ({ action, actorId })),
+    (await api.operationRecords()).map(({ action, actorId }) => ({ action, actorId })),
     [
       { action: 'bottle-picked', actorId: 10002 },
       { action: 'repeat-pick-updated', actorId: 10002 },
@@ -77,15 +77,14 @@ test('公开 API 可以脱离命令路由完成漂流瓶操作', async (t) => {
 test('投瓶审核会携带人工投放所需的完整草稿上下文', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-api-review-'));
   const client = createMockMilkyClient();
-  const store = new BottleStore(join(directory, 'bottles.db'));
-  await store.load();
+  const store = await createTestStore(t, join(directory, 'bottles.db'));
   const contexts: (ModerationContext | undefined)[] = [];
   const api = new DriftBottleApi(client, store, async (_segments, context) => {
     contexts.push(context);
     return { approved: false, categories: ['profanity'], reason: '需要人工确认' };
   });
   t.after(async () => {
-    api.dispose();
+    await store.dispose();
     await rm(directory, { recursive: true, force: true });
   });
 
@@ -108,9 +107,8 @@ test('投瓶审核会携带人工投放所需的完整草稿上下文', async (t
 test('人工审核模式会跳过投瓶 AI 并保存可投放草稿', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-api-manual-review-'));
   const client = createMockMilkyClient();
-  const store = new BottleStore(join(directory, 'bottles.db'));
-  await store.load();
-  store.setSignature(10001, { type: 'alias', name: '海风' });
+  const store = await createTestStore(t, join(directory, 'bottles.db'));
+  await store.setSignature(10001, { type: 'alias', name: '海风' });
   let moderationCalls = 0;
   const api = new DriftBottleApi(
     client,
@@ -122,7 +120,7 @@ test('人工审核模式会跳过投瓶 AI 并保存可投放草稿', async (t) 
     () => 'manual',
   );
   t.after(async () => {
-    api.dispose();
+    await store.dispose();
     await rm(directory, { recursive: true, force: true });
   });
 
@@ -130,10 +128,10 @@ test('人工审核模式会跳过投瓶 AI 并保存可投放草稿', async (t) 
   const result = await api.createBottle(sender, [inseg.text('等待主人确认')]);
   assert.equal(result.status, 'pending');
   assert.equal(moderationCalls, 0);
-  assert.equal(api.count(), 0);
-  assert.equal(api.pendingModerationCount(), 1);
+  assert.equal(await api.count(), 0);
+  assert.equal(await api.pendingModerationCount(), 1);
 
-  const [record] = api.pendingModerationRecords();
+  const [record] = await api.pendingModerationRecords();
   assert.ok(record);
   assert.deepEqual(record.process, { manual: { reason: '等待人工审核' } });
   assert.equal(record.id, result.status === 'pending' ? result.reviewId : undefined);
@@ -144,8 +142,8 @@ test('人工审核模式会跳过投瓶 AI 并保存可投放草稿', async (t) 
     segments: [inseg.text('等待主人确认')],
   });
 
-  const approved = api.approveModerationRecord(record.id, 90001);
+  const approved = await api.approveModerationRecord(record.id, 90001);
   assert.equal(approved.status, 'approved');
-  assert.equal(api.count(), 1);
-  assert.equal(api.pendingModerationCount(), 0);
+  assert.equal(await api.count(), 1);
+  assert.equal(await api.pendingModerationCount(), 0);
 });

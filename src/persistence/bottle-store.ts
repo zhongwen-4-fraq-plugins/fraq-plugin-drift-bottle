@@ -1,4 +1,5 @@
-import type { Disposable } from '@fraqjs/fraq';
+import type { FraqDatabase } from '@fraqjs/plugin-kysely';
+import { type Kysely, type Selectable, sql, type Transaction } from 'kysely';
 
 import type {
   BottleComment,
@@ -11,59 +12,20 @@ import type {
   NewDriftBottle,
 } from '../models/index.js';
 import type { ModerationProcess, ModerationRecord, NewModerationRecord } from '../processing/moderation-records.js';
+import type {
+  BottleCommentTable,
+  BottleModerationRecordTable,
+  BottleOperationRecordTable,
+  BottleTable,
+} from './schema.js';
 
 import { randomUUID } from 'node:crypto';
-import { mkdir } from 'node:fs/promises';
-import { dirname } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
 
-interface BottleRow {
-  id: string;
-  sender_id: number;
-  created_at: number;
-  display_name: string | null;
-  source_scene: DriftBottle['source']['scene'];
-  source_peer_id: number;
-  segments: string;
-}
-
-interface BottleCommentRow {
-  id: string;
-  bottle_id: string;
-  sender_id: number;
-  created_at: number;
-  display_name: string | null;
-  content: string;
-}
-
-interface ModerationRecordRow {
-  id: string;
-  created_at: number;
-  content: string;
-  process: string;
-  input_tokens: number | null;
-  output_tokens: number | null;
-  total_tokens: number | null;
-  success: number;
-  approved: number | null;
-  target_type: ModerationRecord['target'] | null;
-  bottle_draft: string | null;
-  resolution: ModerationRecord['resolution'] | null;
-  resolved_by: number | null;
-  resolved_at: number | null;
-  rejection_reason: string | null;
-  published_bottle_id: string | null;
-}
-
-interface OperationRecordRow {
-  id: string;
-  created_at: number;
-  action: BottleOperationRecord['action'];
-  actor_id: number | null;
-  bottle_id: string | null;
-  target_user_id: number | null;
-  detail: string | null;
-}
+type BottleRow = Selectable<BottleTable>;
+type BottleCommentRow = Selectable<BottleCommentTable>;
+type ModerationRecordRow = Selectable<BottleModerationRecordTable>;
+type OperationRecordRow = Selectable<BottleOperationRecordTable>;
+type BottleDatabase = Kysely<FraqDatabase> | Transaction<FraqDatabase>;
 
 export interface WebuiRegistrationRequestRecord {
   userId: number;
@@ -85,160 +47,15 @@ export type RejectModerationRecordResult =
   | { status: 'rejected' }
   | { status: 'not-found' | 'already-resolved' | 'not-pending' | 'invalid-reason' };
 
-export class BottleStore implements Disposable {
-  private database?: DatabaseSync;
+export class BottleStore {
+  constructor(
+    private readonly database: Kysely<FraqDatabase>,
+    private disposeTestDatabase?: () => Promise<void>,
+  ) {}
 
-  constructor(private readonly filePath: string) {}
-
-  async load(): Promise<void> {
-    await mkdir(dirname(this.filePath), { recursive: true });
-    this.database = new DatabaseSync(this.filePath);
-    this.database.exec(`
-      CREATE TABLE IF NOT EXISTS bottles (
-        id TEXT PRIMARY KEY,
-        sender_id INTEGER NOT NULL,
-        created_at INTEGER NOT NULL,
-        display_name TEXT,
-        source_scene TEXT NOT NULL,
-        source_peer_id INTEGER NOT NULL,
-        segments TEXT NOT NULL
-      )
-    `);
-    const columns = this.database.prepare('PRAGMA table_info(bottles)').all() as { name: string }[];
-    if (!columns.some((column) => column.name === 'display_name')) {
-      this.database.exec('ALTER TABLE bottles ADD COLUMN display_name TEXT');
-    }
-    this.database.exec(`
-      CREATE TABLE IF NOT EXISTS bottle_threads (
-        id TEXT PRIMARY KEY,
-        sender_id INTEGER NOT NULL,
-        created_at INTEGER NOT NULL,
-        display_name TEXT
-      );
-      INSERT OR IGNORE INTO bottle_threads (id, sender_id, created_at, display_name)
-      SELECT id, sender_id, created_at, display_name FROM bottles;
-      CREATE TABLE IF NOT EXISTS bottle_comments (
-        id TEXT PRIMARY KEY,
-        bottle_id TEXT NOT NULL,
-        sender_id INTEGER NOT NULL,
-        created_at INTEGER NOT NULL,
-        display_name TEXT,
-        content TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS bottle_comments_bottle_id_created_at
-      ON bottle_comments (bottle_id, created_at, id);
-    `);
-    this.database.exec(`
-      CREATE TABLE IF NOT EXISTS bottle_profiles (
-        sender_id INTEGER PRIMARY KEY,
-        alias TEXT NOT NULL,
-        mode TEXT NOT NULL DEFAULT 'alias'
-      )
-    `);
-    const profileColumns = this.database.prepare('PRAGMA table_info(bottle_profiles)').all() as { name: string }[];
-    if (!profileColumns.some((column) => column.name === 'mode')) {
-      this.database.exec("ALTER TABLE bottle_profiles ADD COLUMN mode TEXT NOT NULL DEFAULT 'alias'");
-    }
-    this.database.exec(`
-      CREATE TABLE IF NOT EXISTS bottle_moderators (
-        user_id INTEGER PRIMARY KEY,
-        created_at INTEGER NOT NULL
-      )
-    `);
-    this.database.exec(`
-      CREATE TABLE IF NOT EXISTS bottle_pick_preferences (
-        user_id INTEGER PRIMARY KEY,
-        repeat_pick INTEGER NOT NULL
-      )
-    `);
-    this.database.exec(`
-      CREATE TABLE IF NOT EXISTS bottle_moderation_records (
-        id TEXT PRIMARY KEY,
-        created_at INTEGER NOT NULL,
-        content TEXT NOT NULL,
-        process TEXT NOT NULL,
-        input_tokens INTEGER,
-        output_tokens INTEGER,
-        total_tokens INTEGER,
-        success INTEGER NOT NULL,
-        approved INTEGER,
-        target_type TEXT,
-        bottle_draft TEXT,
-        resolution TEXT,
-        resolved_by INTEGER,
-        resolved_at INTEGER,
-        rejection_reason TEXT,
-        published_bottle_id TEXT
-      );
-      CREATE INDEX IF NOT EXISTS bottle_moderation_records_created_at
-      ON bottle_moderation_records (created_at, id);
-    `);
-    const moderationColumns = this.database.prepare('PRAGMA table_info(bottle_moderation_records)').all() as {
-      name: string;
-    }[];
-    const moderationMigrations: [string, string][] = [
-      ['target_type', 'TEXT'],
-      ['bottle_draft', 'TEXT'],
-      ['resolution', 'TEXT'],
-      ['resolved_by', 'INTEGER'],
-      ['resolved_at', 'INTEGER'],
-      ['rejection_reason', 'TEXT'],
-      ['published_bottle_id', 'TEXT'],
-    ];
-    for (const [name, definition] of moderationMigrations) {
-      if (!moderationColumns.some((column) => column.name === name)) {
-        this.database.exec(`ALTER TABLE bottle_moderation_records ADD COLUMN ${name} ${definition}`);
-      }
-    }
-    this.database.exec(`
-      CREATE TABLE IF NOT EXISTS bottle_webui_credentials (
-        id INTEGER PRIMARY KEY CHECK (id = 1),
-        password_hash TEXT NOT NULL,
-        created_at INTEGER NOT NULL
-      )
-    `);
-    this.database.exec(`
-      CREATE TABLE IF NOT EXISTS bottle_webui_accounts (
-        user_id INTEGER PRIMARY KEY,
-        password_hash TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        approved_by INTEGER
-      );
-      CREATE TABLE IF NOT EXISTS bottle_webui_registration_requests (
-        user_id INTEGER PRIMARY KEY,
-        password_hash TEXT NOT NULL,
-        created_at INTEGER NOT NULL
-      )
-    `);
-    this.database.exec(`
-      CREATE TABLE IF NOT EXISTS bottle_operation_records (
-        id TEXT PRIMARY KEY,
-        created_at INTEGER NOT NULL,
-        action TEXT NOT NULL,
-        actor_id INTEGER,
-        bottle_id TEXT,
-        target_user_id INTEGER,
-        detail TEXT
-      );
-      CREATE INDEX IF NOT EXISTS bottle_operation_records_created_at
-      ON bottle_operation_records (created_at, id);
-    `);
-    this.database.exec(`
-      CREATE TABLE IF NOT EXISTS bottle_webui_settings (
-        id INTEGER PRIMARY KEY CHECK (id = 1),
-        moderation_mode TEXT,
-        moderation_model TEXT,
-        owner_ids TEXT NOT NULL,
-        webui_path TEXT NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    `);
-    const settingsColumns = this.database.prepare('PRAGMA table_info(bottle_webui_settings)').all() as {
-      name: string;
-    }[];
-    if (!settingsColumns.some((column) => column.name === 'moderation_mode')) {
-      this.database.exec('ALTER TABLE bottle_webui_settings ADD COLUMN moderation_mode TEXT');
-    }
+  async dispose(): Promise<void> {
+    await this.disposeTestDatabase?.();
+    this.disposeTestDatabase = undefined;
   }
 
   async add(input: NewDriftBottle): Promise<DriftBottle> {
@@ -248,536 +65,457 @@ export class BottleStore implements Disposable {
       ...input,
     };
 
-    const database = this.getDatabase();
-    database.exec('BEGIN IMMEDIATE');
-    try {
-      database
-        .prepare(`
-          INSERT INTO bottle_threads (id, sender_id, created_at, display_name)
-          VALUES (?, ?, ?, ?)
-        `)
-        .run(bottle.id, bottle.senderId, bottle.createdAt, bottle.displayName ?? null);
-      database
-        .prepare(`
-          INSERT INTO bottles (id, sender_id, created_at, display_name, source_scene, source_peer_id, segments)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `)
-        .run(
-          bottle.id,
-          bottle.senderId,
-          bottle.createdAt,
-          bottle.displayName ?? null,
-          bottle.source.scene,
-          bottle.source.peerId,
-          JSON.stringify(bottle.segments),
-        );
-      database.exec('COMMIT');
-      return bottle;
-    } catch (error) {
-      database.exec('ROLLBACK');
-      throw error;
-    }
+    await this.database.transaction().execute(async (transaction) => {
+      await insertBottle(transaction, bottle);
+    });
+    return bottle;
   }
 
   async pick(removeAfterPick: boolean, randomValue = Math.random()): Promise<DriftBottle | undefined> {
-    const database = this.getDatabase();
-    database.exec('BEGIN IMMEDIATE');
-
-    try {
-      const count = this.count();
+    return this.database.transaction().execute(async (transaction) => {
+      const count = await countBottles(transaction);
       if (count === 0) {
-        database.exec('COMMIT');
         return undefined;
       }
 
-      const offset = Math.floor(randomValue * count);
-      const row = database.prepare('SELECT * FROM bottles ORDER BY created_at, id LIMIT 1 OFFSET ?').get(offset) as
-        | BottleRow
-        | undefined;
-
+      const row = await transaction
+        .selectFrom('bottles')
+        .selectAll()
+        .orderBy('created_at')
+        .orderBy('id')
+        .limit(1)
+        .offset(Math.floor(randomValue * count))
+        .executeTakeFirst();
       if (!row) {
-        database.exec('COMMIT');
         return undefined;
       }
 
       if (removeAfterPick) {
-        database.prepare('DELETE FROM bottles WHERE id = ?').run(row.id);
+        await transaction.deleteFrom('bottles').where('id', '=', row.id).execute();
       }
-      database.exec('COMMIT');
-      return this.toBottle(row);
-    } catch (error) {
-      database.exec('ROLLBACK');
-      throw error;
-    }
+      return toBottle(row);
+    });
   }
 
-  count(): number {
-    const row = this.getDatabase().prepare('SELECT COUNT(*) AS count FROM bottles').get() as { count: number };
+  async count(): Promise<number> {
+    return countBottles(this.database);
+  }
+
+  async bottles(limit = 20, offset = 0): Promise<DriftBottle[]> {
+    const rows = await this.database
+      .selectFrom('bottles')
+      .selectAll()
+      .orderBy('created_at', 'desc')
+      .orderBy('id', 'desc')
+      .limit(limit)
+      .offset(offset)
+      .execute();
+    return rows.map(toBottle);
+  }
+
+  async bottle(id: string): Promise<DriftBottle | undefined> {
+    const row = await this.database.selectFrom('bottles').selectAll().where('id', '=', id).executeTakeFirst();
+    return row ? toBottle(row) : undefined;
+  }
+
+  async deleteBottle(id: string): Promise<boolean> {
+    return this.database.transaction().execute(async (transaction) => {
+      await transaction.deleteFrom('bottle_comments').where('bottle_id', '=', id).execute();
+      await transaction.deleteFrom('bottles').where('id', '=', id).execute();
+      const result = await transaction.deleteFrom('bottle_threads').where('id', '=', id).executeTakeFirst();
+      return (result.numDeletedRows ?? 0n) > 0n;
+    });
+  }
+
+  async hasBottle(id: string): Promise<boolean> {
+    const row = await this.database.selectFrom('bottle_threads').select('id').where('id', '=', id).executeTakeFirst();
+    return row !== undefined;
+  }
+
+  async isBottleOwner(id: string, userId: number): Promise<boolean> {
+    const row = await this.database
+      .selectFrom('bottle_threads')
+      .select('id')
+      .where('id', '=', id)
+      .where('sender_id', '=', userId)
+      .executeTakeFirst();
+    return row !== undefined;
+  }
+
+  async addComment(input: NewBottleComment): Promise<BottleComment | undefined> {
+    return this.database.transaction().execute(async (transaction) => {
+      const bottle = await transaction
+        .selectFrom('bottle_threads')
+        .select('id')
+        .where('id', '=', input.bottleId)
+        .executeTakeFirst();
+      if (!bottle) {
+        return undefined;
+      }
+
+      const comment: BottleComment = {
+        id: randomUUID(),
+        createdAt: Date.now(),
+        ...input,
+      };
+      await transaction
+        .insertInto('bottle_comments')
+        .values({
+          id: comment.id,
+          bottle_id: comment.bottleId,
+          sender_id: comment.senderId,
+          created_at: comment.createdAt,
+          display_name: comment.displayName ?? null,
+          content: comment.content,
+        })
+        .execute();
+      return comment;
+    });
+  }
+
+  async commentsFor(bottleId: string, limit = 20): Promise<BottleComment[]> {
+    const rows = await this.database
+      .selectFrom('bottle_comments')
+      .selectAll()
+      .where('bottle_id', '=', bottleId)
+      .orderBy('created_at', 'desc')
+      .orderBy('id', 'desc')
+      .limit(limit)
+      .execute();
+    return rows.reverse().map(toComment);
+  }
+
+  async commentCount(bottleId: string): Promise<number> {
+    const row = await this.database
+      .selectFrom('bottle_comments')
+      .select((expression) => expression.fn.countAll<number>().as('count'))
+      .where('bottle_id', '=', bottleId)
+      .executeTakeFirstOrThrow();
     return row.count;
   }
 
-  bottles(limit = 20, offset = 0): DriftBottle[] {
-    const rows = this.getDatabase()
-      .prepare('SELECT * FROM bottles ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?')
-      .all(limit, offset) as unknown as BottleRow[];
-    return rows.map((row) => this.toBottle(row));
+  async addModerator(userId: number): Promise<boolean> {
+    const result = await this.database
+      .insertInto('bottle_moderators')
+      .values({ user_id: userId, created_at: Date.now() })
+      .onConflict((conflict) => conflict.column('user_id').doNothing())
+      .executeTakeFirst();
+    return (result.numInsertedOrUpdatedRows ?? 0n) > 0n;
   }
 
-  bottle(id: string): DriftBottle | undefined {
-    const row = this.getDatabase().prepare('SELECT * FROM bottles WHERE id = ?').get(id) as BottleRow | undefined;
-    return row ? this.toBottle(row) : undefined;
+  async removeModerator(userId: number): Promise<boolean> {
+    const result = await this.database.deleteFrom('bottle_moderators').where('user_id', '=', userId).executeTakeFirst();
+    return (result.numDeletedRows ?? 0n) > 0n;
   }
 
-  deleteBottle(id: string): boolean {
-    const database = this.getDatabase();
-    database.exec('BEGIN IMMEDIATE');
-    try {
-      database.prepare('DELETE FROM bottle_comments WHERE bottle_id = ?').run(id);
-      database.prepare('DELETE FROM bottles WHERE id = ?').run(id);
-      const deleted = database.prepare('DELETE FROM bottle_threads WHERE id = ?').run(id).changes > 0;
-      database.exec('COMMIT');
-      return deleted;
-    } catch (error) {
-      database.exec('ROLLBACK');
-      throw error;
-    }
+  async isModerator(userId: number): Promise<boolean> {
+    const row = await this.database
+      .selectFrom('bottle_moderators')
+      .select('user_id')
+      .where('user_id', '=', userId)
+      .executeTakeFirst();
+    return row !== undefined;
   }
 
-  hasBottle(id: string): boolean {
-    return Boolean(this.getDatabase().prepare('SELECT 1 FROM bottle_threads WHERE id = ?').get(id));
-  }
-
-  isBottleOwner(id: string, userId: number): boolean {
-    return Boolean(
-      this.getDatabase().prepare('SELECT 1 FROM bottle_threads WHERE id = ? AND sender_id = ?').get(id, userId),
-    );
-  }
-
-  addComment(input: NewBottleComment): BottleComment | undefined {
-    if (!this.hasBottle(input.bottleId)) {
-      return undefined;
-    }
-
-    const comment: BottleComment = {
-      id: randomUUID(),
-      createdAt: Date.now(),
-      ...input,
-    };
-    this.getDatabase()
-      .prepare(`
-        INSERT INTO bottle_comments (id, bottle_id, sender_id, created_at, display_name, content)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `)
-      .run(
-        comment.id,
-        comment.bottleId,
-        comment.senderId,
-        comment.createdAt,
-        comment.displayName ?? null,
-        comment.content,
-      );
-    return comment;
-  }
-
-  commentsFor(bottleId: string, limit = 20): BottleComment[] {
-    const rows = this.getDatabase()
-      .prepare(`
-        SELECT * FROM bottle_comments
-        WHERE bottle_id = ?
-        ORDER BY created_at DESC, id DESC
-        LIMIT ?
-      `)
-      .all(bottleId, limit) as unknown as BottleCommentRow[];
-    return rows.reverse().map((row) => this.toComment(row));
-  }
-
-  commentCount(bottleId: string): number {
-    const row = this.getDatabase()
-      .prepare('SELECT COUNT(*) AS count FROM bottle_comments WHERE bottle_id = ?')
-      .get(bottleId) as { count: number };
-    return row.count;
-  }
-
-  addModerator(userId: number): boolean {
-    return (
-      this.getDatabase()
-        .prepare('INSERT OR IGNORE INTO bottle_moderators (user_id, created_at) VALUES (?, ?)')
-        .run(userId, Date.now()).changes > 0
-    );
-  }
-
-  removeModerator(userId: number): boolean {
-    return this.getDatabase().prepare('DELETE FROM bottle_moderators WHERE user_id = ?').run(userId).changes > 0;
-  }
-
-  isModerator(userId: number): boolean {
-    return Boolean(this.getDatabase().prepare('SELECT 1 FROM bottle_moderators WHERE user_id = ?').get(userId));
-  }
-
-  moderators(): number[] {
-    const rows = this.getDatabase()
-      .prepare('SELECT user_id FROM bottle_moderators ORDER BY created_at, user_id')
-      .all() as {
-      user_id: number;
-    }[];
+  async moderators(): Promise<number[]> {
+    const rows = await this.database
+      .selectFrom('bottle_moderators')
+      .select('user_id')
+      .orderBy('created_at')
+      .orderBy('user_id')
+      .execute();
     return rows.map((row) => row.user_id);
   }
 
-  setRepeatPick(userId: number, enabled?: boolean): void {
+  async setRepeatPick(userId: number, enabled?: boolean): Promise<void> {
     if (enabled === undefined) {
-      this.getDatabase().prepare('DELETE FROM bottle_pick_preferences WHERE user_id = ?').run(userId);
+      await this.database.deleteFrom('bottle_pick_preferences').where('user_id', '=', userId).execute();
       return;
     }
-    this.getDatabase()
-      .prepare(`
-        INSERT INTO bottle_pick_preferences (user_id, repeat_pick)
-        VALUES (?, ?)
-        ON CONFLICT(user_id) DO UPDATE SET repeat_pick = excluded.repeat_pick
-      `)
-      .run(userId, enabled ? 1 : 0);
+    await this.database
+      .insertInto('bottle_pick_preferences')
+      .values({ user_id: userId, repeat_pick: enabled ? 1 : 0 })
+      .onConflict((conflict) => conflict.column('user_id').doUpdateSet({ repeat_pick: enabled ? 1 : 0 }))
+      .execute();
   }
 
-  repeatPickFor(userId: number): boolean | undefined {
-    const row = this.getDatabase()
-      .prepare('SELECT repeat_pick FROM bottle_pick_preferences WHERE user_id = ?')
-      .get(userId) as { repeat_pick: number } | undefined;
+  async repeatPickFor(userId: number): Promise<boolean | undefined> {
+    const row = await this.database
+      .selectFrom('bottle_pick_preferences')
+      .select('repeat_pick')
+      .where('user_id', '=', userId)
+      .executeTakeFirst();
     return row ? Boolean(row.repeat_pick) : undefined;
   }
 
-  addModerationRecord(input: NewModerationRecord): ModerationRecord {
+  async addModerationRecord(input: NewModerationRecord): Promise<ModerationRecord> {
     const record: ModerationRecord = {
       id: randomUUID(),
       createdAt: Date.now(),
       ...input,
     };
-    this.getDatabase()
-      .prepare(`
-        INSERT INTO bottle_moderation_records (
-          id, created_at, content, process, input_tokens, output_tokens, total_tokens, success, approved,
-          target_type, bottle_draft, resolution, resolved_by, resolved_at, rejection_reason, published_bottle_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `)
-      .run(
-        record.id,
-        record.createdAt,
-        JSON.stringify(record.content),
-        JSON.stringify(record.process),
-        record.inputTokens ?? null,
-        record.outputTokens ?? null,
-        record.totalTokens ?? null,
-        record.success ? 1 : 0,
-        record.approved === undefined ? null : record.approved ? 1 : 0,
-        record.target ?? null,
-        record.bottleDraft ? JSON.stringify(record.bottleDraft) : null,
-        record.resolution ?? null,
-        record.resolvedBy ?? null,
-        record.resolvedAt ?? null,
-        record.rejectionReason ?? null,
-        record.publishedBottleId ?? null,
-      );
+    await insertModerationRecord(this.database, record);
     return record;
   }
 
-  moderationRecords(limit = 100): ModerationRecord[] {
-    const rows = this.getDatabase()
-      .prepare('SELECT * FROM bottle_moderation_records ORDER BY created_at DESC, rowid DESC LIMIT ?')
-      .all(limit) as unknown as ModerationRecordRow[];
-    return rows.map((row) => this.toModerationRecord(row));
+  async moderationRecords(limit = 100): Promise<ModerationRecord[]> {
+    const rows = await this.database
+      .selectFrom('bottle_moderation_records')
+      .selectAll()
+      .orderBy('created_at', 'desc')
+      .orderBy(sql`rowid`, 'desc')
+      .limit(limit)
+      .execute();
+    return rows.map(toModerationRecord);
   }
 
-  pendingModerationRecords(limit = 20, offset = 0): ModerationRecord[] {
-    const rows = this.getDatabase()
-      .prepare(`
-        SELECT * FROM bottle_moderation_records
-        WHERE resolution IS NULL
-          AND (success = 0 OR json_type(process, '$.manual') = 'object')
-        ORDER BY created_at DESC, rowid DESC
-        LIMIT ? OFFSET ?
-      `)
-      .all(limit, offset) as unknown as ModerationRecordRow[];
-    return rows.map((row) => this.toModerationRecord(row));
+  async pendingModerationRecords(limit = 20, offset = 0): Promise<ModerationRecord[]> {
+    const rows = await pendingModerationQuery(this.database)
+      .selectAll()
+      .orderBy('created_at', 'desc')
+      .orderBy(sql`rowid`, 'desc')
+      .limit(limit)
+      .offset(offset)
+      .execute();
+    return rows.map(toModerationRecord);
   }
 
-  pendingModerationCount(): number {
-    const row = this.getDatabase()
-      .prepare(
-        `SELECT COUNT(*) AS count
-         FROM bottle_moderation_records
-         WHERE resolution IS NULL
-           AND (success = 0 OR json_type(process, '$.manual') = 'object')`,
-      )
-      .get() as { count: number };
+  async pendingModerationCount(): Promise<number> {
+    const row = await pendingModerationQuery(this.database)
+      .select((expression) => expression.fn.countAll<number>().as('count'))
+      .executeTakeFirstOrThrow();
     return row.count;
   }
 
-  approveModerationRecord(id: string, actorId: number): ApproveModerationRecordResult {
-    const database = this.getDatabase();
-    database.exec('BEGIN IMMEDIATE');
-    try {
-      const row = database.prepare('SELECT * FROM bottle_moderation_records WHERE id = ?').get(id) as
-        | ModerationRecordRow
-        | undefined;
+  async approveModerationRecord(id: string, actorId: number): Promise<ApproveModerationRecordResult> {
+    return this.database.transaction().execute(async (transaction) => {
+      const row = await transaction
+        .selectFrom('bottle_moderation_records')
+        .selectAll()
+        .where('id', '=', id)
+        .executeTakeFirst();
       if (!row) {
-        database.exec('ROLLBACK');
         return { status: 'not-found' };
       }
       const unavailable = moderationActionUnavailable(row);
       if (unavailable) {
-        database.exec('ROLLBACK');
         return { status: unavailable };
       }
       if (!row.bottle_draft) {
-        database.exec('ROLLBACK');
         return { status: 'publish-unavailable' };
       }
 
       const draft = JSON.parse(row.bottle_draft) as NewDriftBottle;
       const bottle: DriftBottle = { id: randomUUID(), createdAt: Date.now(), ...draft };
-      database
-        .prepare(`
-          INSERT INTO bottle_threads (id, sender_id, created_at, display_name)
-          VALUES (?, ?, ?, ?)
-        `)
-        .run(bottle.id, bottle.senderId, bottle.createdAt, bottle.displayName ?? null);
-      database
-        .prepare(`
-          INSERT INTO bottles (id, sender_id, created_at, display_name, source_scene, source_peer_id, segments)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `)
-        .run(
-          bottle.id,
-          bottle.senderId,
-          bottle.createdAt,
-          bottle.displayName ?? null,
-          bottle.source.scene,
-          bottle.source.peerId,
-          JSON.stringify(bottle.segments),
-        );
-      database
-        .prepare(`
-          UPDATE bottle_moderation_records
-          SET resolution = 'approved', resolved_by = ?, resolved_at = ?, published_bottle_id = ?
-          WHERE id = ?
-        `)
-        .run(actorId, Date.now(), bottle.id, id);
-      this.addOperationRecord({
+      await insertBottle(transaction, bottle);
+      await transaction
+        .updateTable('bottle_moderation_records')
+        .set({
+          resolution: 'approved',
+          resolved_by: actorId,
+          resolved_at: Date.now(),
+          published_bottle_id: bottle.id,
+        })
+        .where('id', '=', id)
+        .execute();
+      await insertOperationRecord(transaction, {
+        id: randomUUID(),
+        createdAt: Date.now(),
         action: 'moderation-approved',
         actorId,
         bottleId: bottle.id,
         detail: id,
       });
-      database.exec('COMMIT');
       return { status: 'approved', bottle };
-    } catch (error) {
-      database.exec('ROLLBACK');
-      throw error;
-    }
+    });
   }
 
-  rejectModerationRecord(id: string, actorId: number, reason: string): RejectModerationRecordResult {
+  async rejectModerationRecord(id: string, actorId: number, reason: string): Promise<RejectModerationRecordResult> {
     const normalizedReason = reason.trim();
     if (!normalizedReason || [...normalizedReason].length > 500) {
       return { status: 'invalid-reason' };
     }
-    const database = this.getDatabase();
-    database.exec('BEGIN IMMEDIATE');
-    try {
-      const row = database.prepare('SELECT * FROM bottle_moderation_records WHERE id = ?').get(id) as
-        | ModerationRecordRow
-        | undefined;
+    return this.database.transaction().execute(async (transaction) => {
+      const row = await transaction
+        .selectFrom('bottle_moderation_records')
+        .selectAll()
+        .where('id', '=', id)
+        .executeTakeFirst();
       if (!row) {
-        database.exec('ROLLBACK');
         return { status: 'not-found' };
       }
       const unavailable = moderationActionUnavailable(row);
       if (unavailable) {
-        database.exec('ROLLBACK');
         return { status: unavailable };
       }
-      database
-        .prepare(`
-          UPDATE bottle_moderation_records
-          SET resolution = 'rejected', resolved_by = ?, resolved_at = ?, rejection_reason = ?
-          WHERE id = ?
-        `)
-        .run(actorId, Date.now(), normalizedReason, id);
-      this.addOperationRecord({ action: 'moderation-rejected', actorId, detail: normalizedReason });
-      database.exec('COMMIT');
+      await transaction
+        .updateTable('bottle_moderation_records')
+        .set({
+          resolution: 'rejected',
+          resolved_by: actorId,
+          resolved_at: Date.now(),
+          rejection_reason: normalizedReason,
+        })
+        .where('id', '=', id)
+        .execute();
+      await insertOperationRecord(transaction, {
+        id: randomUUID(),
+        createdAt: Date.now(),
+        action: 'moderation-rejected',
+        actorId,
+        detail: normalizedReason,
+      });
       return { status: 'rejected' };
-    } catch (error) {
-      database.exec('ROLLBACK');
-      throw error;
-    }
+    });
   }
 
-  addOperationRecord(input: NewBottleOperationRecord): BottleOperationRecord {
+  async addOperationRecord(input: NewBottleOperationRecord): Promise<BottleOperationRecord> {
     const record: BottleOperationRecord = {
       id: randomUUID(),
       createdAt: Date.now(),
       ...input,
     };
-    this.getDatabase()
-      .prepare(`
-        INSERT INTO bottle_operation_records (
-          id, created_at, action, actor_id, bottle_id, target_user_id, detail
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-      `)
-      .run(
-        record.id,
-        record.createdAt,
-        record.action,
-        record.actorId ?? null,
-        record.bottleId ?? null,
-        record.targetUserId ?? null,
-        record.detail ?? null,
-      );
+    await insertOperationRecord(this.database, record);
     return record;
   }
 
-  operationRecords(limit = 100): BottleOperationRecord[] {
-    const rows = this.getDatabase()
-      .prepare('SELECT * FROM bottle_operation_records ORDER BY created_at DESC, rowid DESC LIMIT ?')
-      .all(limit) as unknown as OperationRecordRow[];
-    return rows.map((row) => ({
-      id: row.id,
-      createdAt: row.created_at,
-      action: row.action,
-      ...(row.actor_id === null ? {} : { actorId: row.actor_id }),
-      ...(row.bottle_id === null ? {} : { bottleId: row.bottle_id }),
-      ...(row.target_user_id === null ? {} : { targetUserId: row.target_user_id }),
-      ...(row.detail === null ? {} : { detail: row.detail }),
-    }));
+  async operationRecords(limit = 100): Promise<BottleOperationRecord[]> {
+    const rows = await this.database
+      .selectFrom('bottle_operation_records')
+      .selectAll()
+      .orderBy('created_at', 'desc')
+      .orderBy(sql`rowid`, 'desc')
+      .limit(limit)
+      .execute();
+    return rows.map(toOperationRecord);
   }
 
-  webuiPasswordHash(): string | undefined {
-    const row = this.getDatabase().prepare('SELECT password_hash FROM bottle_webui_credentials WHERE id = 1').get() as
-      | { password_hash: string }
-      | undefined;
+  async webuiPasswordHash(): Promise<string | undefined> {
+    const row = await this.database
+      .selectFrom('bottle_webui_credentials')
+      .select('password_hash')
+      .where('id', '=', 1)
+      .executeTakeFirst();
     return row?.password_hash;
   }
 
-  setWebuiPasswordHash(hash: string): void {
-    this.getDatabase()
-      .prepare(`
-        INSERT INTO bottle_webui_credentials (id, password_hash, created_at)
-        VALUES (1, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET password_hash = excluded.password_hash
-      `)
-      .run(hash, Date.now());
+  async setWebuiPasswordHash(hash: string): Promise<void> {
+    await this.database
+      .insertInto('bottle_webui_credentials')
+      .values({ id: 1, password_hash: hash, created_at: Date.now() })
+      .onConflict((conflict) => conflict.column('id').doUpdateSet({ password_hash: hash }))
+      .execute();
   }
 
-  clearWebuiPasswordHash(): void {
-    this.getDatabase().prepare('DELETE FROM bottle_webui_credentials WHERE id = 1').run();
+  async clearWebuiPasswordHash(): Promise<void> {
+    await this.database.deleteFrom('bottle_webui_credentials').where('id', '=', 1).execute();
   }
 
-  webuiAccountCount(): number {
-    const row = this.getDatabase().prepare('SELECT COUNT(*) AS count FROM bottle_webui_accounts').get() as {
-      count: number;
-    };
+  async webuiAccountCount(): Promise<number> {
+    const row = await this.database
+      .selectFrom('bottle_webui_accounts')
+      .select((expression) => expression.fn.countAll<number>().as('count'))
+      .executeTakeFirstOrThrow();
     return row.count;
   }
 
-  webuiAccountPasswordHash(userId: number): string | undefined {
-    const row = this.getDatabase()
-      .prepare('SELECT password_hash FROM bottle_webui_accounts WHERE user_id = ?')
-      .get(userId) as { password_hash: string } | undefined;
+  async webuiAccountPasswordHash(userId: number): Promise<string | undefined> {
+    const row = await this.database
+      .selectFrom('bottle_webui_accounts')
+      .select('password_hash')
+      .where('user_id', '=', userId)
+      .executeTakeFirst();
     return row?.password_hash;
   }
 
-  setWebuiAccount(userId: number, passwordHash: string, approvedBy?: number): void {
-    this.getDatabase()
-      .prepare(`
-        INSERT INTO bottle_webui_accounts (user_id, password_hash, created_at, approved_by)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(user_id) DO UPDATE SET password_hash = excluded.password_hash
-      `)
-      .run(userId, passwordHash, Date.now(), approvedBy ?? null);
+  async setWebuiAccount(userId: number, passwordHash: string, approvedBy?: number): Promise<void> {
+    await this.database
+      .insertInto('bottle_webui_accounts')
+      .values({
+        user_id: userId,
+        password_hash: passwordHash,
+        created_at: Date.now(),
+        approved_by: approvedBy ?? null,
+      })
+      .onConflict((conflict) => conflict.column('user_id').doUpdateSet({ password_hash: passwordHash }))
+      .execute();
   }
 
-  removeWebuiAccount(userId: number): void {
-    this.getDatabase().prepare('DELETE FROM bottle_webui_accounts WHERE user_id = ?').run(userId);
+  async removeWebuiAccount(userId: number): Promise<void> {
+    await this.database.deleteFrom('bottle_webui_accounts').where('user_id', '=', userId).execute();
   }
 
-  hasWebuiRegistrationRequest(userId: number): boolean {
-    return Boolean(
-      this.getDatabase().prepare('SELECT 1 FROM bottle_webui_registration_requests WHERE user_id = ?').get(userId),
-    );
+  async hasWebuiRegistrationRequest(userId: number): Promise<boolean> {
+    const row = await this.database
+      .selectFrom('bottle_webui_registration_requests')
+      .select('user_id')
+      .where('user_id', '=', userId)
+      .executeTakeFirst();
+    return row !== undefined;
   }
 
-  createWebuiRegistrationRequest(userId: number, passwordHash: string): void {
-    this.getDatabase()
-      .prepare(`
-        INSERT INTO bottle_webui_registration_requests (user_id, password_hash, created_at)
-        VALUES (?, ?, ?)
-      `)
-      .run(userId, passwordHash, Date.now());
+  async createWebuiRegistrationRequest(userId: number, passwordHash: string): Promise<void> {
+    await this.database
+      .insertInto('bottle_webui_registration_requests')
+      .values({ user_id: userId, password_hash: passwordHash, created_at: Date.now() })
+      .execute();
   }
 
-  removeWebuiRegistrationRequest(userId: number): void {
-    this.getDatabase().prepare('DELETE FROM bottle_webui_registration_requests WHERE user_id = ?').run(userId);
+  async removeWebuiRegistrationRequest(userId: number): Promise<void> {
+    await this.database.deleteFrom('bottle_webui_registration_requests').where('user_id', '=', userId).execute();
   }
 
-  approveWebuiRegistrationRequest(userId: number, approvedBy: number): boolean {
-    const database = this.getDatabase();
-    database.exec('BEGIN IMMEDIATE');
-    try {
-      const request = database
-        .prepare('SELECT password_hash FROM bottle_webui_registration_requests WHERE user_id = ?')
-        .get(userId) as { password_hash: string } | undefined;
+  async approveWebuiRegistrationRequest(userId: number, approvedBy: number): Promise<boolean> {
+    return this.database.transaction().execute(async (transaction) => {
+      const request = await transaction
+        .selectFrom('bottle_webui_registration_requests')
+        .select('password_hash')
+        .where('user_id', '=', userId)
+        .executeTakeFirst();
       if (!request) {
-        database.exec('ROLLBACK');
         return false;
       }
-      database
-        .prepare(`
-          INSERT INTO bottle_webui_accounts (user_id, password_hash, created_at, approved_by)
-          VALUES (?, ?, ?, ?)
-          ON CONFLICT(user_id) DO NOTHING
-        `)
-        .run(userId, request.password_hash, Date.now(), approvedBy);
-      database.prepare('DELETE FROM bottle_webui_registration_requests WHERE user_id = ?').run(userId);
-      database.exec('COMMIT');
+      await transaction
+        .insertInto('bottle_webui_accounts')
+        .values({
+          user_id: userId,
+          password_hash: request.password_hash,
+          created_at: Date.now(),
+          approved_by: approvedBy,
+        })
+        .onConflict((conflict) => conflict.column('user_id').doNothing())
+        .execute();
+      await transaction.deleteFrom('bottle_webui_registration_requests').where('user_id', '=', userId).execute();
       return true;
-    } catch (error) {
-      database.exec('ROLLBACK');
-      throw error;
-    }
+    });
   }
 
-  webuiRegistrationRequestCount(): number {
-    const row = this.getDatabase()
-      .prepare('SELECT COUNT(*) AS count FROM bottle_webui_registration_requests')
-      .get() as {
-      count: number;
-    };
+  async webuiRegistrationRequestCount(): Promise<number> {
+    const row = await this.database
+      .selectFrom('bottle_webui_registration_requests')
+      .select((expression) => expression.fn.countAll<number>().as('count'))
+      .executeTakeFirstOrThrow();
     return row.count;
   }
 
-  webuiRegistrationRequests(limit: number, offset: number): WebuiRegistrationRequestRecord[] {
-    const rows = this.getDatabase()
-      .prepare(`
-        SELECT user_id, created_at
-        FROM bottle_webui_registration_requests
-        ORDER BY created_at DESC, user_id DESC
-        LIMIT ? OFFSET ?
-      `)
-      .all(limit, offset) as { user_id: number; created_at: number }[];
+  async webuiRegistrationRequests(limit: number, offset: number): Promise<WebuiRegistrationRequestRecord[]> {
+    const rows = await this.database
+      .selectFrom('bottle_webui_registration_requests')
+      .select(['user_id', 'created_at'])
+      .orderBy('created_at', 'desc')
+      .orderBy('user_id', 'desc')
+      .limit(limit)
+      .offset(offset)
+      .execute();
     return rows.map((row) => ({ userId: row.user_id, createdAt: row.created_at }));
   }
 
-  webuiSettings(): PersistedWebuiSettings | undefined {
-    const row = this.getDatabase()
-      .prepare(
-        'SELECT moderation_mode, moderation_model, owner_ids, webui_path FROM bottle_webui_settings WHERE id = 1',
-      )
-      .get() as
-      | {
-          moderation_mode: BottleModerationMode | null;
-          moderation_model: string | null;
-          owner_ids: string;
-          webui_path: string;
-        }
-      | undefined;
+  async webuiSettings(): Promise<PersistedWebuiSettings | undefined> {
+    const row = await this.database
+      .selectFrom('bottle_webui_settings')
+      .select(['moderation_mode', 'moderation_model', 'owner_ids', 'webui_path'])
+      .where('id', '=', 1)
+      .executeTakeFirst();
     if (!row) return undefined;
 
     let ownerIds: unknown;
@@ -794,110 +532,190 @@ export class BottleStore implements Disposable {
     };
   }
 
-  setWebuiSettings(settings: Omit<PersistedWebuiSettings, 'ownerIds'> & { ownerIds: number[] }): void {
-    this.getDatabase()
-      .prepare(`
-        INSERT INTO bottle_webui_settings (id, moderation_mode, moderation_model, owner_ids, webui_path, updated_at)
-        VALUES (1, ?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-          moderation_mode = excluded.moderation_mode,
-          moderation_model = excluded.moderation_model,
-          owner_ids = excluded.owner_ids,
-          webui_path = excluded.webui_path,
-          updated_at = excluded.updated_at
-      `)
-      .run(
-        settings.moderationMode ?? null,
-        settings.moderationModel ?? null,
-        JSON.stringify(settings.ownerIds),
-        settings.webuiPath,
-        Date.now(),
-      );
+  async setWebuiSettings(settings: Omit<PersistedWebuiSettings, 'ownerIds'> & { ownerIds: number[] }): Promise<void> {
+    const values = {
+      moderation_mode: settings.moderationMode ?? null,
+      moderation_model: settings.moderationModel ?? null,
+      owner_ids: JSON.stringify(settings.ownerIds),
+      webui_path: settings.webuiPath,
+      updated_at: Date.now(),
+    };
+    await this.database
+      .insertInto('bottle_webui_settings')
+      .values({ id: 1, ...values })
+      .onConflict((conflict) => conflict.column('id').doUpdateSet(values))
+      .execute();
   }
 
-  setSignature(senderId: number, signature: BottleSignature): void {
+  async setSignature(senderId: number, signature: BottleSignature): Promise<void> {
     if (signature.type === 'anonymous') {
-      this.getDatabase().prepare('DELETE FROM bottle_profiles WHERE sender_id = ?').run(senderId);
+      await this.database.deleteFrom('bottle_profiles').where('sender_id', '=', senderId).execute();
       return;
     }
 
-    this.getDatabase()
-      .prepare(`
-        INSERT INTO bottle_profiles (sender_id, alias, mode)
-        VALUES (?, ?, ?)
-        ON CONFLICT(sender_id) DO UPDATE SET alias = excluded.alias, mode = excluded.mode
-      `)
-      .run(senderId, signature.type === 'alias' ? signature.name : '', signature.type);
+    const values = {
+      alias: signature.type === 'alias' ? signature.name : '',
+      mode: signature.type,
+    };
+    await this.database
+      .insertInto('bottle_profiles')
+      .values({ sender_id: senderId, ...values })
+      .onConflict((conflict) => conflict.column('sender_id').doUpdateSet(values))
+      .execute();
   }
 
-  signatureFor(senderId: number): BottleSignature {
-    const row = this.getDatabase()
-      .prepare('SELECT alias, mode FROM bottle_profiles WHERE sender_id = ?')
-      .get(senderId) as { alias: string; mode: string } | undefined;
+  async signatureFor(senderId: number): Promise<BottleSignature> {
+    const row = await this.database
+      .selectFrom('bottle_profiles')
+      .select(['alias', 'mode'])
+      .where('sender_id', '=', senderId)
+      .executeTakeFirst();
     if (!row) {
       return { type: 'anonymous' };
     }
     return row.mode === 'original' ? { type: 'original' } : { type: 'alias', name: row.alias };
   }
+}
 
-  dispose(): void {
-    this.database?.close();
-    this.database = undefined;
-  }
+async function countBottles(database: BottleDatabase): Promise<number> {
+  const row = await database
+    .selectFrom('bottles')
+    .select((expression) => expression.fn.countAll<number>().as('count'))
+    .executeTakeFirstOrThrow();
+  return row.count;
+}
 
-  private getDatabase(): DatabaseSync {
-    if (!this.database) {
-      throw new Error('漂流瓶数据库尚未加载');
-    }
+async function insertBottle(database: BottleDatabase, bottle: DriftBottle): Promise<void> {
+  await database
+    .insertInto('bottle_threads')
+    .values({
+      id: bottle.id,
+      sender_id: bottle.senderId,
+      created_at: bottle.createdAt,
+      display_name: bottle.displayName ?? null,
+    })
+    .execute();
+  await database
+    .insertInto('bottles')
+    .values({
+      id: bottle.id,
+      sender_id: bottle.senderId,
+      created_at: bottle.createdAt,
+      display_name: bottle.displayName ?? null,
+      source_scene: bottle.source.scene,
+      source_peer_id: bottle.source.peerId,
+      segments: JSON.stringify(bottle.segments),
+    })
+    .execute();
+}
 
-    return this.database;
-  }
+async function insertModerationRecord(database: BottleDatabase, record: ModerationRecord): Promise<void> {
+  await database
+    .insertInto('bottle_moderation_records')
+    .values({
+      id: record.id,
+      created_at: record.createdAt,
+      content: JSON.stringify(record.content),
+      process: JSON.stringify(record.process),
+      input_tokens: record.inputTokens ?? null,
+      output_tokens: record.outputTokens ?? null,
+      total_tokens: record.totalTokens ?? null,
+      success: record.success ? 1 : 0,
+      approved: record.approved === undefined ? null : record.approved ? 1 : 0,
+      target_type: record.target ?? null,
+      bottle_draft: record.bottleDraft ? JSON.stringify(record.bottleDraft) : null,
+      resolution: record.resolution ?? null,
+      resolved_by: record.resolvedBy ?? null,
+      resolved_at: record.resolvedAt ?? null,
+      rejection_reason: record.rejectionReason ?? null,
+      published_bottle_id: record.publishedBottleId ?? null,
+    })
+    .execute();
+}
 
-  private toBottle(row: BottleRow): DriftBottle {
-    return {
-      id: row.id,
-      senderId: row.sender_id,
-      createdAt: row.created_at,
-      displayName: row.display_name ?? undefined,
-      source: {
-        scene: row.source_scene,
-        peerId: row.source_peer_id,
-      },
-      segments: JSON.parse(row.segments) as DriftBottle['segments'],
-    };
-  }
+async function insertOperationRecord(database: BottleDatabase, record: BottleOperationRecord): Promise<void> {
+  await database
+    .insertInto('bottle_operation_records')
+    .values({
+      id: record.id,
+      created_at: record.createdAt,
+      action: record.action,
+      actor_id: record.actorId ?? null,
+      bottle_id: record.bottleId ?? null,
+      target_user_id: record.targetUserId ?? null,
+      detail: record.detail ?? null,
+    })
+    .execute();
+}
 
-  private toComment(row: BottleCommentRow): BottleComment {
-    return {
-      id: row.id,
-      bottleId: row.bottle_id,
-      senderId: row.sender_id,
-      createdAt: row.created_at,
-      displayName: row.display_name ?? undefined,
-      content: row.content,
-    };
-  }
+function pendingModerationQuery(database: BottleDatabase) {
+  return database
+    .selectFrom('bottle_moderation_records')
+    .where('resolution', 'is', null)
+    .where((expression) =>
+      expression.or([
+        expression('success', '=', 0),
+        sql<boolean>`json_type(${sql.ref('process')}, '$.manual') = 'object'`,
+      ]),
+    );
+}
 
-  private toModerationRecord(row: ModerationRecordRow): ModerationRecord {
-    return {
-      id: row.id,
-      createdAt: row.created_at,
-      content: JSON.parse(row.content) as ModerationRecord['content'],
-      process: JSON.parse(row.process) as ModerationProcess,
-      inputTokens: row.input_tokens ?? undefined,
-      outputTokens: row.output_tokens ?? undefined,
-      totalTokens: row.total_tokens ?? undefined,
-      success: Boolean(row.success),
-      approved: row.approved === null ? undefined : Boolean(row.approved),
-      target: row.target_type ?? undefined,
-      bottleDraft: row.bottle_draft ? (JSON.parse(row.bottle_draft) as NewDriftBottle) : undefined,
-      resolution: row.resolution ?? undefined,
-      resolvedBy: row.resolved_by ?? undefined,
-      resolvedAt: row.resolved_at ?? undefined,
-      rejectionReason: row.rejection_reason ?? undefined,
-      publishedBottleId: row.published_bottle_id ?? undefined,
-    };
-  }
+function toBottle(row: BottleRow): DriftBottle {
+  return {
+    id: row.id,
+    senderId: row.sender_id,
+    createdAt: row.created_at,
+    displayName: row.display_name ?? undefined,
+    source: {
+      scene: row.source_scene,
+      peerId: row.source_peer_id,
+    },
+    segments: JSON.parse(row.segments) as DriftBottle['segments'],
+  };
+}
+
+function toComment(row: BottleCommentRow): BottleComment {
+  return {
+    id: row.id,
+    bottleId: row.bottle_id,
+    senderId: row.sender_id,
+    createdAt: row.created_at,
+    displayName: row.display_name ?? undefined,
+    content: row.content,
+  };
+}
+
+function toModerationRecord(row: ModerationRecordRow): ModerationRecord {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    content: JSON.parse(row.content) as ModerationRecord['content'],
+    process: JSON.parse(row.process) as ModerationProcess,
+    inputTokens: row.input_tokens ?? undefined,
+    outputTokens: row.output_tokens ?? undefined,
+    totalTokens: row.total_tokens ?? undefined,
+    success: Boolean(row.success),
+    approved: row.approved === null ? undefined : Boolean(row.approved),
+    target: row.target_type ?? undefined,
+    bottleDraft: row.bottle_draft ? (JSON.parse(row.bottle_draft) as NewDriftBottle) : undefined,
+    resolution: row.resolution ?? undefined,
+    resolvedBy: row.resolved_by ?? undefined,
+    resolvedAt: row.resolved_at ?? undefined,
+    rejectionReason: row.rejection_reason ?? undefined,
+    publishedBottleId: row.published_bottle_id ?? undefined,
+  };
+}
+
+function toOperationRecord(row: OperationRecordRow): BottleOperationRecord {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    action: row.action,
+    ...(row.actor_id === null ? {} : { actorId: row.actor_id }),
+    ...(row.bottle_id === null ? {} : { bottleId: row.bottle_id }),
+    ...(row.target_user_id === null ? {} : { targetUserId: row.target_user_id }),
+    ...(row.detail === null ? {} : { detail: row.detail }),
+  };
 }
 
 function moderationActionUnavailable(row: ModerationRecordRow): 'already-resolved' | 'not-pending' | undefined {

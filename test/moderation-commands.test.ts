@@ -3,7 +3,8 @@ import { createMockMilkyClient, inmsg, inseg } from '@fraqjs/mock';
 
 import { DriftBottleApi } from '../src/api/drift-bottle-api.js';
 import { registerModerationCommands } from '../src/commands/moderation.js';
-import { BottleStore } from '../src/persistence/bottle-store.js';
+import type { BottleStore } from '../src/persistence/bottle-store.js';
+import { createTestStore } from './store.js';
 
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -15,23 +16,22 @@ test('主人和漂流瓶管理员可以通过或拒绝待审核投瓶', async (t
   const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-moderation-command-'));
   const client = createMockMilkyClient();
   const ctx = Context.fromClient(client);
-  const store = new BottleStore(join(directory, 'bottles.db'));
-  await store.load();
+  const store = await createTestStore(t, join(directory, 'bottles.db'));
   let messageSeq = 1;
   client.stubApi('send_group_message', () => ({ message_seq: messageSeq++, time: 1_700_000_000 }));
   const api = new DriftBottleApi(client, store, async () => ({ approved: true, categories: [], reason: '' }));
-  api.addModerator(10002, 10001);
+  await api.addModerator(10002, 10001);
   registerModerationCommands(ctx, api, [10001]);
   await ctx.start();
   t.after(async () => {
     await ctx.stop();
-    api.dispose();
+    await store.dispose();
     await rm(directory, { recursive: true, force: true });
   });
 
-  const ownerReview = addPendingBottle(store, 20001, '主人审核');
-  const moderatorReview = addPendingBottle(store, 20002, '管理员审核');
-  const legacyReview = store.addModerationRecord({
+  const ownerReview = await addPendingBottle(store, 20001, '主人审核');
+  const moderatorReview = await addPendingBottle(store, 20002, '管理员审核');
+  const legacyReview = await store.addModerationRecord({
     content: [inseg.text('缺少草稿的旧记录')],
     process: { error: { name: 'Error', message: '旧审核失败' } },
     success: false,
@@ -59,9 +59,9 @@ test('主人和漂流瓶管理员可以通过或拒绝待审核投瓶', async (t
   assert.equal(replies[6], '没有找到这个审核记录。');
   assert.equal(replies[7], '请使用“漂流瓶审核 拒绝 <审核记录ID> <拒绝理由>”。');
 
-  assert.equal(store.count(), 1);
-  assert.equal(store.pendingModerationCount(), 0);
-  const records = store.moderationRecords();
+  assert.equal(await store.count(), 1);
+  assert.equal(await store.pendingModerationCount(), 0);
+  const records = await store.moderationRecords();
   assert.equal(records.find((record) => record.id === ownerReview.id)?.resolvedBy, 10001);
   assert.equal(records.find((record) => record.id === moderatorReview.id)?.rejectionReason, '内容不适合公开');
   assert.equal(records.find((record) => record.id === moderatorReview.id)?.resolvedBy, 10002);

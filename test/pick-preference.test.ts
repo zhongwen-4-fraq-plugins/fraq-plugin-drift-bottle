@@ -3,7 +3,7 @@ import { createMockMilkyClient, inmsg } from '@fraqjs/mock';
 
 import { DriftBottleApi } from '../src/api/drift-bottle-api.js';
 import { registerPickPreferenceCommand } from '../src/commands/pick-preference.js';
-import { BottleStore } from '../src/persistence/bottle-store.js';
+import { createTestStore } from './store.js';
 
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -15,11 +15,10 @@ test('用户可以单独配置是否重复捡瓶子', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-'));
   const client = createMockMilkyClient();
   const ctx = Context.fromClient(client);
-  const store = new BottleStore(join(directory, 'bottles.db'));
-  await store.load();
+  const store = await createTestStore(t, join(directory, 'bottles.db'));
   t.after(async () => {
     await ctx.stop();
-    store.dispose();
+    await store.dispose();
     await rm(directory, { recursive: true, force: true });
   });
 
@@ -30,13 +29,13 @@ test('用户可以单独配置是否重复捡瓶子', async (t) => {
   await ctx.start();
 
   await dispatch(ctx, client, 10001, inmsg`漂流瓶重复捡 开启`);
-  assert.equal(store.repeatPickFor(10001), true);
+  assert.equal(await store.repeatPickFor(10001), true);
 
   await dispatch(ctx, client, 10001, inmsg`漂流瓶重复捡 关闭`);
-  assert.equal(store.repeatPickFor(10001), false);
+  assert.equal(await store.repeatPickFor(10001), false);
 
   await dispatch(ctx, client, 10001, inmsg`漂流瓶重复捡 默认`);
-  assert.equal(store.repeatPickFor(10001), undefined);
+  assert.equal(await store.repeatPickFor(10001), undefined);
 });
 
 async function dispatch(

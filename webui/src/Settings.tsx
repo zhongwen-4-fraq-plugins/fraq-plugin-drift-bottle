@@ -14,7 +14,6 @@ interface PluginSettings {
   moderationModel?: string;
   ownerIds: number[];
   restartRequired: boolean;
-  storagePath: string;
   webuiPath: string;
 }
 
@@ -324,13 +323,6 @@ export function SettingsPage({ isOwner, onSessionExpired }: SettingsPageProps) {
                   </p>
                   <p id="owner-ids-error" className="settings-field-error">
                     {configErrors.ownerIds}
-                  </p>
-                </div>
-                <div className="settings-field settings-field--wide">
-                  <label htmlFor="storage-path">数据库路径</label>
-                  <input id="storage-path" value={settings.storagePath} readOnly aria-describedby="storage-path-hint" />
-                  <p id="storage-path-hint" className="settings-field-hint">
-                    数据库路径在插件启动前确定，请在 Fraq 插件配置中修改后重启。
                   </p>
                 </div>
               </div>

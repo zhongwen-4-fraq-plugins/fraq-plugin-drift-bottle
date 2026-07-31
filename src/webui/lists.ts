@@ -61,38 +61,40 @@ export interface WebuiListPage<T> {
 
 const PAGE_SIZE = 20;
 
-export function createPendingReviewListPage(
+export async function createPendingReviewListPage(
   api: DriftBottleApi,
   requestedPage: number,
-): WebuiListPage<WebuiPendingReviewItem> {
-  const total = api.pendingModerationCount();
+): Promise<WebuiListPage<WebuiPendingReviewItem>> {
+  const total = await api.pendingModerationCount();
   const page = boundedPage(requestedPage, total);
   return createPage(
     page,
     total,
-    api.pendingModerationRecords(PAGE_SIZE, (page - 1) * PAGE_SIZE).map(formatPendingReview),
+    (await api.pendingModerationRecords(PAGE_SIZE, (page - 1) * PAGE_SIZE)).map(formatPendingReview),
   );
 }
 
-export function createBottleListPage(api: DriftBottleApi, requestedPage: number): WebuiListPage<WebuiBottleListItem> {
-  const total = api.count();
+export async function createBottleListPage(
+  api: DriftBottleApi,
+  requestedPage: number,
+): Promise<WebuiListPage<WebuiBottleListItem>> {
+  const total = await api.count();
   const page = boundedPage(requestedPage, total);
+  const bottles = await api.bottles(PAGE_SIZE, (page - 1) * PAGE_SIZE);
   return createPage(
     page,
     total,
-    api
-      .bottles(PAGE_SIZE, (page - 1) * PAGE_SIZE)
-      .map((bottle) => formatBottle(bottle, api.commentCountFor(bottle.id))),
+    await Promise.all(bottles.map(async (bottle) => formatBottle(bottle, await api.commentCountFor(bottle.id)))),
   );
 }
 
-export function createRegistrationRequestListPage(
+export async function createRegistrationRequestListPage(
   store: Pick<BottleStore, 'webuiRegistrationRequestCount' | 'webuiRegistrationRequests'>,
   requestedPage: number,
-): WebuiListPage<WebuiRegistrationRequestItem> {
-  const total = store.webuiRegistrationRequestCount();
+): Promise<WebuiListPage<WebuiRegistrationRequestItem>> {
+  const total = await store.webuiRegistrationRequestCount();
   const page = boundedPage(requestedPage, total);
-  return createPage(page, total, store.webuiRegistrationRequests(PAGE_SIZE, (page - 1) * PAGE_SIZE));
+  return createPage(page, total, await store.webuiRegistrationRequests(PAGE_SIZE, (page - 1) * PAGE_SIZE));
 }
 
 function createPage<T>(page: number, total: number, items: T[]): WebuiListPage<T> {

@@ -3,8 +3,8 @@ import { createMockMilkyClient, inmsg, inseg } from '@fraqjs/mock';
 
 import { DriftBottleApi } from '../src/api/drift-bottle-api.js';
 import { registerCommentCommands } from '../src/commands/comments.js';
-import { BottleStore } from '../src/persistence/bottle-store.js';
 import type { BottleModerator } from '../src/processing/moderation.js';
+import { createTestStore } from './store.js';
 
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -16,11 +16,10 @@ test('归档后的漂流瓶仍可评论和查看评论', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-'));
   const client = createMockMilkyClient();
   const ctx = Context.fromClient(client);
-  const store = new BottleStore(join(directory, 'bottles.db'));
-  await store.load();
+  const store = await createTestStore(t, join(directory, 'bottles.db'));
   t.after(async () => {
     await ctx.stop();
-    store.dispose();
+    await store.dispose();
     await rm(directory, { recursive: true, force: true });
   });
 
@@ -38,7 +37,7 @@ test('归档后的漂流瓶仍可评论和查看评论', async (t) => {
   registerCommentCommands(ctx, api);
   await ctx.start();
 
-  store.setSignature(10001, { type: 'alias', name: '海风' });
+  await store.setSignature(10001, { type: 'alias', name: '海风' });
   const bottle = await store.add({
     senderId: 10002,
     source: { scene: 'group', peerId: 20001 },
@@ -56,9 +55,9 @@ test('归档后的漂流瓶仍可评论和查看评论', async (t) => {
   emptyReply.data.segments = [];
   await dispatch(ctx, client, 10003, inmsg`${emptyReply}漂流瓶评论`);
 
-  assert.equal(store.commentCount(bottle.id), 2);
+  assert.equal(await store.commentCount(bottle.id), 2);
   assert.deepEqual(
-    store.commentsFor(bottle.id).map(({ displayName, content }) => ({ displayName, content })),
+    (await store.commentsFor(bottle.id)).map(({ displayName, content }) => ({ displayName, content })),
     [
       { displayName: '海风', content: '写得真好' },
       { displayName: undefined, content: '回复评论' },

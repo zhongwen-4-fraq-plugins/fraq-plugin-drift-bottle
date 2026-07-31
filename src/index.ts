@@ -1,11 +1,13 @@
 import { type Context, definePlugin, type milky, msg } from '@fraqjs/fraq';
 import { AiService } from '@fraqjs/plugin-ai';
 import { HonoService } from '@fraqjs/plugin-hono';
+import { KyselyService } from '@fraqjs/plugin-kysely';
 
 import { DriftBottleApi } from './api/drift-bottle-api.js';
 import { buildDriftBottleCommands } from './commands/index.js';
 import type { DriftBottleOptions } from './models/index.js';
 import { BottleStore } from './persistence/bottle-store.js';
+import { registerBottleSchema } from './persistence/schema.js';
 import { moderateBottle } from './processing/moderation.js';
 import { withModerationRecords } from './processing/moderation-records.js';
 import { WebuiAuth, type WebuiInitialCredential } from './webui/auth.js';
@@ -58,9 +60,14 @@ export type {
 } from './webui/lists.js';
 
 interface PendingOwnerInitialization {
+  api: DriftBottleApi;
   auth: WebuiAuth;
+  instanceStartedAt: number;
   ownerIds: number[];
+  registration: WebuiRegistration;
   runtime: DashboardRuntimeInfo;
+  settings: WebuiSettings;
+  store: BottleStore;
 }
 
 const pendingOwnerInitializations = new WeakMap<Context, PendingOwnerInitialization>();
@@ -70,27 +77,45 @@ export default definePlugin({
   inject: {
     ai: AiService,
     hono: HonoService,
+    kysely: KyselyService,
   },
   provides: [DriftBottleApi],
-  async apply(ctx, options: DriftBottleOptions = {}) {
+  apply(ctx, options: DriftBottleOptions = {}) {
     const instanceStartedAt = Date.now();
-    const store = new BottleStore(options.storagePath ?? './data/drift-bottles.db');
-    await store.load();
+    registerBottleSchema(ctx.kysely);
+    const store = new BottleStore(ctx.kysely.db);
     const webuiSettings = new WebuiSettings(store, options);
     const ownerIds = webuiSettings.ownerIds;
     const webuiAuth = new WebuiAuth(store);
     const runtime: DashboardRuntimeInfo = { fraqVersion: readFraqVersion() };
-    pendingOwnerInitializations.set(ctx, { auth: webuiAuth, ownerIds, runtime });
     const webuiRegistration = new WebuiRegistration(webuiAuth, ctx.client, ownerIds, ctx.logger);
     const moderator = withModerationRecords(store, ctx.logger, (segments) =>
       moderateBottle(ctx.ai, segments, webuiSettings.moderationModel),
     );
     const api = new DriftBottleApi(ctx.client, store, moderator, () => webuiSettings.moderationMode);
     ctx.provide(DriftBottleApi, api);
-    const webuiPath = registerWebuiRoutes(ctx.hono, {
+    pendingOwnerInitializations.set(ctx, {
+      api,
       auth: webuiAuth,
+      instanceStartedAt,
+      ownerIds,
+      registration: webuiRegistration,
+      runtime,
+      settings: webuiSettings,
+      store,
+    });
+  },
+  async start(ctx) {
+    const initialization = pendingOwnerInitializations.get(ctx);
+    pendingOwnerInitializations.delete(ctx);
+    if (!initialization) return;
+
+    const { api, auth, instanceStartedAt, ownerIds, registration, runtime, settings, store } = initialization;
+    await settings.load();
+    const webuiPath = registerWebuiRoutes(ctx.hono, {
+      auth,
       approveReview: (id, actorId) => api.approveModerationRecord(id, actorId),
-      basePath: webuiSettings.webuiPath,
+      basePath: settings.webuiPath,
       bottleComments: (id) => api.commentsFor(id),
       bottleImage: (id, segmentIndex) => api.bottleImage(id, segmentIndex),
       bottles: (page) => createBottleListPage(api, page),
@@ -99,34 +124,29 @@ export default definePlugin({
       ownerIds,
       pendingReviews: (page) => createPendingReviewListPage(api, page),
       rejectReview: (id, actorId, reason) => api.rejectModerationRecord(id, actorId, reason),
-      registration: webuiRegistration,
+      registration,
       registrationRequests: (page) => createRegistrationRequestListPage(store, page),
-      settings: () => webuiSettings.snapshot(),
-      updateSettings: async (settings) => {
-        webuiSettings.update(settings);
-        webuiRegistration.setOwnerIds(ownerIds);
+      settings: () => settings.snapshot(),
+      updateSettings: async (updatedSettings) => {
+        await settings.update(updatedSettings);
+        registration.setOwnerIds(ownerIds);
         try {
-          const credentials = await webuiAuth.initializeOwners(ownerIds);
-          await Promise.all(credentials.map((credential) => sendInitialPassword(ctx, webuiAuth, credential)));
+          const credentials = await auth.initializeOwners(ownerIds);
+          await Promise.all(credentials.map((credential) => sendInitialPassword(ctx, auth, credential)));
         } catch (error) {
           ctx.logger.error('初始化新增 WebUI 主人账号失败，将在下次启动时重试', error);
         }
-        return webuiSettings.snapshot();
+        return settings.snapshot();
       },
     });
-    webuiSettings.setActiveWebuiPath(webuiPath);
+    settings.setActiveWebuiPath(webuiPath);
     ctx.logger.info(`漂流瓶 WebUI：${buildWebuiUrl(ctx.hono, webuiPath)}`);
-    buildDriftBottleCommands(ctx, api, webuiRegistration, ownerIds);
-  },
-  async start(ctx) {
-    const initialization = pendingOwnerInitializations.get(ctx);
-    pendingOwnerInitializations.delete(ctx);
-    if (!initialization) return;
+    buildDriftBottleCommands(ctx, api, registration, ownerIds);
 
-    const credentials = await initialization.auth.initializeOwners(initialization.ownerIds);
+    const credentials = await auth.initializeOwners(ownerIds);
     await Promise.all([
-      refreshProtocolEndpoint(ctx, initialization.runtime),
-      ...credentials.map((credential) => sendInitialPassword(ctx, initialization.auth, credential)),
+      refreshProtocolEndpoint(ctx, runtime),
+      ...credentials.map((credential) => sendInitialPassword(ctx, auth, credential)),
     ]);
   },
 });
@@ -159,7 +179,7 @@ async function sendInitialPassword(ctx: Context, auth: WebuiAuth, credential: We
   try {
     await ctx.client.send_private_message({ user_id: credential.userId, message: msg`${text}` });
   } catch (error) {
-    auth.removeAccount(credential.userId);
+    await auth.removeAccount(credential.userId);
     ctx.logger.error(`向插件主人 ${credential.userId} 发送 WebUI 初始密码失败，已撤销该账号以便下次重试`, error);
   }
 }

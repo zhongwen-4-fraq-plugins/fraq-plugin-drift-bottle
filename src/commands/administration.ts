@@ -7,16 +7,16 @@ export function registerAdministrationCommands(ctx: Context, api: DriftBottleApi
     return ownerIds.includes(session.raw.sender_id);
   }
 
-  function canDeleteAnyBottle(session: Session): boolean {
+  async function canDeleteAnyBottle(session: Session): Promise<boolean> {
     return (
       isOwner(session) ||
-      api.isModerator(session.raw.sender_id) ||
+      (await api.isModerator(session.raw.sender_id)) ||
       (session.raw.message_scene === 'group' && session.raw.group_member.role !== 'member')
     );
   }
 
-  function canDelete(session: Session, bottleId: string): boolean {
-    return canDeleteAnyBottle(session) || api.isBottleOwner(bottleId, session.raw.sender_id);
+  async function canDelete(session: Session, bottleId: string): Promise<boolean> {
+    return (await canDeleteAnyBottle(session)) || api.isBottleOwner(bottleId, session.raw.sender_id);
   }
 
   function validUserId(userId: number): boolean {
@@ -63,16 +63,16 @@ export function registerAdministrationCommands(ctx: Context, api: DriftBottleApi
     .arg('id', param.greedy())
     .execute(async (session, { id }) => {
       const bottleId = id.trim();
-      if (!bottleId || !api.hasBottle(bottleId)) {
+      if (!bottleId || !(await api.hasBottle(bottleId))) {
         await session.reply('没有找到这个漂流瓶。');
         return;
       }
-      if (!canDelete(session, bottleId)) {
+      if (!(await canDelete(session, bottleId))) {
         await session.reply('普通用户只能删除自己投递的漂流瓶。');
         return;
       }
 
-      api.deleteBottle(bottleId, session.raw.sender_id);
+      await api.deleteBottle(bottleId, session.raw.sender_id);
       await session.reply('漂流瓶已删除。');
     });
 
@@ -101,7 +101,7 @@ export function registerAdministrationCommands(ctx: Context, api: DriftBottleApi
         return;
       }
       for (const userId of userIds) {
-        api.addModerator(userId, session.raw.sender_id);
+        await api.addModerator(userId, session.raw.sender_id);
       }
       await session.reply(`已授予 ${userIds.join('、')} 漂流瓶管理权限。`);
     });
@@ -122,7 +122,13 @@ export function registerAdministrationCommands(ctx: Context, api: DriftBottleApi
         await session.reply('请输入有效的 QQ 号或提及用户。');
         return;
       }
-      const removed = userIds.filter((userId) => api.removeModerator(userId, session.raw.sender_id));
+      const removed = (
+        await Promise.all(
+          userIds.map(async (userId) =>
+            (await api.removeModerator(userId, session.raw.sender_id)) ? userId : undefined,
+          ),
+        )
+      ).filter((userId): userId is number => userId !== undefined);
       await session.reply(
         removed.length > 0 ? `已移除 ${removed.join('、')} 的漂流瓶管理权限。` : '这些用户都不在权限列表中。',
       );
@@ -133,7 +139,7 @@ export function registerAdministrationCommands(ctx: Context, api: DriftBottleApi
       await session.reply('只有插件主人可以管理漂流瓶权限。');
       return;
     }
-    const users = api.moderators();
+    const users = await api.moderators();
     await session.reply(users.length > 0 ? `漂流瓶管理权限列表：\n${users.join('\n')}` : '漂流瓶管理权限列表为空。');
   });
 }

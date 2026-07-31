@@ -28,16 +28,16 @@ export interface WebuiRouteOptions {
   basePath?: string;
   directory?: string;
   auth: WebuiAuth;
-  dashboard: () => DashboardSnapshot;
-  bottles: (page: number) => WebuiListPage<WebuiBottleListItem>;
-  bottleComments: (id: string) => BottleComments | undefined;
+  dashboard: () => Promise<DashboardSnapshot>;
+  bottles: (page: number) => Promise<WebuiListPage<WebuiBottleListItem>>;
+  bottleComments: (id: string) => Promise<BottleComments | undefined>;
   bottleImage: (id: string, segmentIndex: number) => Promise<BottleImageResult>;
-  pendingReviews: (page: number) => WebuiListPage<WebuiPendingReviewItem>;
-  canModerate: (userId: number) => boolean;
-  approveReview: (id: string, actorId: number) => ApproveModerationRecordResult;
-  rejectReview: (id: string, actorId: number, reason: string) => RejectModerationRecordResult;
+  pendingReviews: (page: number) => Promise<WebuiListPage<WebuiPendingReviewItem>>;
+  canModerate: (userId: number) => Promise<boolean>;
+  approveReview: (id: string, actorId: number) => Promise<ApproveModerationRecordResult>;
+  rejectReview: (id: string, actorId: number, reason: string) => Promise<RejectModerationRecordResult>;
   registration: Pick<WebuiRegistration, 'submit'>;
-  registrationRequests: (page: number) => WebuiListPage<WebuiRegistrationRequestItem>;
+  registrationRequests: (page: number) => Promise<WebuiListPage<WebuiRegistrationRequestItem>>;
   ownerIds: number[];
   settings: () => WebuiSettingsSnapshot;
   updateSettings: (settings: EditableWebuiSettings) => Promise<WebuiSettingsSnapshot>;
@@ -50,14 +50,16 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
   const directory = options.directory ?? fileURLToPath(new URL('./webui/', import.meta.url));
 
   service.app.get(basePath, (context) => context.redirect(`${basePath}/`, 308));
-  service.app.get(`${basePath}/api/session`, (context) => {
+  service.app.get(`${basePath}/api/session`, async (context) => {
     const userId = options.auth.sessionUserId(readSessionCookie(context.req.header('cookie')));
+    const canModerate =
+      userId !== undefined && (options.ownerIds.includes(userId) || (await options.canModerate(userId)));
     return context.json(
       {
         account: userId ? String(userId) : null,
         authenticated: userId !== undefined,
         isOwner: userId !== undefined && options.ownerIds.includes(userId),
-        canModerate: userId !== undefined && (options.ownerIds.includes(userId) || options.canModerate(userId)),
+        canModerate,
         avatarUrl: qqAvatarUrl(userId),
       },
       200,
@@ -87,13 +89,14 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
     }
 
     const secure = new URL(context.req.url).protocol === 'https:';
+    const canModerate = options.ownerIds.includes(userId) || (await options.canModerate(userId));
     return context.json(
       {
         account: String(userId),
         authenticated: true,
         avatarUrl: qqAvatarUrl(userId),
         isOwner: options.ownerIds.includes(userId),
-        canModerate: options.ownerIds.includes(userId) || options.canModerate(userId),
+        canModerate,
       },
       200,
       {
@@ -151,30 +154,30 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
       },
     });
   });
-  service.app.get(`${basePath}/api/dashboard`, (context) => {
+  service.app.get(`${basePath}/api/dashboard`, async (context) => {
     if (!options.auth.isSessionValid(readSessionCookie(context.req.header('cookie')))) {
       return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
     }
-    return context.json(options.dashboard(), 200, { 'Cache-Control': 'no-store' });
+    return context.json(await options.dashboard(), 200, { 'Cache-Control': 'no-store' });
   });
-  service.app.get(`${basePath}/api/reviews/pending`, (context) => {
+  service.app.get(`${basePath}/api/reviews/pending`, async (context) => {
     if (!options.auth.isSessionValid(readSessionCookie(context.req.header('cookie')))) {
       return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
     }
-    return context.json(options.pendingReviews(readPage(context.req.query('page'))), 200, {
+    return context.json(await options.pendingReviews(readPage(context.req.query('page'))), 200, {
       'Cache-Control': 'no-store',
     });
   });
-  service.app.post(`${basePath}/api/reviews/:id/approve`, (context) => {
+  service.app.post(`${basePath}/api/reviews/:id/approve`, async (context) => {
     const userId = options.auth.sessionUserId(readSessionCookie(context.req.header('cookie')));
     if (userId === undefined) {
       return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
     }
-    if (!options.ownerIds.includes(userId) && !options.canModerate(userId)) {
+    if (!options.ownerIds.includes(userId) && !(await options.canModerate(userId))) {
       return context.json({ error: '仅插件主人或管理员可以处理审核记录' }, 403, { 'Cache-Control': 'no-store' });
     }
 
-    const result = options.approveReview(context.req.param('id'), userId);
+    const result = await options.approveReview(context.req.param('id'), userId);
     if (result.status === 'approved') {
       return context.json({ status: result.status, bottleId: result.bottle.id }, 200, { 'Cache-Control': 'no-store' });
     }
@@ -191,7 +194,7 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
     if (userId === undefined) {
       return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
     }
-    if (!options.ownerIds.includes(userId) && !options.canModerate(userId)) {
+    if (!options.ownerIds.includes(userId) && !(await options.canModerate(userId))) {
       return context.json({ error: '仅插件主人或管理员可以处理审核记录' }, 403, { 'Cache-Control': 'no-store' });
     }
 
@@ -208,7 +211,7 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
       });
     }
 
-    const result = options.rejectReview(context.req.param('id'), userId, reason);
+    const result = await options.rejectReview(context.req.param('id'), userId, reason);
     if (result.status === 'rejected') {
       return context.json({ status: result.status }, 200, { 'Cache-Control': 'no-store' });
     }
@@ -222,11 +225,13 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
     }
     return context.json({ error: '该记录已处理或不在待审核队列中' }, 409, { 'Cache-Control': 'no-store' });
   });
-  service.app.get(`${basePath}/api/bottles`, (context) => {
+  service.app.get(`${basePath}/api/bottles`, async (context) => {
     if (!options.auth.isSessionValid(readSessionCookie(context.req.header('cookie')))) {
       return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
     }
-    return context.json(options.bottles(readPage(context.req.query('page'))), 200, { 'Cache-Control': 'no-store' });
+    return context.json(await options.bottles(readPage(context.req.query('page'))), 200, {
+      'Cache-Control': 'no-store',
+    });
   });
   service.app.get(`${basePath}/api/bottles/:id/images/:index`, async (context) => {
     if (!options.auth.isSessionValid(readSessionCookie(context.req.header('cookie')))) {
@@ -248,17 +253,17 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
     }
     return context.json({ error: '图片地址暂时不可用' }, 502, { 'Cache-Control': 'no-store' });
   });
-  service.app.get(`${basePath}/api/bottles/:id/comments`, (context) => {
+  service.app.get(`${basePath}/api/bottles/:id/comments`, async (context) => {
     if (!options.auth.isSessionValid(readSessionCookie(context.req.header('cookie')))) {
       return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
     }
-    const comments = options.bottleComments(context.req.param('id'));
+    const comments = await options.bottleComments(context.req.param('id'));
     if (!comments) {
       return context.json({ error: '没有找到这个漂流瓶' }, 404, { 'Cache-Control': 'no-store' });
     }
     return context.json(comments, 200, { 'Cache-Control': 'no-store' });
   });
-  service.app.get(`${basePath}/api/registrations/pending`, (context) => {
+  service.app.get(`${basePath}/api/registrations/pending`, async (context) => {
     const userId = options.auth.sessionUserId(readSessionCookie(context.req.header('cookie')));
     if (userId === undefined) {
       return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
@@ -266,7 +271,7 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
     if (!options.ownerIds.includes(userId)) {
       return context.json({ error: '仅插件主人可以查看账号请求' }, 403, { 'Cache-Control': 'no-store' });
     }
-    return context.json(options.registrationRequests(readPage(context.req.query('page'))), 200, {
+    return context.json(await options.registrationRequests(readPage(context.req.query('page'))), 200, {
       'Cache-Control': 'no-store',
     });
   });

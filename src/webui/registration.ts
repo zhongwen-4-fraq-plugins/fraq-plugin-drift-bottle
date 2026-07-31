@@ -31,14 +31,14 @@ export class WebuiRegistration {
 
     const message = `收到 WebUI 账号注册请求：${userId}\n回复本消息并发送“同意”即可审批。`;
     if ((await this.notifyOwners(message)) === 0) {
-      this.auth.cancelRegistration(userId);
+      await this.auth.cancelRegistration(userId);
       return 'notification-unavailable';
     }
     return 'created';
   }
 
   async approve(userId: number, approvedBy: number): Promise<boolean> {
-    if (!this.auth.approveRegistration(userId, approvedBy)) {
+    if (!(await this.auth.approveRegistration(userId, approvedBy))) {
       return false;
     }
 

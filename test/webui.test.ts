@@ -1,11 +1,11 @@
 import { HonoService } from '@fraqjs/plugin-hono';
 
-import { BottleStore } from '../src/persistence/bottle-store.js';
 import { WebuiAuth } from '../src/webui/auth.js';
 import { createRegistrationRequestListPage } from '../src/webui/lists.js';
 import { registerWebuiRoutes } from '../src/webui/routes.js';
 import type { WebuiSettingsSnapshot } from '../src/webui/settings.js';
 import { buildWebuiUrl } from '../src/webui/url.js';
+import { createTestStore } from './store.js';
 
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -18,10 +18,9 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   await mkdir(join(directory, 'assets'));
   await writeFile(join(directory, 'index.html'), '<!doctype html><title>漂流瓶管理后台</title>');
   await writeFile(join(directory, 'assets', 'app.js'), 'export const ready = true;');
-  const store = new BottleStore(join(directory, 'bottles.db'));
-  await store.load();
+  const store = await createTestStore(t, join(directory, 'bottles.db'));
   t.after(async () => {
-    store.dispose();
+    await store.dispose();
     await rm(directory, { recursive: true, force: true });
   });
 
@@ -57,12 +56,11 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
     moderationModel: 'openai/gpt-4o-mini',
     ownerIds: [123456789],
     restartRequired: false,
-    storagePath: './data/drift-bottles.db',
     webuiPath: '/manage/drift-bottle',
   };
   const basePath = registerWebuiRoutes(hono, {
     auth,
-    approveReview: (id) =>
+    approveReview: async (id) =>
       id === 'admin-review'
         ? {
             status: 'approved',
@@ -76,7 +74,7 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
           }
         : { status: 'not-found' },
     basePath: '/manage/drift-bottle/',
-    bottleComments: (id) =>
+    bottleComments: async (id) =>
       id === 'bottle-with-comments'
         ? {
             comments: [
@@ -98,13 +96,13 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
       }
       return id === 'missing' ? { status: 'not-found' } : { status: 'not-image' };
     },
-    bottles: () => bottles,
-    canModerate: (userId) => userId === 333333333,
-    dashboard: () => dashboard,
+    bottles: async () => bottles,
+    canModerate: async (userId) => userId === 333333333,
+    dashboard: async () => dashboard,
     directory,
     ownerIds: [123456789],
-    pendingReviews: () => pendingReviews,
-    rejectReview: (id, actorId, reason) => {
+    pendingReviews: async () => pendingReviews,
+    rejectReview: async (id, actorId, reason) => {
       rejectedReviews.push({ actorId, id, reason });
       return { status: 'rejected' };
     },
@@ -121,7 +119,6 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
         ...settings,
         activeWebuiPath: pluginSettings.activeWebuiPath,
         restartRequired: settings.webuiPath !== pluginSettings.activeWebuiPath,
-        storagePath: pluginSettings.storagePath,
       };
       return pluginSettings;
     },
@@ -188,7 +185,7 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   );
 
   assert.equal(await auth.requestRegistration(222222222, 'MemberA123'), 'created');
-  assert.equal(auth.approveRegistration(222222222, 123456789), true);
+  assert.equal(await auth.approveRegistration(222222222, 123456789), true);
   const memberLogin = await hono.app.request('http://localhost/manage/drift-bottle/api/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -228,7 +225,7 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   );
 
   assert.equal(await auth.requestRegistration(333333333, 'AdminA123'), 'created');
-  assert.equal(auth.approveRegistration(333333333, 123456789), true);
+  assert.equal(await auth.approveRegistration(333333333, 123456789), true);
   const moderatorLogin = await hono.app.request('http://localhost/manage/drift-bottle/api/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -373,7 +370,6 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
     moderationModel: 'openai/gpt-5-mini',
     ownerIds: [123456789, 987654321],
     restartRequired: true,
-    storagePath: './data/drift-bottles.db',
     webuiPath: '/new/drift-bottle',
   });
 

@@ -53,7 +53,7 @@ export interface ModerationRecord {
 
 export type NewModerationRecord = Omit<ModerationRecord, 'id' | 'createdAt'>;
 
-export function queueBottleForManualReview(store: BottleStore, bottleDraft: NewDriftBottle): ModerationRecord {
+export function queueBottleForManualReview(store: BottleStore, bottleDraft: NewDriftBottle): Promise<ModerationRecord> {
   return store.addModerationRecord({
     content: bottleDraft.segments,
     process: { manual: { reason: '等待人工审核' } },
@@ -75,7 +75,7 @@ export function withModerationRecords(
       result = await moderator(segments, context);
     } catch (error) {
       const failure = describeError(error);
-      store.addModerationRecord({
+      await store.addModerationRecord({
         content: segments,
         process: { error: failure.error },
         inputTokens: failure.usage?.inputTokens,
@@ -87,7 +87,7 @@ export function withModerationRecords(
       throw error;
     }
 
-    store.addModerationRecord({
+    await store.addModerationRecord({
       content: segments,
       process: {
         result: {

@@ -4,12 +4,12 @@ import type { DriftBottleApi } from '../api/drift-bottle-api.js';
 import type { ApproveModerationRecordResult, RejectModerationRecordResult } from '../persistence/bottle-store.js';
 
 export function registerModerationCommands(ctx: Context, api: DriftBottleApi, ownerIds: number[]): void {
-  function canModerate(session: Session): boolean {
+  async function canModerate(session: Session): Promise<boolean> {
     return ownerIds.includes(session.raw.sender_id) || api.isModerator(session.raw.sender_id);
   }
 
   async function ensurePermission(session: Session): Promise<boolean> {
-    if (canModerate(session)) return true;
+    if (await canModerate(session)) return true;
     await session.reply('只有插件主人和漂流瓶管理员可以人工审核。');
     return false;
   }
@@ -22,7 +22,7 @@ export function registerModerationCommands(ctx: Context, api: DriftBottleApi, ow
       return;
     }
 
-    const result = api.approveModerationRecord(id, session.raw.sender_id);
+    const result = await api.approveModerationRecord(id, session.raw.sender_id);
     await session.reply(approvalMessage(result));
   }
 
@@ -36,7 +36,7 @@ export function registerModerationCommands(ctx: Context, api: DriftBottleApi, ow
       return;
     }
 
-    const result = api.rejectModerationRecord(id, session.raw.sender_id, reason);
+    const result = await api.rejectModerationRecord(id, session.raw.sender_id, reason);
     await session.reply(rejectionMessage(result));
   }
 

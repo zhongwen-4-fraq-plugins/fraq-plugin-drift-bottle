@@ -3,7 +3,8 @@ import { createMockMilkyClient, inmsg, inseg } from '@fraqjs/mock';
 
 import { DriftBottleApi } from '../src/api/drift-bottle-api.js';
 import { registerAdministrationCommands } from '../src/commands/administration.js';
-import { BottleStore } from '../src/persistence/bottle-store.js';
+import type { BottleStore } from '../src/persistence/bottle-store.js';
+import { createTestStore } from './store.js';
 
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -15,11 +16,10 @@ test('普通用户只能删除自己的漂流瓶，管理人员可以删除任�
   const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-'));
   const client = createMockMilkyClient();
   const ctx = Context.fromClient(client);
-  const store = new BottleStore(join(directory, 'bottles.db'));
-  await store.load();
+  const store = await createTestStore(t, join(directory, 'bottles.db'));
   t.after(async () => {
     await ctx.stop();
-    store.dispose();
+    await store.dispose();
     await rm(directory, { recursive: true, force: true });
   });
 
@@ -31,29 +31,29 @@ test('普通用户只能删除自己的漂流瓶，管理人员可以删除任�
 
   const adminBottle = await addBottle(store);
   await dispatch(ctx, client, 10002, 'member', inmsg`删除漂流瓶 ${adminBottle.id}`);
-  assert.equal(store.count(), 1);
+  assert.equal(await store.count(), 1);
   await dispatch(ctx, client, 10003, 'admin', inmsg`删除漂流瓶 ${adminBottle.id}`);
-  assert.equal(store.count(), 0);
+  assert.equal(await store.count(), 0);
 
   const personalBottle = await addBottle(store, 10002);
   await dispatch(ctx, client, 10002, 'member', inmsg`删除漂流瓶 ${personalBottle.id}`);
-  assert.equal(store.count(), 0);
+  assert.equal(await store.count(), 0);
 
   const archivedBottle = await addBottle(store, 10002);
   await store.pick(true, 0);
-  assert.equal(store.hasBottle(archivedBottle.id), true);
+  assert.equal(await store.hasBottle(archivedBottle.id), true);
   await dispatch(ctx, client, 10002, 'member', inmsg`删除漂流瓶 ${archivedBottle.id}`);
-  assert.equal(store.hasBottle(archivedBottle.id), false);
+  assert.equal(await store.hasBottle(archivedBottle.id), false);
 
   const ownerBottle = await addBottle(store);
   await dispatch(ctx, client, 10001, 'member', inmsg`删除漂流瓶 ${ownerBottle.id}`);
-  assert.equal(store.count(), 0);
+  assert.equal(await store.count(), 0);
 
   await dispatch(ctx, client, 10001, 'member', inmsg`漂流瓶权限 添加 10004 ${inseg.mention(10006)}`);
-  assert.deepEqual(store.moderators(), [10004, 10006]);
+  assert.deepEqual(await store.moderators(), [10004, 10006]);
   const moderatorBottle = await addBottle(store);
   await dispatch(ctx, client, 10004, 'member', inmsg`删除漂流瓶 ${moderatorBottle.id}`);
-  assert.equal(store.count(), 0);
+  assert.equal(await store.count(), 0);
 
   const replies = client.apiCalls
     .filter((call) => call.endpoint === 'send_group_message')
@@ -68,11 +68,10 @@ test('只有插件主人可以管理数据库权限列表', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-'));
   const client = createMockMilkyClient();
   const ctx = Context.fromClient(client);
-  const store = new BottleStore(join(directory, 'bottles.db'));
-  await store.load();
+  const store = await createTestStore(t, join(directory, 'bottles.db'));
   t.after(async () => {
     await ctx.stop();
-    store.dispose();
+    await store.dispose();
     await rm(directory, { recursive: true, force: true });
   });
 
@@ -83,7 +82,7 @@ test('只有插件主人可以管理数据库权限列表', async (t) => {
   await ctx.start();
 
   await dispatch(ctx, client, 10002, 'admin', inmsg`漂流瓶权限 添加 10005`);
-  assert.deepEqual(store.moderators(), []);
+  assert.deepEqual(await store.moderators(), []);
   await dispatch(
     ctx,
     client,
@@ -92,7 +91,7 @@ test('只有插件主人可以管理数据库权限列表', async (t) => {
     inmsg`漂流瓶权限 添加 10005,10006 ${inseg.mention(10007)} ${inseg.mention(10005)}`,
   );
   await dispatch(ctx, client, 10001, 'member', inmsg`漂流瓶权限 列表`);
-  assert.deepEqual(store.moderators(), [10005, 10006, 10007]);
+  assert.deepEqual(await store.moderators(), [10005, 10006, 10007]);
   await dispatch(
     ctx,
     client,
@@ -100,7 +99,7 @@ test('只有插件主人可以管理数据库权限列表', async (t) => {
     'member',
     inmsg`漂流瓶权限 删除 10005 ${inseg.mention(10006)} ${inseg.mention(10007)}`,
   );
-  assert.deepEqual(store.moderators(), []);
+  assert.deepEqual(await store.moderators(), []);
 });
 
 async function addBottle(store: BottleStore, senderId = 20001) {

@@ -12,7 +12,7 @@ export async function resolveBottleSignature(
   store: BottleStore,
   message: milky.IncomingMessage,
 ): Promise<ResolvedBottleSignature> {
-  const signature = store.signatureFor(message.sender_id);
+  const signature = await store.signatureFor(message.sender_id);
   if (signature.type === 'anonymous') {
     return { needsModeration: false };
   }

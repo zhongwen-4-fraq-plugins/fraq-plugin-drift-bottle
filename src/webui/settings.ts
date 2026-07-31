@@ -12,7 +12,6 @@ export interface EditableWebuiSettings {
 export interface WebuiSettingsSnapshot extends EditableWebuiSettings {
   activeWebuiPath: string;
   restartRequired: boolean;
-  storagePath: string;
 }
 
 export class WebuiSettings {
@@ -21,18 +20,24 @@ export class WebuiSettings {
   private mode: BottleModerationMode;
   private model?: string;
   readonly ownerIds: number[];
-  readonly storagePath: string;
 
   constructor(
     private readonly store: BottleStore,
-    options: DriftBottleOptions,
+    private readonly options: DriftBottleOptions,
   ) {
-    const persisted = store.webuiSettings();
-    this.storagePath = options.storagePath ?? './data/drift-bottles.db';
-    this.mode = readModerationMode(persisted) ?? normalizeModerationMode(options.moderationMode);
-    this.model = persisted ? readModerationModel(persisted) : normalizeModerationModel(options.moderationModel);
-    this.ownerIds = readOwnerIds(persisted) ?? normalizeConfiguredOwnerIds(options.ownerIds ?? []);
-    this.desiredWebuiPath = readWebuiPath(persisted) ?? normalizeWebuiPath(options.webuiPath ?? '/drift-bottle');
+    this.mode = normalizeModerationMode(options.moderationMode);
+    this.model = normalizeModerationModel(options.moderationModel);
+    this.ownerIds = normalizeConfiguredOwnerIds(options.ownerIds ?? []);
+    this.desiredWebuiPath = normalizeWebuiPath(options.webuiPath ?? '/drift-bottle');
+  }
+
+  async load(): Promise<void> {
+    const persisted = await this.store.webuiSettings();
+    this.mode = readModerationMode(persisted) ?? normalizeModerationMode(this.options.moderationMode);
+    this.model = persisted ? readModerationModel(persisted) : normalizeModerationModel(this.options.moderationModel);
+    const ownerIds = readOwnerIds(persisted) ?? normalizeConfiguredOwnerIds(this.options.ownerIds ?? []);
+    this.ownerIds.splice(0, this.ownerIds.length, ...ownerIds);
+    this.desiredWebuiPath = readWebuiPath(persisted) ?? normalizeWebuiPath(this.options.webuiPath ?? '/drift-bottle');
   }
 
   get moderationModel(): string | undefined {
@@ -51,12 +56,12 @@ export class WebuiSettings {
     this.activeWebuiPath = path;
   }
 
-  update(settings: EditableWebuiSettings): void {
+  async update(settings: EditableWebuiSettings): Promise<void> {
     const mode = normalizeModerationMode(settings.moderationMode);
     const model = normalizeModerationModel(settings.moderationModel);
     const ownerIds = normalizeOwnerIds(settings.ownerIds);
     const webuiPath = normalizeWebuiPath(settings.webuiPath);
-    this.store.setWebuiSettings({
+    await this.store.setWebuiSettings({
       moderationMode: mode,
       moderationModel: model,
       ownerIds,
@@ -75,7 +80,6 @@ export class WebuiSettings {
       moderationModel: this.model,
       ownerIds: [...this.ownerIds],
       restartRequired: Boolean(this.activeWebuiPath && this.activeWebuiPath !== this.desiredWebuiPath),
-      storagePath: this.storagePath,
       webuiPath: this.desiredWebuiPath,
     };
   }

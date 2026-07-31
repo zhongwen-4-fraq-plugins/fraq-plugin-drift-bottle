@@ -111,15 +111,18 @@ const CHANGELOG: DashboardRelease[] = [
   },
 ];
 
-export function createDashboardSnapshot(
+export async function createDashboardSnapshot(
   api: DriftBottleApi,
   instanceStartedAt: number,
   runtime: DashboardRuntimeInfo = { fraqVersion: '未知' },
-): DashboardSnapshot {
-  const operations = [
-    ...api.operationRecords(100).map(formatDomainOperation),
-    ...api.moderationRecords(100).map(formatModerationOperation),
-  ]
+): Promise<DashboardSnapshot> {
+  const [domainRecords, moderationRecords, totalBottles, pendingReview] = await Promise.all([
+    api.operationRecords(100),
+    api.moderationRecords(100),
+    api.count(),
+    api.pendingModerationCount(),
+  ]);
+  const operations = [...domainRecords.map(formatDomainOperation), ...moderationRecords.map(formatModerationOperation)]
     .sort((left, right) => right.createdAt - left.createdAt)
     .slice(0, 60);
 
@@ -127,8 +130,8 @@ export function createDashboardSnapshot(
     generatedAt: Date.now(),
     instanceStartedAt,
     counts: {
-      totalBottles: api.count(),
-      pendingReview: api.pendingModerationCount(),
+      totalBottles,
+      pendingReview,
     },
     changelog: CHANGELOG,
     operations,

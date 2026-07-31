@@ -11,7 +11,6 @@ export type BottleSignature = { type: 'anonymous' } | { type: 'original' } | { t
 export type BottleModerationMode = 'ai' | 'manual';
 
 export interface DriftBottleOptions {
-  storagePath?: string;
   moderationMode?: BottleModerationMode;
   moderationModel?: string;
   ownerIds?: number[];

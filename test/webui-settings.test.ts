@@ -1,5 +1,5 @@
-import { BottleStore } from '../src/persistence/bottle-store.js';
 import { normalizeOwnerIds, normalizeWebuiPath, WebuiSettings } from '../src/webui/settings.js';
+import { createTestStore } from './store.js';
 
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -10,10 +10,9 @@ import test from 'node:test';
 test('WebUI 配置会持久化，并区分立即生效与重启生效字段', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-settings-'));
   const storagePath = join(directory, 'bottles.db');
-  const store = new BottleStore(storagePath);
-  await store.load();
+  const store = await createTestStore(t, storagePath);
   t.after(async () => {
-    store.dispose();
+    await store.dispose();
     await rm(directory, { recursive: true, force: true });
   });
 
@@ -21,12 +20,11 @@ test('WebUI 配置会持久化，并区分立即生效与重启生效字段', as
     moderationMode: 'manual',
     moderationModel: 'openai/original',
     ownerIds: [123456789],
-    storagePath,
     webuiPath: '/drift-bottle',
   });
   settings.setActiveWebuiPath('/drift-bottle');
   const liveOwnerIds = settings.ownerIds;
-  settings.update({
+  await settings.update({
     moderationMode: 'ai',
     moderationModel: '',
     ownerIds: [123456789, 987654321],
@@ -38,7 +36,6 @@ test('WebUI 配置会持久化，并区分立即生效与重启生效字段', as
     moderationModel: undefined,
     ownerIds: [123456789, 987654321],
     restartRequired: true,
-    storagePath,
     webuiPath: '/manage/drift-bottle',
   });
   assert.strictEqual(settings.ownerIds, liveOwnerIds);
@@ -47,9 +44,9 @@ test('WebUI 配置会持久化，并区分立即生效与重启生效字段', as
     moderationMode: 'manual',
     moderationModel: 'openai/should-not-return',
     ownerIds: [111111111],
-    storagePath,
     webuiPath: '/ignored',
   });
+  await reloaded.load();
   assert.equal(reloaded.moderationMode, 'ai');
   assert.equal(reloaded.moderationModel, undefined);
   assert.deepEqual(reloaded.ownerIds, [123456789, 987654321]);

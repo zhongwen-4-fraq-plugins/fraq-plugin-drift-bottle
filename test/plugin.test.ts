@@ -4,8 +4,8 @@ import { createMockMilkyClient, inmsg, inseg } from '@fraqjs/mock';
 import { DriftBottleApi } from '../src/api/drift-bottle-api.js';
 import { registerDriftBottleCommands } from '../src/commands/bottle.js';
 import { registerSignatureCommands } from '../src/commands/signature.js';
-import { BottleStore } from '../src/persistence/bottle-store.js';
 import type { BottleModerator } from '../src/processing/moderation.js';
+import { createTestStore } from './store.js';
 
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -19,6 +19,7 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
   const ctx = Context.fromClient(client);
   t.after(async () => {
     await ctx.stop();
+    await store.dispose();
     await rm(directory, { recursive: true, force: true });
   });
 
@@ -35,8 +36,7 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
       },
     ],
   }));
-  const store = new BottleStore(join(directory, 'bottles.db'));
-  await store.load();
+  const store = await createTestStore(t, join(directory, 'bottles.db'));
   let moderatedSegmentTypes: string[] = [];
   const moderator: BottleModerator = async (segments) => {
     moderatedSegmentTypes = segments.map((segment) => segment.type);
@@ -80,7 +80,7 @@ test('通过 AI 审核的内容可以投递，违规内容会被拒绝', async (
   await dispatchGroupMessage(ctx, client, 10001, inmsg`漂流瓶署名 原名`);
 
   assert.deepEqual(moderatedSegmentTypes, ['image', 'video', 'face', 'market_face', 'forward']);
-  assert.deepEqual(store.signatureFor(10001), { type: 'original' });
+  assert.deepEqual(await store.signatureFor(10001), { type: 'original' });
 
   const replies = client.apiCalls
     .filter((call) => call.endpoint === 'send_group_message')
@@ -171,8 +171,7 @@ test('人工审核模式会回复已提交并把投瓶放入待审核列表', as
   const client = createMockMilkyClient();
   client.stubApi('send_group_message', () => ({ message_seq: 1, time: 1_700_000_000 }));
   const ctx = Context.fromClient(client);
-  const store = new BottleStore(join(directory, 'bottles.db'));
-  await store.load();
+  const store = await createTestStore(t, join(directory, 'bottles.db'));
   const api = new DriftBottleApi(
     client,
     store,
@@ -184,6 +183,7 @@ test('人工审核模式会回复已提交并把投瓶放入待审核列表', as
   await ctx.start();
   t.after(async () => {
     await ctx.stop();
+    await store.dispose();
     await rm(directory, { recursive: true, force: true });
   });
 
@@ -198,8 +198,8 @@ test('人工审核模式会回复已提交并把投瓶放入待审核列表', as
       message: [{ type: 'text', data: { text: '漂流瓶已提交人工审核，通过后会进入海里。' } }],
     },
   ]);
-  assert.equal(api.pendingModerationCount(), 1);
-  assert.equal(api.count(), 0);
+  assert.equal(await api.pendingModerationCount(), 1);
+  assert.equal(await api.count(), 0);
 });
 
 async function dispatchGroupMessage(
