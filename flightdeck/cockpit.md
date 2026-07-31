@@ -16,4 +16,5 @@ Focus: v0.3.17 已发布图片按需预览、评论头像与待审核过滤，�
 
 ## Open questions
 
-无。
+- 是否将自建 `node:sqlite` 持久层迁移到 `@fraqjs/plugin-kysely`，以及如何无损兼容现有 `storagePath` 数据库。
+- WebUI 是否继续保留 QQ 账号、主人审批和角色权限，还是切换到 `@fraqjs/plugin-webui-gateway` 的宿主级统一 access token。
