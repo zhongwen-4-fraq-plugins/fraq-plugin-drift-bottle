@@ -37,6 +37,14 @@ export interface DashboardSnapshot {
 
 const CHANGELOG: DashboardRelease[] = [
   {
+    version: '0.3.18',
+    items: [
+      'SQLite 持久层已迁移到 Fraq Kysely 基础服务，统一数据库连接、schema 迁移和生命周期管理。',
+      '保留现有漂流瓶表结构与旧数据库原地升级能力，数据库位置改由 fraqjs/kysely.sqliteUrl 管理。',
+      '公开 API、命令、审核流程和 WebUI 数据访问已统一为异步 Kysely 查询与事务。',
+    ],
+  },
+  {
     version: '0.3.17',
     items: [
       '操作记录会记录人工提交待审核瓶子的动作，便于主人追踪审核流程。',

@@ -1,6 +1,6 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: Kysely 持久层迁移已完成，等待真实 Fraq 宿主旧数据库回归与后续发布。
+Focus: v0.3.18 发布 Kysely 持久层迁移，并在真实 Fraq 宿主升级旧数据库后完成回归。
 
 ## In flight
 
