@@ -14,3 +14,5 @@ READ WHEN: before any Fraq plugin consumes KyselyService or registers a database
 5. Treat `fraqjs/kysely.sqliteUrl` as the sole database-location setting. To adopt an older plugin-owned SQLite file, point `sqliteUrl` at that exact file before first startup so the registered migration upgrades it in place.
 
 Keep published table and column names stable when adopting an existing database. The first registered migration must create missing tables, add all columns that older releases may lack, and backfill any derived tables before recording the migration as applied.
+
+Fraq CLI runs its generated application from the host's `app/` directory. Relative database paths such as `file:./data/drift-bottles.db` therefore resolve under `app/data/`, matching where a plugin-owned relative path was previously opened. After adoption, verify the exact database file rather than relying only on startup success: inspect `fraq_schema_migrations` and representative domain row counts to distinguish a migrated database from an accidentally created empty file.

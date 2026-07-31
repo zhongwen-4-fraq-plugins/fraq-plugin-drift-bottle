@@ -1,6 +1,6 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: v0.3.18 发布 Kysely 持久层迁移，并在真实 Fraq 宿主升级旧数据库后完成回归。
+Focus: v0.3.18 已发布 Kysely 持久层迁移，真实 Fraq 宿主旧数据库升级与 WebUI 回归通过。
 
 ## In flight
 
@@ -10,7 +10,6 @@ Focus: v0.3.18 发布 Kysely 持久层迁移，并在真实 Fraq 宿主升级旧
 
 ## Next
 
-- 在宿主配置 `fraqjs/kysely.sqliteUrl` 指向现有漂流瓶数据库，验证 schema 原地迁移和完整业务流程。
 - 在宿主完成投瓶入队、机器人审核命令和人工通过回归。
 - 完成 AI 结构化响应修复的真实网关回归。
 - 在真实 Fraq 宿主中回归全部瓶子评论展开；后续按需增加评论管理操作。
