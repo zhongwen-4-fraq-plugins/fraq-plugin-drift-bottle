@@ -30,6 +30,7 @@
   --color-error: oklch(0.48 0.18 28);
   --color-success: oklch(0.43 0.105 155);
   --color-warning: oklch(0.46 0.11 78);
+  --z-toast: 20;
   background: var(--color-background);
   color: var(--color-ink);
 }
@@ -1869,6 +1870,92 @@ textarea {
   text-wrap: pretty;
 }
 
+.settings-restart-notice {
+  position: fixed;
+  z-index: var(--z-toast);
+  top: max(var(--space-md), env(safe-area-inset-top));
+  inset-inline: var(--space-md);
+  display: grid;
+  max-width: 24rem;
+  min-width: 0;
+  grid-template-columns: 2rem minmax(0, 1fr) 2.75rem;
+  align-items: start;
+  gap: var(--space-sm);
+  margin-inline-start: auto;
+  border-radius: 0.75rem;
+  padding: var(--space-sm) var(--space-sm) var(--space-sm) var(--space-md);
+  background: var(--color-ink);
+  box-shadow: 0 0.25rem 0.5rem oklch(0.12 0.02 200 / 22%);
+  color: white;
+}
+
+.settings-restart-notice-icon {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 50%;
+  background: oklch(1 0 0 / 12%);
+}
+
+.settings-restart-notice-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.75;
+}
+
+.settings-restart-notice-copy {
+  min-width: 0;
+  padding-block: var(--space-2xs);
+}
+
+.settings-restart-notice-copy strong {
+  display: block;
+  font-size: var(--text-ui);
+  line-height: 1.35;
+}
+
+.settings-restart-notice-copy p {
+  margin: var(--space-2xs) 0 0;
+  color: oklch(1 0 0 / 82%);
+  font-size: var(--text-meta);
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.settings-restart-notice button {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  place-items: center;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: white;
+  cursor: pointer;
+}
+
+.settings-restart-notice button:active {
+  background: oklch(1 0 0 / 16%);
+}
+
+.settings-restart-notice button:focus-visible {
+  outline-color: white;
+}
+
+.settings-restart-notice button svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 1.75;
+}
+
 .settings-section {
   min-width: 0;
 }
@@ -2577,6 +2664,10 @@ textarea {
     background: var(--color-primary-hover);
   }
 
+  .settings-restart-notice button:hover {
+    background: oklch(1 0 0 / 12%);
+  }
+
   .bottle-comments-toggle:hover {
     background: var(--color-surface);
     color: var(--color-primary-hover);
@@ -2856,6 +2947,12 @@ textarea {
   .settings-field > textarea,
   .settings-password-control {
     border: 0.0625rem solid CanvasText;
+  }
+
+  .settings-restart-notice {
+    border: 0.0625rem solid CanvasText;
+    background: Canvas;
+    color: CanvasText;
   }
 
   .activity-marker,

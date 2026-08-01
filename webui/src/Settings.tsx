@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useState } from 'react';
 
 import { webuiUrl } from './location';
 import { PasswordVisibilityButton } from './PasswordVisibilityButton';
+import { restartNoticeAction } from './settings-state';
 
 interface SettingsPageProps {
   isOwner: boolean;
@@ -40,6 +41,7 @@ export function SettingsPage({ isOwner, onSessionExpired }: SettingsPageProps) {
   const [configSaving, setConfigSaving] = useState(false);
   const [configErrors, setConfigErrors] = useState<{ ownerIds?: string; webuiPath?: string }>({});
   const [configMessage, setConfigMessage] = useState<FormMessage>();
+  const [restartNoticeVisible, setRestartNoticeVisible] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -76,6 +78,7 @@ export function SettingsPage({ isOwner, onSessionExpired }: SettingsPageProps) {
         setModerationModel(result.moderationModel ?? '');
         setOwnerIds(result.ownerIds.join('\n'));
         setWebuiPath(result.webuiPath);
+        setRestartNoticeVisible(result.restartRequired);
       })
       .catch((error: unknown) => {
         if (!(error instanceof DOMException && error.name === 'AbortError')) {
@@ -126,14 +129,20 @@ export function SettingsPage({ isOwner, onSessionExpired }: SettingsPageProps) {
         }
         return;
       }
+      const noticeAction = restartNoticeAction(settings?.webuiPath, result.webuiPath, result.restartRequired);
       setSettings(result);
       setModerationMode(result.moderationMode);
       setModerationModel(result.moderationModel ?? '');
       setOwnerIds(result.ownerIds.join('\n'));
       setWebuiPath(result.webuiPath);
+      if (noticeAction === 'hide') {
+        setRestartNoticeVisible(false);
+      } else if (noticeAction === 'show') {
+        setRestartNoticeVisible(true);
+      }
       setConfigMessage({
         tone: 'success',
-        text: result.restartRequired ? '配置已保存。WebUI 路径将在重启 Fraq 后生效。' : '配置已保存并立即生效。',
+        text: result.restartRequired ? '配置已保存。仍有配置等待重启生效。' : '配置已保存并立即生效。',
       });
     } catch {
       setConfigMessage({ tone: 'error', text: '无法连接到管理服务，请检查网络后重试' });
@@ -208,6 +217,7 @@ export function SettingsPage({ isOwner, onSessionExpired }: SettingsPageProps) {
 
   return (
     <div className="settings-page">
+      {restartNoticeVisible ? <RestartNotice onDismiss={() => setRestartNoticeVisible(false)} /> : null}
       <header className="settings-page-header">
         <h1>设置</h1>
         <p>管理插件运行配置与当前账号安全。</p>
@@ -421,6 +431,29 @@ export function SettingsPage({ isOwner, onSessionExpired }: SettingsPageProps) {
           </div>
         </form>
       </section>
+    </div>
+  );
+}
+
+function RestartNotice({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <div className="settings-restart-notice" role="status" aria-live="polite" aria-atomic="true">
+      <span className="settings-restart-notice-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="8.25" />
+          <path d="M12 10.5v5" />
+          <path d="M12 7.5h.01" />
+        </svg>
+      </span>
+      <div className="settings-restart-notice-copy">
+        <strong>配置将在重启后生效</strong>
+        <p>重启 Fraq 后将使用新的 WebUI 路径。</p>
+      </div>
+      <button type="button" onClick={onDismiss} aria-label="关闭重启提示" title="关闭提示">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m7 7 10 10M17 7 7 17" />
+        </svg>
+      </button>
     </div>
   );
 }
