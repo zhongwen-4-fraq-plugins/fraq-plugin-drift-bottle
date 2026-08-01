@@ -731,13 +731,15 @@ function BottleCommentsPanel({
                 <ol className="bottle-comment-list">
                   {state.data.comments.map((comment) => (
                     <li key={comment.id} className="bottle-comment">
-                      <div className="bottle-comment-meta">
-                        <BottleCommentAvatar senderId={comment.senderId} />
-                        <strong>{comment.displayName || '匿名'}</strong>
-                        <span>QQ {comment.senderId}</span>
-                        <FormattedTime value={comment.createdAt} />
+                      <BottleCommentAvatar senderId={comment.senderId} />
+                      <div className="bottle-comment-body">
+                        <div className="bottle-comment-meta">
+                          <strong>{comment.displayName || '匿名'}</strong>
+                          <span>QQ {comment.senderId}</span>
+                          <FormattedTime value={comment.createdAt} />
+                        </div>
+                        <p>{comment.content}</p>
                       </div>
-                      <p>{comment.content}</p>
                     </li>
                   ))}
                 </ol>

@@ -1075,7 +1075,11 @@ textarea {
 }
 
 .bottle-comment {
+  display: grid;
   min-width: 0;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  align-items: start;
+  column-gap: var(--space-xs);
   padding-block: var(--space-sm);
 }
 
@@ -1083,8 +1087,13 @@ textarea {
   border-block-start: 0.0625rem solid var(--color-border);
 }
 
+.bottle-comment-body {
+  min-width: 0;
+}
+
 .bottle-comment-meta {
   display: flex;
+  min-height: 2rem;
   min-width: 0;
   flex-wrap: wrap;
   align-items: center;
