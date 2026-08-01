@@ -2,11 +2,11 @@
 
 ## State
 
-WebUI 设置页已在右上角显示可关闭的待重启提示；只有 WebUI 路径等需重启配置发生变化时弹出，并可从服务端 `restartRequired` 状态恢复。
+WebUI 设置页已在右上角显示可关闭的待重启提示，并随 v0.3.19 发布；只有 WebUI 路径等需重启配置发生变化时弹出，并可从服务端 `restartRequired` 状态恢复。
 
 ## Next
 
-- 随下一版本发布，并在真实 Fraq 宿主修改、撤销 WebUI 路径后回归提示的显示与清除。
+- 在真实 Fraq 宿主修改、撤销 WebUI 路径后回归提示的显示与清除。
 
 ## Read now
 

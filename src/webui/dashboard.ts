@@ -37,6 +37,13 @@ export interface DashboardSnapshot {
 
 const CHANGELOG: DashboardRelease[] = [
   {
+    version: '0.3.19',
+    items: [
+      '全部瓶子列表中的评论正文已与评论者名字对齐，提升多行评论的阅读一致性。',
+      '修改需重启的 WebUI 路径后，设置页右上角会持续提示配置将在重启 Fraq 后生效。',
+    ],
+  },
+  {
     version: '0.3.18',
     items: [
       'SQLite 持久层已迁移到 Fraq Kysely 基础服务，统一数据库连接、schema 迁移和生命周期管理。',
