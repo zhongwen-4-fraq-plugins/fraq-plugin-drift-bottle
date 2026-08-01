@@ -2,11 +2,11 @@
 
 ## State
 
-WebUI 设置页已在右上角显示可关闭的待重启提示，并随 v0.3.19 发布；只有 WebUI 路径等需重启配置发生变化时弹出，并可从服务端 `restartRequired` 状态恢复。
+WebUI 设置页已在右上角显示可关闭的待重启提示，并随 v0.3.19 发布；真实 Fraq 宿主安装启动通过，等待登录后交互回归。
 
 ## Next
 
-- 在真实 Fraq 宿主修改、撤销 WebUI 路径后回归提示的显示与清除。
+- 登录真实 Fraq 宿主修改、撤销 WebUI 路径，回归提示的显示与清除。
 
 ## Read now
 
@@ -33,6 +33,9 @@ Verified:
 - `pnpm build`
 - Impeccable 检测（0 项）
 - Chrome 900px 桌面与 328px 移动通知截图
+- GitHub Publish 工作流、GitHub Release 与 npm `0.3.19` 发布成功。
+- 真实 Fraq CLI 0.7 宿主安装 `0.3.19` 并启动成功；WebUI 页面、会话接口返回 `200`，发布脚本包含版本号与重启提示文案。
+- 验证结束后完整 Fraq 进程链已停止，`4649` 端口已释放。
 
 ## Open questions
 
