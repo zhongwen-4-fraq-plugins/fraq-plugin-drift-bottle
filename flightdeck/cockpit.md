@@ -1,17 +1,17 @@
 # Cockpit — fraq-plugin-drift-bottle
 
-Focus: v0.3.20 发布 WebUI QFace 普通表情显示，等待真实 Fraq 宿主回归。
+Focus: v0.3.20 远端发布、npm 与真实 Fraq 宿主安装启动通过，等待登录后 QFace 列表视觉回归。
 
 ## In flight
 
 - `manual-bottle-moderation` — 已随 v0.3.16 发布，AI/人工投瓶审核可即时切换，等待宿主回归。
 - `ai-schema-response` — 结构诊断已发布；v0.3.19 真实网关暴露媒体下载瞬时失败，待补受限重试。
-- `bottle-list-order` — QFace 普通表情显示已随 v0.3.20 发布，等待真实宿主回归；既有列表功能等待登录后回归。
+- `bottle-list-order` — v0.3.20 宿主资源链路通过，等待登录后回归 QFace 普通表情与既有列表功能。
 - `settings-restart-notice` — v0.3.19 宿主安装启动通过，等待登录后修改与撤销 WebUI 路径回归。
 
 ## Next
 
-- 在真实宿主回归 QFace 普通表情与文字回退。
+- 登录真实宿主，在桌面和移动端回归 QFace 普通表情与文字回退。
 - 仅针对 `AI_DownloadError` 重试一次完整审核调用，并覆盖成功恢复与耗尽失败测试。
 - 登录真实宿主，在桌面和移动端回归评论正文对齐与待重启配置通知。
 - 在宿主完成投瓶入队、机器人审核命令和人工通过回归。

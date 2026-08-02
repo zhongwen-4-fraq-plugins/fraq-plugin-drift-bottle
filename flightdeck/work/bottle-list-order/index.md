@@ -2,11 +2,11 @@
 
 ## State
 
-WebUI 的普通 QQ 表情消息已通过 QFace 索引显示真实静态表情，并保留安全文字回退；已随 v0.3.20 发布，等待真实宿主回归。
+WebUI 的普通 QQ 表情消息已通过 QFace 索引显示真实静态表情，并保留安全文字回退；v0.3.20 宿主安装与资源链路通过，等待登录后列表视觉回归。
 
 ## Next
 
-- 在真实 Fraq 宿主确认普通 QQ 表情、文字回退、桌面表格和移动列表效果。
+- 登录真实 Fraq 宿主确认普通 QQ 表情、文字回退、桌面表格和移动列表效果。
 - 登录 Fraq 宿主继续确认评论正文对齐、真实评论数据和评论展开效果。
 - 后续如需评论管理，在现有详情接口上增加权限受控的删除操作。
 
@@ -40,7 +40,7 @@ Done:
 
 Current:
 
-- QFace 表情显示已随 v0.3.20 发布并等待真实宿主回归；既有列表功能继续等待登录后视觉回归。
+- QFace 表情显示已随 v0.3.20 发布，宿主资源链路通过；等待登录后与既有列表功能一起做视觉回归。
 
 Verified:
 
@@ -56,6 +56,10 @@ Verified:
 - `pnpm check`、`pnpm test`（45 项）与 `pnpm build` 通过。
 - Impeccable 检测 0 项；真实 QFace 索引可解析 ID 14“微笑”和 ID 5“流泪”。
 - Chrome 610px 桌面内容与 288px 窄栏预览通过；窄栏 `clientWidth` 与 `scrollWidth` 均为 288px。
+- GitHub Publish 工作流、GitHub Release 与 npm `0.3.20` 发布成功。
+- 真实 Fraq CLI 0.7 宿主安装 `0.3.20` 并启动成功；WebUI 页面与会话接口返回 `200`。
+- 发布 bundle 包含版本号、QFace 索引路径和文字回退；QFace 索引与 ID 14 PNG 均返回 `200`。
+- 验证结束后完整 Fraq 进程链已停止，`4649` 端口已释放。
 
 ## Open questions
 
