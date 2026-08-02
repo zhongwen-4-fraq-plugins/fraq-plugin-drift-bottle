@@ -93,8 +93,13 @@ test('WebUI 列表按页返回漂流瓶和待审核摘要', async (t) => {
     preview: '你好 [图片：照片]',
     kinds: ['文字', '图片'],
     parts: [
-      { segmentIndex: 0, text: '你好', imageSegmentIndex: undefined },
-      { segmentIndex: 1, text: '[图片：照片]', imageSegmentIndex: 1 },
+      { segmentIndex: 0, text: '你好', faceId: undefined, imageSegmentIndex: undefined },
+      { segmentIndex: 1, text: '[图片：照片]', faceId: undefined, imageSegmentIndex: 1 },
     ],
+  });
+  assert.deepEqual(summarizeSegments([inseg.face(14)]), {
+    preview: '[表情：14]',
+    kinds: ['表情'],
+    parts: [{ segmentIndex: 0, text: '[表情：14]', faceId: '14', imageSegmentIndex: undefined }],
   });
 });

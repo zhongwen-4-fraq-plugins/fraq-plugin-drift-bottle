@@ -12,6 +12,7 @@ export interface WebuiContentSummary {
 export interface WebuiContentPart {
   segmentIndex: number;
   text: string;
+  faceId?: string;
   imageSegmentIndex?: number;
 }
 
@@ -196,7 +197,16 @@ export function summarizeSegments(segments: BottleSegment[]): WebuiContentSummar
   const kinds = [...new Set(segments.map((segment) => segmentKind(segment.type)))];
   const parts = segments.flatMap((segment, segmentIndex) => {
     const text = summarizeSegment(segment).replace(/\s+/g, ' ').trim();
-    return text ? [{ segmentIndex, text, imageSegmentIndex: segment.type === 'image' ? segmentIndex : undefined }] : [];
+    return text
+      ? [
+          {
+            segmentIndex,
+            text,
+            faceId: segment.type === 'face' ? segment.data.face_id : undefined,
+            imageSegmentIndex: segment.type === 'image' ? segmentIndex : undefined,
+          },
+        ]
+      : [];
   });
   const preview = parts.map((part) => part.text).join(' ') || '无法预览的内容';
   return {
@@ -215,7 +225,7 @@ function summarizeSegment(segment: BottleSegment): string {
     case 'video':
       return '[视频]';
     case 'face':
-      return '[表情]';
+      return `[表情：${segment.data.face_id}]`;
     case 'market_face':
       return segment.data.summary ? `[动态表情：${segment.data.summary}]` : '[动态表情]';
     case 'forward':

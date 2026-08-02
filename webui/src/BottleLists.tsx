@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 
 import { webuiUrl } from './location';
+import { loadQqFaceAsset, type QqFaceAsset } from './qface';
 
 interface ContentSummary {
   preview: string;
@@ -11,6 +12,7 @@ interface ContentSummary {
 interface ContentPart {
   segmentIndex: number;
   text: string;
+  faceId?: string;
   imageSegmentIndex?: number;
 }
 
@@ -932,12 +934,49 @@ function ContentPreview({
             >
               [点击查看图片]
             </button>
+          ) : part.faceId !== undefined ? (
+            <QqFace faceId={part.faceId} fallback={part.text} />
           ) : (
             part.text
           )}
         </Fragment>
       ))}
     </span>
+  );
+}
+
+function QqFace({ faceId, fallback }: { faceId: string; fallback: string }) {
+  const [asset, setAsset] = useState<QqFaceAsset>();
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setAsset(undefined);
+    setImageFailed(false);
+    void loadQqFaceAsset(faceId)
+      .then((nextAsset) => {
+        if (active) setAsset(nextAsset);
+      })
+      .catch(() => {
+        if (active) setImageFailed(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [faceId]);
+
+  if (!asset || imageFailed) return fallback;
+  return (
+    <img
+      className="content-qq-face"
+      src={asset.url}
+      alt={`[表情：${asset.label}]`}
+      title={asset.label}
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+      onError={() => setImageFailed(true)}
+    />
   );
 }
 

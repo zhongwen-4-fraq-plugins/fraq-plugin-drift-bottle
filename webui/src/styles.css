@@ -973,6 +973,14 @@ textarea {
   text-wrap: pretty;
 }
 
+.content-qq-face {
+  display: inline-block;
+  width: 1.5rem;
+  height: 1.5rem;
+  object-fit: contain;
+  vertical-align: -0.375rem;
+}
+
 .content-image-button {
   display: inline-flex;
   min-height: 2rem;
