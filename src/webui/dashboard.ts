@@ -37,6 +37,10 @@ export interface DashboardSnapshot {
 
 const CHANGELOG: DashboardRelease[] = [
   {
+    version: '0.3.21',
+    items: ['WebUI 会以受限 Markdown 展示合并转发明细，支持嵌套消息和 GFM，并阻止原始 HTML 与外部图片请求。'],
+  },
+  {
     version: '0.3.20',
     items: ['WebUI 普通 QQ 表情会通过 QFace 索引显示真实静态资源，加载失败时保留带表情 ID 的文字回退。'],
   },

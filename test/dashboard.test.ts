@@ -59,7 +59,7 @@ test('主页概览汇总瓶子、待审核、更新日志和完整操作记录',
     fraqVersion: '0.14.0',
     protocolEndpoint: { name: 'Lagrange.Core', version: '1.2.3' },
   });
-  assert.equal(snapshot.changelog[0]?.version, '0.3.20');
+  assert.equal(snapshot.changelog[0]?.version, '0.3.21');
   assert.ok(snapshot.operations.some((operation) => operation.title === '投递漂流瓶'));
   assert.ok(snapshot.operations.some((operation) => operation.title === 'AI 审核未通过'));
   assert.ok(
