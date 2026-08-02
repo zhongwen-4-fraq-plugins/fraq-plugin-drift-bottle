@@ -37,6 +37,10 @@ export interface DashboardSnapshot {
 
 const CHANGELOG: DashboardRelease[] = [
   {
+    version: '0.3.20',
+    items: ['WebUI 普通 QQ 表情会通过 QFace 索引显示真实静态资源，加载失败时保留带表情 ID 的文字回退。'],
+  },
+  {
     version: '0.3.19',
     items: [
       '全部瓶子列表中的评论正文已与评论者名字对齐，提升多行评论的阅读一致性。',
