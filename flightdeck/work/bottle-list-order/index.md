@@ -2,11 +2,12 @@
 
 ## State
 
-WebUI 的普通 QQ 表情消息已通过 QFace 索引显示真实静态表情，并保留安全文字回退；v0.3.20 宿主安装与资源链路通过，等待登录后列表视觉回归。
+WebUI 已将合并转发明细转换为受限 Markdown 展示，并保留无明细摘要；普通 QQ 表情继续通过 QFace 索引显示静态资源。
 
 ## Next
 
 - 登录真实 Fraq 宿主确认普通 QQ 表情、文字回退、桌面表格和移动列表效果。
+- 登录真实 Fraq 宿主确认合并转发 Markdown、嵌套转发和无明细摘要效果。
 - 登录 Fraq 宿主继续确认评论正文对齐、真实评论数据和评论展开效果。
 - 后续如需评论管理，在现有详情接口上增加权限受控的删除操作。
 
@@ -17,6 +18,7 @@ WebUI 的普通 QQ 表情消息已通过 QFace 索引显示真实静态表情，
 - `flightdeck/knowledge/webui/responsive-list-detail-expansion.md`
 - `flightdeck/knowledge/webui/protected-media-preview.md`
 - `flightdeck/knowledge/webui/qface-asset-rendering.md`
+- `flightdeck/knowledge/webui/safe-forward-markdown-rendering.md`
 
 ## Read if
 
@@ -37,10 +39,13 @@ Done:
 - 普通 QQ 表情片段保留字符串 `face_id`，并通过 QFace `_index.json` 的 `assets` 显示对应静态 PNG。
 - QFace 索引请求在前端全局复用；目录越界、无资源、索引或图片失败时回退 `[表情：ID]`。
 - 表情图片使用 24px 固定内联尺寸、描述性替代文本、延迟解码与无 referrer 请求。
+- 合并转发标题、发送者和正文由结构化消息生成 Markdown，并支持两层嵌套转发。
+- Markdown 渲染禁用原始 HTML、限制链接协议，并将外部图片替换为文字占位。
+- GFM 表格和代码块使用局部横向滚动，普通正文在窄栏中保持换行；无消息明细时保留原摘要。
 
 Current:
 
-- QFace 表情显示已随 v0.3.20 发布，宿主资源链路通过；等待登录后与既有列表功能一起做视觉回归。
+- 合并转发 Markdown 已实现并完成组件视觉回归；等待随下个版本发布及登录真实宿主复核。
 
 Verified:
 
@@ -53,6 +58,9 @@ Verified:
 - GitHub Publish 工作流、GitHub Release 与 npm `0.3.19` 发布成功。
 - 真实 Fraq CLI 0.7 宿主安装 `0.3.19`、启动 Kysely/Hono/WebUI 并返回页面与会话接口 `200`。
 - 验证结束后完整 Fraq 进程链已停止，`4649` 端口已释放。
+- `pnpm check`、`pnpm test`（46 项）与 `pnpm build` 通过。
+- Impeccable 检测 0 项；Chrome 900px 桌面及 288px 内容宽度组件截图通过。
+- 原始 HTML 未注入 DOM，Markdown 外部图片只生成文字占位；视觉测试服务已停止且 `5183` 端口释放。
 - `pnpm check`、`pnpm test`（45 项）与 `pnpm build` 通过。
 - Impeccable 检测 0 项；真实 QFace 索引可解析 ID 14“微笑”和 ID 5“流泪”。
 - Chrome 610px 桌面内容与 288px 窄栏预览通过；窄栏 `clientWidth` 与 `scrollWidth` 均为 288px。

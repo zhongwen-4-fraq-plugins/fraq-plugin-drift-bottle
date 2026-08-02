@@ -1,3 +1,5 @@
+import type { milky } from '@fraqjs/fraq';
+
 import type { DriftBottleApi } from '../api/drift-bottle-api.js';
 import type { BottleSegment, DriftBottle } from '../models/index.js';
 import type { BottleStore } from '../persistence/bottle-store.js';
@@ -14,6 +16,7 @@ export interface WebuiContentPart {
   text: string;
   faceId?: string;
   imageSegmentIndex?: number;
+  forwardMarkdown?: string;
 }
 
 export interface WebuiPendingReviewItem {
@@ -197,6 +200,7 @@ export function summarizeSegments(segments: BottleSegment[]): WebuiContentSummar
   const kinds = [...new Set(segments.map((segment) => segmentKind(segment.type)))];
   const parts = segments.flatMap((segment, segmentIndex) => {
     const text = summarizeSegment(segment).replace(/\s+/g, ' ').trim();
+    const forwardMarkdown = segment.type === 'forward' ? createForwardMarkdown(segment) : undefined;
     return text
       ? [
           {
@@ -204,6 +208,7 @@ export function summarizeSegments(segments: BottleSegment[]): WebuiContentSummar
             text,
             faceId: segment.type === 'face' ? segment.data.face_id : undefined,
             imageSegmentIndex: segment.type === 'image' ? segmentIndex : undefined,
+            ...(forwardMarkdown ? { forwardMarkdown } : {}),
           },
         ]
       : [];
@@ -214,6 +219,90 @@ export function summarizeSegments(segments: BottleSegment[]): WebuiContentSummar
     kinds,
     parts,
   };
+}
+
+const MAX_FORWARD_DEPTH = 2;
+
+function createForwardMarkdown(segment: Extract<BottleSegment, { type: 'forward' }>): string | undefined {
+  const messages = forwardedMessages(segment);
+  if (!messages?.length) return undefined;
+  return formatForwardMarkdown(segment, messages, 0);
+}
+
+function formatForwardMarkdown(
+  segment: Extract<milky.IncomingSegment, { type: 'forward' }>,
+  messages: milky.IncomingForwardedMessage[],
+  depth: number,
+): string {
+  const titleLevel = Math.min(3 + depth * 2, 6);
+  const senderLevel = Math.min(titleLevel + 1, 6);
+  const title = escapeMarkdown(segment.data.title || '合并转发');
+  const messageMarkdown = messages.map((message) => {
+    const sender = escapeMarkdown(message.sender_name || '未知发送者');
+    const body = message.segments
+      .map((nested) => formatForwardSegment(nested, depth))
+      .filter(Boolean)
+      .join('\n\n')
+      .trim();
+    return `${'#'.repeat(senderLevel)} ${sender}\n\n${body || '*无法预览的消息*'}`;
+  });
+  return `${'#'.repeat(titleLevel)} ${title}\n\n${messageMarkdown.join('\n\n---\n\n')}`;
+}
+
+function formatForwardSegment(segment: milky.IncomingSegment, depth: number): string {
+  switch (segment.type) {
+    case 'text':
+    case 'markdown':
+      return segment.type === 'text' ? segment.data.text : segment.data.content;
+    case 'mention':
+      return `@${escapeMarkdown(segment.data.name || String(segment.data.user_id))}`;
+    case 'mention_all':
+      return '@全体成员';
+    case 'reply':
+      return segment.data.sender_name
+        ? `[回复：${escapeMarkdown(segment.data.sender_name)}]`
+        : `[回复消息 ${segment.data.message_seq}]`;
+    case 'image':
+      return segment.data.summary && segment.data.summary !== '[image]'
+        ? `[图片：${escapeMarkdown(segment.data.summary)}]`
+        : '[图片]';
+    case 'record':
+      return `[语音：${segment.data.duration} 秒]`;
+    case 'video':
+      return `[视频：${segment.data.duration} 秒]`;
+    case 'file':
+      return `[文件：${escapeMarkdown(segment.data.file_name)}]`;
+    case 'face':
+      return `[表情：${segment.data.face_id}]`;
+    case 'market_face':
+      return segment.data.summary ? `[动态表情：${escapeMarkdown(segment.data.summary)}]` : '[动态表情]';
+    case 'light_app':
+      return `[小程序：${escapeMarkdown(segment.data.app_name)}]`;
+    case 'xml':
+      return '[XML 消息]';
+    case 'forward': {
+      const messages = forwardedMessages(segment);
+      if (messages?.length && depth < MAX_FORWARD_DEPTH) {
+        return formatForwardMarkdown(segment, messages, depth + 1);
+      }
+      return segment.data.title ? `[合并转发：${escapeMarkdown(segment.data.title)}]` : '[合并转发]';
+    }
+  }
+}
+
+function forwardedMessages(
+  segment: Extract<milky.IncomingSegment, { type: 'forward' }>,
+): milky.IncomingForwardedMessage[] | undefined {
+  const data = segment.data as typeof segment.data & { messages?: milky.IncomingForwardedMessage[] };
+  return Array.isArray(data.messages) ? data.messages : undefined;
+}
+
+function escapeMarkdown(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/([\\`*_[\]{}()#+\-.!|])/g, '\\$1');
 }
 
 function summarizeSegment(segment: BottleSegment): string {

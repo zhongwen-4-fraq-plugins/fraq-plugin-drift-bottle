@@ -1,6 +1,7 @@
 import { createMockMilkyClient, inseg } from '@fraqjs/mock';
 
 import { DriftBottleApi } from '../src/api/drift-bottle-api.js';
+import type { BottleSegment } from '../src/models/index.js';
 import { createBottleListPage, createPendingReviewListPage, summarizeSegments } from '../src/webui/lists.js';
 import { createTestStore } from './store.js';
 
@@ -102,4 +103,69 @@ test('WebUI 列表按页返回漂流瓶和待审核摘要', async (t) => {
     kinds: ['表情'],
     parts: [{ segmentIndex: 0, text: '[表情：14]', faceId: '14', imageSegmentIndex: undefined }],
   });
+});
+
+test('WebUI 将合并转发正文转换为 Markdown，并保留无明细时的摘要', () => {
+  const nestedForward = {
+    type: 'forward',
+    data: {
+      forward_id: 'nested-forward',
+      title: '子转发',
+      preview: [],
+      summary: '共 1 条消息',
+      messages: [
+        {
+          message_seq: 2,
+          sender_name: 'Bob',
+          avatar_url: '',
+          time: 1_700_000_001,
+          segments: [
+            { type: 'markdown', data: { content: '| 项目 | 状态 |\n| --- | --- |\n| 测试 | ~~旧~~ **新** |' } },
+          ],
+        },
+      ],
+    },
+  } as BottleSegment;
+  const forward = {
+    type: 'forward',
+    data: {
+      forward_id: 'forward-id',
+      title: '聊天 *记录*',
+      preview: ['预览内容'],
+      summary: '共 1 条消息',
+      messages: [
+        {
+          message_seq: 1,
+          sender_name: 'Alice [管理员]',
+          avatar_url: '',
+          time: 1_700_000_000,
+          segments: [
+            {
+              type: 'text',
+              data: { text: '**加粗正文**\n\n![远程图](https://example.com/image.png)\n\n<script>alert(1)</script>' },
+            },
+            nestedForward,
+          ],
+        },
+      ],
+    },
+  } as BottleSegment;
+
+  const summary = summarizeSegments([forward]);
+  assert.equal(summary.preview, '[合并转发：聊天 *记录*]');
+  assert.equal(
+    summary.parts[0]?.forwardMarkdown,
+    [
+      '### 聊天 \\*记录\\*',
+      '#### Alice \\[管理员\\]',
+      '**加粗正文**\n\n![远程图](https://example.com/image.png)\n\n<script>alert(1)</script>',
+      '##### 子转发',
+      '###### Bob',
+      '| 项目 | 状态 |\n| --- | --- |\n| 测试 | ~~旧~~ **新** |',
+    ].join('\n\n'),
+  );
+
+  const fallback = summarizeSegments([inseg.forward({ title: '只有摘要' })]);
+  assert.equal(fallback.parts[0]?.text, '[合并转发：只有摘要]');
+  assert.equal(fallback.parts[0]?.forwardMarkdown, undefined);
 });

@@ -1,4 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 import { webuiUrl } from './location';
 import { loadQqFaceAsset, type QqFaceAsset } from './qface';
@@ -14,6 +16,7 @@ interface ContentPart {
   text: string;
   faceId?: string;
   imageSegmentIndex?: number;
+  forwardMarkdown?: string;
 }
 
 interface PendingReviewItem {
@@ -922,11 +925,13 @@ function ContentPreview({
 }) {
   const parts = content.parts.length ? content.parts : [{ segmentIndex: 0, text: content.preview }];
   return (
-    <span className="content-preview">
+    <div className="content-preview">
       {parts.map((part, index) => (
         <Fragment key={part.segmentIndex}>
           {index > 0 ? ' ' : null}
-          {part.imageSegmentIndex !== undefined && onImageClick ? (
+          {part.forwardMarkdown ? (
+            <ForwardMarkdown markdown={part.forwardMarkdown} />
+          ) : part.imageSegmentIndex !== undefined && onImageClick ? (
             <button
               type="button"
               className="content-image-button"
@@ -941,7 +946,38 @@ function ContentPreview({
           )}
         </Fragment>
       ))}
-    </span>
+    </div>
+  );
+}
+
+function ForwardMarkdown({ markdown }: { markdown: string }) {
+  return (
+    <div className="content-forward-markdown">
+      <Markdown
+        remarkPlugins={[remarkGfm]}
+        skipHtml
+        components={{
+          a: ({ href, children }) => {
+            const safeHref = href && /^https?:\/\//i.test(href) ? href : undefined;
+            return safeHref ? (
+              <a href={safeHref} target="_blank" rel="noreferrer noopener">
+                {children}
+              </a>
+            ) : (
+              <span>{children}</span>
+            );
+          },
+          img: ({ alt }) => <span className="content-markdown-image">{alt ? `[图片：${alt}]` : '[图片]'}</span>,
+          table: ({ children }) => (
+            <div className="content-markdown-table" role="region" aria-label="转发消息表格" tabIndex={0}>
+              <table>{children}</table>
+            </div>
+          ),
+        }}
+      >
+        {markdown}
+      </Markdown>
+    </div>
   );
 }
 
