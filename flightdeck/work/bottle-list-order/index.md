@@ -2,12 +2,12 @@
 
 ## State
 
-WebUI 已将合并转发明细转换为受限 Markdown 展示，并保留无明细摘要；准备随 v0.3.21 发布并进行宿主回归。
+WebUI 已将合并转发明细转换为受限 Markdown 展示，并保留无明细摘要；已随 v0.3.21 发布且宿主资源链路通过。
 
 ## Next
 
 - 登录真实 Fraq 宿主确认普通 QQ 表情、文字回退、桌面表格和移动列表效果。
-- 发布 v0.3.21，并登录真实 Fraq 宿主确认合并转发 Markdown、嵌套转发和无明细摘要效果。
+- 登录真实 Fraq 宿主确认合并转发 Markdown、嵌套转发和无明细摘要效果。
 - 登录 Fraq 宿主继续确认评论正文对齐、真实评论数据和评论展开效果。
 - 后续如需评论管理，在现有详情接口上增加权限受控的删除操作。
 
@@ -45,7 +45,7 @@ Done:
 
 Current:
 
-- 合并转发 Markdown 已实现并完成组件视觉回归；准备随 v0.3.21 发布及登录真实宿主复核。
+- 合并转发 Markdown 已随 v0.3.21 发布，宿主安装与资源链路通过；等待登录后视觉回归。
 
 Verified:
 
@@ -61,6 +61,9 @@ Verified:
 - `pnpm check`、`pnpm test`（46 项）与 `pnpm build` 通过。
 - Impeccable 检测 0 项；Chrome 900px 桌面及 288px 内容宽度组件截图通过。
 - 原始 HTML 未注入 DOM，Markdown 外部图片只生成文字占位；视觉测试服务已停止且 `5183` 端口释放。
+- GitHub Publish 工作流、GitHub Release 与 npm `0.3.21` 发布成功。
+- 真实 Fraq CLI 0.7 宿主安装 `0.3.21` 并启动 Kysely/Hono/WebUI；页面、会话和前端资源均返回 `200`。
+- 发布 bundle 包含 `0.3.21` 版本号、合并转发表格语义和 Markdown 样式；验证后完整进程链已停止，`4649` 端口释放。
 - `pnpm check`、`pnpm test`（45 项）与 `pnpm build` 通过。
 - Impeccable 检测 0 项；真实 QFace 索引可解析 ID 14“微笑”和 ID 5“流泪”。
 - Chrome 610px 桌面内容与 288px 窄栏预览通过；窄栏 `clientWidth` 与 `scrollWidth` 均为 288px。
