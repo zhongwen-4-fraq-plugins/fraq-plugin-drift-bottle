@@ -16,9 +16,14 @@ interface ContentPart {
   text: string;
   faceId?: string;
   imageSegmentIndex?: number;
-  forwardMarkdown?: string;
-  forwardPreviewMarkdown?: string;
+  forwardMessages?: ForwardMessage[];
   forwardMessageCount?: number;
+}
+
+interface ForwardMessage {
+  sequence: number;
+  sender: string;
+  markdown: string;
 }
 
 interface ForwardExpansion {
@@ -970,10 +975,9 @@ function ContentPreview({
       {parts.map((part, index) => (
         <Fragment key={part.segmentIndex}>
           {index > 0 ? ' ' : null}
-          {part.forwardMarkdown ? (
-            <ForwardMarkdown
-              markdown={part.forwardMarkdown}
-              previewMarkdown={part.forwardPreviewMarkdown}
+          {part.forwardMessages?.length ? (
+            <ForwardMessages
+              messages={part.forwardMessages}
               messageCount={part.forwardMessageCount ?? 0}
               expanded={forwardExpansion.expandedKeys.has(`${contentId}:${part.segmentIndex}`)}
               panelId={`forward-messages-${view}-${contentId}-${part.segmentIndex}`}
@@ -998,49 +1002,32 @@ function ContentPreview({
   );
 }
 
-function ForwardMarkdown({
-  markdown,
-  previewMarkdown,
+function ForwardMessages({
+  messages,
   messageCount,
   expanded,
   panelId,
   onToggle,
 }: {
-  markdown: string;
-  previewMarkdown?: string;
+  messages: ForwardMessage[];
   messageCount: number;
   expanded: boolean;
   panelId: string;
   onToggle: () => void;
 }) {
-  const expandable = Boolean(previewMarkdown) && messageCount > 4;
+  const expandable = messageCount > 4;
+  const visibleMessages = expanded ? messages : messages.slice(0, 4);
   return (
     <div className="content-forward-markdown">
       <div id={panelId} className="content-forward-markdown-body">
-        <Markdown
-          remarkPlugins={[remarkGfm]}
-          skipHtml
-          components={{
-            a: ({ href, children }) => {
-              const safeHref = href && /^https?:\/\//i.test(href) ? href : undefined;
-              return safeHref ? (
-                <a href={safeHref} target="_blank" rel="noreferrer noopener">
-                  {children}
-                </a>
-              ) : (
-                <span>{children}</span>
-              );
-            },
-            img: ({ alt }) => <span className="content-markdown-image">{alt ? `[图片：${alt}]` : '[图片]'}</span>,
-            table: ({ children }) => (
-              <div className="content-markdown-table" role="region" aria-label="转发消息表格" tabIndex={0}>
-                <table>{children}</table>
-              </div>
-            ),
-          }}
-        >
-          {expandable && !expanded ? previewMarkdown : markdown}
-        </Markdown>
+        {visibleMessages.map((message) => (
+          <div className="content-forward-message" key={`${message.sequence}:${message.sender}`}>
+            <strong>{message.sender}：</strong>
+            <div className="content-forward-message-body">
+              <ForwardMessageMarkdown markdown={message.markdown} />
+            </div>
+          </div>
+        ))}
       </div>
       {expandable ? (
         <button
@@ -1057,6 +1044,35 @@ function ForwardMarkdown({
         </button>
       ) : null}
     </div>
+  );
+}
+
+function ForwardMessageMarkdown({ markdown }: { markdown: string }) {
+  return (
+    <Markdown
+      remarkPlugins={[remarkGfm]}
+      skipHtml
+      components={{
+        a: ({ href, children }) => {
+          const safeHref = href && /^https?:\/\//i.test(href) ? href : undefined;
+          return safeHref ? (
+            <a href={safeHref} target="_blank" rel="noreferrer noopener">
+              {children}
+            </a>
+          ) : (
+            <span>{children}</span>
+          );
+        },
+        img: ({ alt }) => <span className="content-markdown-image">{alt ? `[图片：${alt}]` : '[图片]'}</span>,
+        table: ({ children }) => (
+          <div className="content-markdown-table" role="region" aria-label="转发消息表格" tabIndex={0}>
+            <table>{children}</table>
+          </div>
+        ),
+      }}
+    >
+      {markdown}
+    </Markdown>
   );
 }
 

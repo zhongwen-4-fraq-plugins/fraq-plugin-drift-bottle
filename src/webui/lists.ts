@@ -16,9 +16,14 @@ export interface WebuiContentPart {
   text: string;
   faceId?: string;
   imageSegmentIndex?: number;
-  forwardMarkdown?: string;
-  forwardPreviewMarkdown?: string;
+  forwardMessages?: WebuiForwardMessage[];
   forwardMessageCount?: number;
+}
+
+export interface WebuiForwardMessage {
+  sequence: number;
+  sender: string;
+  markdown: string;
 }
 
 export interface WebuiPendingReviewItem {
@@ -202,7 +207,7 @@ export function summarizeSegments(segments: BottleSegment[]): WebuiContentSummar
   const kinds = [...new Set(segments.map((segment) => segmentKind(segment.type)))];
   const parts = segments.flatMap((segment, segmentIndex) => {
     const text = summarizeSegment(segment).replace(/\s+/g, ' ').trim();
-    const forward = segment.type === 'forward' ? createForwardMarkdown(segment) : undefined;
+    const forward = segment.type === 'forward' ? createForwardMessages(segment) : undefined;
     return text
       ? [
           {
@@ -225,36 +230,44 @@ export function summarizeSegments(segments: BottleSegment[]): WebuiContentSummar
 
 const MAX_FORWARD_DEPTH = 2;
 
-function createForwardMarkdown(
+function createForwardMessages(
   segment: Extract<BottleSegment, { type: 'forward' }>,
-): Pick<WebuiContentPart, 'forwardMarkdown' | 'forwardPreviewMarkdown' | 'forwardMessageCount'> | undefined {
+): Pick<WebuiContentPart, 'forwardMessages' | 'forwardMessageCount'> | undefined {
   const messages = forwardedMessages(segment);
   if (!messages?.length) return undefined;
   return {
-    forwardMarkdown: formatForwardMarkdown(segment, messages, 0),
-    forwardPreviewMarkdown: formatForwardMarkdown(segment, messages.slice(0, 4), 0),
+    forwardMessages: messages.map((message) => ({
+      sequence: message.message_seq,
+      sender: message.sender_name || '未知发送者',
+      markdown: formatForwardMessageBody(message, 0),
+    })),
     forwardMessageCount: messages.length,
   };
 }
 
-function formatForwardMarkdown(
+function formatNestedForwardMarkdown(
   segment: Extract<milky.IncomingSegment, { type: 'forward' }>,
   messages: milky.IncomingForwardedMessage[],
   depth: number,
 ): string {
-  const titleLevel = Math.min(3 + depth * 2, 6);
-  const senderLevel = Math.min(titleLevel + 1, 6);
   const title = escapeMarkdown(segment.data.title || '合并转发');
   const messageMarkdown = messages.map((message) => {
     const sender = escapeMarkdown(message.sender_name || '未知发送者');
-    const body = message.segments
+    const body = formatForwardMessageBody(message, depth);
+    const separator = /^(?: {0,3}(?:#{1,6}\s|>|[-+*]\s|\d+[.)]\s|```|~~~|\|))/.test(body) ? '\n\n' : '';
+    return `**${sender}**：${separator}${body}`;
+  });
+  return `**${title}**\n\n${messageMarkdown.join('\n\n')}`;
+}
+
+function formatForwardMessageBody(message: milky.IncomingForwardedMessage, depth: number): string {
+  return (
+    message.segments
       .map((nested) => formatForwardSegment(nested, depth))
       .filter(Boolean)
       .join('\n\n')
-      .trim();
-    return `${'#'.repeat(senderLevel)} ${sender}\n\n${body || '*无法预览的消息*'}`;
-  });
-  return `${'#'.repeat(titleLevel)} ${title}\n\n${messageMarkdown.join('\n\n---\n\n')}`;
+      .trim() || '*无法预览的消息*'
+  );
 }
 
 function formatForwardSegment(segment: milky.IncomingSegment, depth: number): string {
@@ -291,7 +304,7 @@ function formatForwardSegment(segment: milky.IncomingSegment, depth: number): st
     case 'forward': {
       const messages = forwardedMessages(segment);
       if (messages?.length && depth < MAX_FORWARD_DEPTH) {
-        return formatForwardMarkdown(segment, messages, depth + 1);
+        return formatNestedForwardMarkdown(segment, messages, depth + 1);
       }
       return segment.data.title ? `[合并转发：${escapeMarkdown(segment.data.title)}]` : '[合并转发]';
     }

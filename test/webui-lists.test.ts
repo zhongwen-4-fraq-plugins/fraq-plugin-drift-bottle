@@ -153,26 +153,25 @@ test('WebUI 将合并转发正文转换为 Markdown，并保留无明细时的�
 
   const summary = summarizeSegments([forward]);
   assert.equal(summary.preview, '[合并转发：聊天 *记录*]');
-  assert.equal(
-    summary.parts[0]?.forwardMarkdown,
-    [
-      '### 聊天 \\*记录\\*',
-      '#### Alice \\[管理员\\]',
-      '**加粗正文**\n\n![远程图](https://example.com/image.png)\n\n<script>alert(1)</script>',
-      '##### 子转发',
-      '###### Bob',
-      '| 项目 | 状态 |\n| --- | --- |\n| 测试 | ~~旧~~ **新** |',
-    ].join('\n\n'),
-  );
-  assert.equal(summary.parts[0]?.forwardPreviewMarkdown, summary.parts[0]?.forwardMarkdown);
+  assert.deepEqual(summary.parts[0]?.forwardMessages, [
+    {
+      sequence: 1,
+      sender: 'Alice [管理员]',
+      markdown: [
+        '**加粗正文**\n\n![远程图](https://example.com/image.png)\n\n<script>alert(1)</script>',
+        '**子转发**',
+        '**Bob**：\n\n| 项目 | 状态 |\n| --- | --- |\n| 测试 | ~~旧~~ **新** |',
+      ].join('\n\n'),
+    },
+  ]);
   assert.equal(summary.parts[0]?.forwardMessageCount, 1);
 
   const fallback = summarizeSegments([inseg.forward({ title: '只有摘要' })]);
   assert.equal(fallback.parts[0]?.text, '[合并转发：只有摘要]');
-  assert.equal(fallback.parts[0]?.forwardMarkdown, undefined);
+  assert.equal(fallback.parts[0]?.forwardMessages, undefined);
 });
 
-test('WebUI 合并转发预览只包含前四条消息', () => {
+test('WebUI 合并转发按消息返回内容且不生成分割线', () => {
   const forward = {
     type: 'forward',
     data: {
@@ -192,7 +191,7 @@ test('WebUI 合并转发预览只包含前四条消息', () => {
 
   const part = summarizeSegments([forward]).parts[0];
   assert.equal(part?.forwardMessageCount, 5);
-  assert.match(part?.forwardPreviewMarkdown ?? '', /消息 4/);
-  assert.doesNotMatch(part?.forwardPreviewMarkdown ?? '', /消息 5/);
-  assert.match(part?.forwardMarkdown ?? '', /消息 5/);
+  assert.equal(part?.forwardMessages?.[3]?.markdown, '消息 4');
+  assert.equal(part?.forwardMessages?.[4]?.markdown, '消息 5');
+  assert.ok(part?.forwardMessages?.every((message) => !message.markdown.includes('\n---\n')));
 });

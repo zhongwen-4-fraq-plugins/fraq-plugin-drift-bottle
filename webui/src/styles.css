@@ -982,11 +982,32 @@ textarea {
   background: var(--color-surface);
 }
 
-.content-forward-markdown-body > :first-child {
-  margin-block-start: 0;
+.content-forward-markdown-body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-xs);
 }
 
-.content-forward-markdown-body > :last-child {
+.content-forward-message {
+  min-width: 0;
+}
+
+.content-forward-message > strong {
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.content-forward-message-body {
+  display: contents;
+}
+
+.content-forward-message-body > p:first-child {
+  display: inline;
+  margin: 0;
+}
+
+.content-forward-message-body > :last-child {
   margin-block-end: 0;
 }
 
