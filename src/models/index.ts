@@ -36,6 +36,14 @@ export interface NewDriftBottle {
   segments: BottleSegment[];
 }
 
+export type BottleUpdateInput = Pick<NewDriftBottle, 'senderId' | 'displayName' | 'source'> & {
+  content?: string;
+};
+
+export type UpdateBottleResult =
+  | { status: 'updated'; bottle: DriftBottle }
+  | { status: 'not-found' | 'content-read-only' };
+
 export interface BottleComment {
   id: string;
   bottleId: string;
@@ -52,6 +60,7 @@ export type BottleOperationAction =
   | 'bottle-picked'
   | 'comment-created'
   | 'bottle-deleted'
+  | 'bottle-updated'
   | 'signature-updated'
   | 'moderator-added'
   | 'moderator-removed'

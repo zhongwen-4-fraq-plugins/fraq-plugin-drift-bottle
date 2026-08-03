@@ -1,6 +1,7 @@
 import type { HonoService } from '@fraqjs/plugin-hono';
 
 import type { BottleComments, BottleImageResult } from '../api/drift-bottle-api.js';
+import type { BottleUpdateInput, DriftBottle, NewDriftBottle, UpdateBottleResult } from '../models/index.js';
 import type { ApproveModerationRecordResult, RejectModerationRecordResult } from '../persistence/bottle-store.js';
 import { isValidWebuiPassword, parseQqAccount, type WebuiAuth } from './auth.js';
 import type { DashboardSnapshot } from './dashboard.js';
@@ -32,6 +33,9 @@ export interface WebuiRouteOptions {
   bottles: (page: number) => Promise<WebuiListPage<WebuiBottleListItem>>;
   bottleComments: (id: string) => Promise<BottleComments | undefined>;
   bottleImage: (id: string, segmentIndex: number) => Promise<BottleImageResult>;
+  createBottle: (input: NewDriftBottle, actorId: number) => Promise<DriftBottle>;
+  updateBottle: (id: string, input: BottleUpdateInput, actorId: number) => Promise<UpdateBottleResult>;
+  deleteBottle: (id: string, actorId: number) => Promise<boolean>;
   pendingReviews: (page: number) => Promise<WebuiListPage<WebuiPendingReviewItem>>;
   canModerate: (userId: number) => Promise<boolean>;
   approveReview: (id: string, actorId: number) => Promise<ApproveModerationRecordResult>;
@@ -233,6 +237,71 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
       'Cache-Control': 'no-store',
     });
   });
+  service.app.post(`${basePath}/api/bottles`, async (context) => {
+    const userId = options.auth.sessionUserId(readSessionCookie(context.req.header('cookie')));
+    if (userId === undefined) {
+      return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
+    }
+    if (!options.ownerIds.includes(userId) && !(await options.canModerate(userId))) {
+      return context.json({ error: '仅插件主人或管理员可以新增漂流瓶' }, 403, { 'Cache-Control': 'no-store' });
+    }
+
+    const parsed = await readBottleInput(
+      context.req.json().catch(() => undefined),
+      true,
+    );
+    if ('error' in parsed) {
+      return context.json({ error: parsed.error }, 400, { 'Cache-Control': 'no-store' });
+    }
+    const bottle = await options.createBottle(
+      {
+        senderId: parsed.value.senderId,
+        displayName: parsed.value.displayName,
+        source: parsed.value.source,
+        segments: [{ type: 'text', data: { text: parsed.value.content as string } }],
+      },
+      userId,
+    );
+    return context.json({ id: bottle.id }, 201, { 'Cache-Control': 'no-store' });
+  });
+  service.app.put(`${basePath}/api/bottles/:id`, async (context) => {
+    const userId = options.auth.sessionUserId(readSessionCookie(context.req.header('cookie')));
+    if (userId === undefined) {
+      return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
+    }
+    if (!options.ownerIds.includes(userId) && !(await options.canModerate(userId))) {
+      return context.json({ error: '仅插件主人或管理员可以修改漂流瓶' }, 403, { 'Cache-Control': 'no-store' });
+    }
+
+    const parsed = await readBottleInput(
+      context.req.json().catch(() => undefined),
+      false,
+    );
+    if ('error' in parsed) {
+      return context.json({ error: parsed.error }, 400, { 'Cache-Control': 'no-store' });
+    }
+    const result = await options.updateBottle(context.req.param('id'), parsed.value, userId);
+    if (result.status === 'updated') {
+      return context.json({ status: result.status }, 200, { 'Cache-Control': 'no-store' });
+    }
+    if (result.status === 'content-read-only') {
+      return context.json({ error: '含非文本消息段的漂流瓶不能修改正文' }, 409, { 'Cache-Control': 'no-store' });
+    }
+    return context.json({ error: '没有找到这个漂流瓶' }, 404, { 'Cache-Control': 'no-store' });
+  });
+  service.app.delete(`${basePath}/api/bottles/:id`, async (context) => {
+    const userId = options.auth.sessionUserId(readSessionCookie(context.req.header('cookie')));
+    if (userId === undefined) {
+      return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
+    }
+    if (!options.ownerIds.includes(userId) && !(await options.canModerate(userId))) {
+      return context.json({ error: '仅插件主人或管理员可以删除漂流瓶' }, 403, { 'Cache-Control': 'no-store' });
+    }
+    if (!(await options.deleteBottle(context.req.param('id'), userId))) {
+      return context.json({ error: '没有找到这个漂流瓶' }, 404, { 'Cache-Control': 'no-store' });
+    }
+    return context.body(null, 204, { 'Cache-Control': 'no-store' });
+  });
   service.app.get(`${basePath}/api/bottles/:id/images/:index`, async (context) => {
     if (!options.auth.isSessionValid(readSessionCookie(context.req.header('cookie')))) {
       return context.json({ error: '登录已过期，请重新登录' }, 401, { 'Cache-Control': 'no-store' });
@@ -384,6 +453,41 @@ function readRejectionReason(body: unknown): string | undefined {
   }
   const reason = body.reason.trim();
   return reason && [...reason].length <= 500 ? reason : undefined;
+}
+
+async function readBottleInput(
+  bodyRequest: Promise<unknown>,
+  contentRequired: boolean,
+): Promise<{ value: BottleUpdateInput } | { error: string }> {
+  const body = await bodyRequest;
+  if (!body || typeof body !== 'object') return { error: '请求格式无效' };
+
+  const senderId = 'senderId' in body ? parseQqAccount(String(body.senderId)) : undefined;
+  const peerId = 'peerId' in body && typeof body.peerId === 'number' ? body.peerId : undefined;
+  const scene = 'scene' in body && typeof body.scene === 'string' ? body.scene : undefined;
+  if (!senderId) return { error: '请输入有效的发送者 QQ 号' };
+  if (!Number.isSafeInteger(peerId) || !peerId || peerId < 1) return { error: '请输入有效的来源 ID' };
+  if (scene !== 'friend' && scene !== 'group' && scene !== 'temp') return { error: '请选择有效的会话类型' };
+
+  const displayName = 'displayName' in body && typeof body.displayName === 'string' ? body.displayName.trim() : '';
+  if ([...displayName].length > 50) return { error: '显示名称不能超过 50 个字符' };
+
+  const hasContent = 'content' in body;
+  const rawContent = hasContent ? body.content : undefined;
+  if ((contentRequired || hasContent) && typeof rawContent !== 'string') return { error: '请输入漂流瓶内容' };
+  const content = typeof rawContent === 'string' ? rawContent.trim() : undefined;
+  if (content !== undefined && (!content || [...content].length > 500)) {
+    return { error: '漂流瓶内容不能为空，且不能超过 500 个字符' };
+  }
+
+  return {
+    value: {
+      senderId,
+      displayName: displayName || undefined,
+      source: { scene, peerId },
+      ...(content === undefined ? {} : { content }),
+    },
+  };
 }
 
 function readSettings(body: unknown): { value: EditableWebuiSettings } | { error: string } {

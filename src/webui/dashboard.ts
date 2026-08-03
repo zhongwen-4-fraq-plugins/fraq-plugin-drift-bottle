@@ -182,6 +182,8 @@ function formatDomainOperation(record: BottleOperationRecord): DashboardOperatio
       return operation(record, '发布漂流瓶评论', joinDetail(actor, bottle), 'success');
     case 'bottle-deleted':
       return operation(record, '删除漂流瓶', joinDetail(actor, bottle), 'warning');
+    case 'bottle-updated':
+      return operation(record, '修改漂流瓶', joinDetail(actor, bottle));
     case 'signature-updated':
       return operation(record, '更新漂流瓶署名', joinDetail(actor, signatureLabel(record.detail)));
     case 'moderator-added':

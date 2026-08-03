@@ -120,7 +120,9 @@ export default definePlugin({
       bottleImage: (id, segmentIndex) => api.bottleImage(id, segmentIndex),
       bottles: (page) => createBottleListPage(api, page),
       canModerate: (userId) => api.isModerator(userId),
+      createBottle: (input, actorId) => api.add(input, actorId),
       dashboard: () => createDashboardSnapshot(api, instanceStartedAt, runtime),
+      deleteBottle: (id, actorId) => api.deleteBottle(id, actorId),
       ownerIds,
       pendingReviews: (page) => createPendingReviewListPage(api, page),
       rejectReview: (id, actorId, reason) => api.rejectModerationRecord(id, actorId, reason),
@@ -138,6 +140,7 @@ export default definePlugin({
         }
         return settings.snapshot();
       },
+      updateBottle: (id, input, actorId) => api.updateBottle(id, input, actorId),
     });
     settings.setActiveWebuiPath(webuiPath);
     ctx.logger.info(`漂流瓶 WebUI：${buildWebuiUrl(ctx.hono, webuiPath)}`);

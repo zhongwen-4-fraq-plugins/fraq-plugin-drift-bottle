@@ -49,6 +49,7 @@ export interface WebuiBottleListItem {
   commentCount: number;
   senderId: number;
   displayName?: string;
+  editableText?: string;
   content: WebuiContentSummary;
   source: {
     scene: string;
@@ -189,12 +190,15 @@ function moderationTargetLabel(target: ModerationRecord['target']): string {
 }
 
 function formatBottle(bottle: DriftBottle, commentCount: number): WebuiBottleListItem {
+  const textSegment =
+    bottle.segments.length === 1 && bottle.segments[0]?.type === 'text' ? bottle.segments[0] : undefined;
   return {
     id: bottle.id,
     createdAt: bottle.createdAt,
     commentCount,
     senderId: bottle.senderId,
     displayName: bottle.displayName,
+    editableText: textSegment?.data.text,
     content: summarizeSegments(bottle.segments as BottleSegment[]),
     source: {
       scene: bottle.source.scene,

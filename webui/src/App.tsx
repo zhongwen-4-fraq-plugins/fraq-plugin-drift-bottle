@@ -285,7 +285,9 @@ export function App() {
           {mainPage === 'pending' ? (
             <PendingReviewList canModerate={canModerate} onSessionExpired={handleSessionExpired} />
           ) : null}
-          {mainPage === 'bottles' ? <AllBottleList onSessionExpired={handleSessionExpired} /> : null}
+          {mainPage === 'bottles' ? (
+            <AllBottleList canManage={canModerate} onSessionExpired={handleSessionExpired} />
+          ) : null}
           {mainPage === 'registrations' && isOwner ? (
             <RegistrationRequests onSessionExpired={handleSessionExpired} />
           ) : null}

@@ -73,6 +73,7 @@ test('WebUI 列表按页返回漂流瓶和待审核摘要', async (t) => {
   assert.equal(firstBottlePage.items.length, 20);
   assert.equal(firstBottlePage.items[0]?.displayName, '海风');
   assert.equal(firstBottlePage.items[0]?.content.preview, '漂流瓶 20');
+  assert.equal(firstBottlePage.items[0]?.editableText, '漂流瓶 20');
   assert.equal(firstBottlePage.items[0]?.commentCount, 1);
   assert.equal(firstBottlePage.items[1]?.commentCount, 0);
   const lastBottlePage = await createBottleListPage(api, 99);

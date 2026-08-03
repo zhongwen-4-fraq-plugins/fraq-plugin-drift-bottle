@@ -74,6 +74,63 @@ test('公开 API 可以脱离命令路由完成漂流瓶操作', async (t) => {
   );
 });
 
+test('公开 API 可以修改漂流瓶并记录管理操作', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-api-update-'));
+  const store = await createTestStore(t, join(directory, 'bottles.db'));
+  const api = new DriftBottleApi(createMockMilkyClient(), store, async () => ({
+    approved: true,
+    categories: [],
+    reason: '',
+  }));
+  t.after(async () => {
+    await store.dispose();
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  const bottle = await api.add({
+    senderId: 10001,
+    source: { scene: 'group', peerId: 20001 },
+    segments: [inseg.text('原内容')],
+  });
+  const updated = await api.updateBottle(
+    bottle.id,
+    {
+      senderId: 10002,
+      displayName: '海风',
+      source: { scene: 'friend', peerId: 10002 },
+      content: '新内容',
+    },
+    90001,
+  );
+  assert.equal(updated.status, 'updated');
+  if (updated.status === 'updated') {
+    assert.equal(updated.bottle.senderId, 10002);
+    assert.deepEqual(updated.bottle.segments, [inseg.text('新内容')]);
+  }
+
+  const mediaBottle = await api.add({
+    senderId: 10003,
+    source: { scene: 'group', peerId: 20001 },
+    segments: [inseg.text('图文'), inseg.image({ summary: '图片' })],
+  });
+  assert.deepEqual(
+    await api.updateBottle(mediaBottle.id, {
+      senderId: 10003,
+      source: { scene: 'group', peerId: 20001 },
+      content: '不能覆盖图文消息',
+    }),
+    { status: 'content-read-only' },
+  );
+  assert.deepEqual(
+    await api.updateBottle('missing', {
+      senderId: 10003,
+      source: { scene: 'group', peerId: 20001 },
+    }),
+    { status: 'not-found' },
+  );
+  assert.equal((await api.operationRecords()).filter(({ action }) => action === 'bottle-updated').length, 1);
+});
+
 test('投瓶审核会携带人工投放所需的完整草稿上下文', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'fraq-drift-bottle-api-review-'));
   const client = createMockMilkyClient();

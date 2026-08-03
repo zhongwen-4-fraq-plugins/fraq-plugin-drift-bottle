@@ -1,5 +1,6 @@
 import { HonoService } from '@fraqjs/plugin-hono';
 
+import type { BottleUpdateInput, NewDriftBottle } from '../src/models/index.js';
 import { WebuiAuth } from '../src/webui/auth.js';
 import { createRegistrationRequestListPage } from '../src/webui/lists.js';
 import { registerWebuiRoutes } from '../src/webui/routes.js';
@@ -30,6 +31,9 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   assert.ok(initialCredential);
   const registrations: number[] = [];
   const rejectedReviews: { actorId: number; id: string; reason: string }[] = [];
+  const createdBottles: { actorId: number; input: NewDriftBottle }[] = [];
+  const updatedBottles: { actorId: number; id: string; input: BottleUpdateInput }[] = [];
+  const deletedBottles: { actorId: number; id: string }[] = [];
   const dashboard = {
     generatedAt: 1_700_000_001_000,
     instanceStartedAt: 1_700_000_000_000,
@@ -98,7 +102,16 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
     },
     bottles: async () => bottles,
     canModerate: async (userId) => userId === 333333333,
+    createBottle: async (input, actorId) => {
+      createdBottles.push({ actorId, input });
+      return { ...input, id: 'created-bottle', createdAt: 1_700_000_004_000 };
+    },
     dashboard: async () => dashboard,
+    deleteBottle: async (id, actorId) => {
+      if (id === 'missing') return false;
+      deletedBottles.push({ actorId, id });
+      return true;
+    },
     directory,
     ownerIds: [123456789],
     pendingReviews: async () => pendingReviews,
@@ -121,6 +134,22 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
         restartRequired: settings.webuiPath !== pluginSettings.activeWebuiPath,
       };
       return pluginSettings;
+    },
+    updateBottle: async (id, input, actorId) => {
+      if (id === 'missing') return { status: 'not-found' };
+      if (id === 'readonly') return { status: 'content-read-only' };
+      updatedBottles.push({ actorId, id, input });
+      return {
+        status: 'updated',
+        bottle: {
+          id,
+          createdAt: 1_700_000_004_000,
+          senderId: input.senderId,
+          displayName: input.displayName,
+          source: input.source,
+          segments: [{ type: 'text', data: { text: input.content ?? '原内容' } }],
+        },
+      };
     },
   });
   assert.equal(basePath, '/manage/drift-bottle');
@@ -448,6 +477,123 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
   });
   assert.equal(authenticatedBottles.status, 200);
   assert.deepEqual(await authenticatedBottles.json(), bottles);
+
+  assert.equal(
+    (
+      await hono.app.request('http://localhost/manage/drift-bottle/api/bottles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ senderId: 12345, scene: 'group', peerId: 20001, content: '未登录' }),
+      })
+    ).status,
+    401,
+  );
+  assert.equal(
+    (
+      await hono.app.request('http://localhost/manage/drift-bottle/api/bottles', {
+        method: 'POST',
+        headers: { Cookie: memberCookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ senderId: 12345, scene: 'group', peerId: 20001, content: '无权限' }),
+      })
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await hono.app.request('http://localhost/manage/drift-bottle/api/bottles', {
+        method: 'POST',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ senderId: 12, scene: 'group', peerId: 20001, content: '' }),
+      })
+    ).status,
+    400,
+  );
+
+  const createdBottle = await hono.app.request('http://localhost/manage/drift-bottle/api/bottles', {
+    method: 'POST',
+    headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      senderId: 12345,
+      displayName: ' 海风 ',
+      scene: 'group',
+      peerId: 20001,
+      content: ' 新增内容 ',
+    }),
+  });
+  assert.equal(createdBottle.status, 201);
+  assert.deepEqual(await createdBottle.json(), { id: 'created-bottle' });
+  assert.deepEqual(createdBottles, [
+    {
+      actorId: 123456789,
+      input: {
+        senderId: 12345,
+        displayName: '海风',
+        source: { scene: 'group', peerId: 20001 },
+        segments: [{ type: 'text', data: { text: '新增内容' } }],
+      },
+    },
+  ]);
+
+  const updatedBottle = await hono.app.request('http://localhost/manage/drift-bottle/api/bottles/editable', {
+    method: 'PUT',
+    headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      senderId: 54321,
+      displayName: '',
+      scene: 'friend',
+      peerId: 54321,
+      content: '修改内容',
+    }),
+  });
+  assert.equal(updatedBottle.status, 200);
+  assert.deepEqual(updatedBottles, [
+    {
+      actorId: 123456789,
+      id: 'editable',
+      input: {
+        senderId: 54321,
+        displayName: undefined,
+        source: { scene: 'friend', peerId: 54321 },
+        content: '修改内容',
+      },
+    },
+  ]);
+  assert.equal(
+    (
+      await hono.app.request('http://localhost/manage/drift-bottle/api/bottles/readonly', {
+        method: 'PUT',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ senderId: 54321, scene: 'friend', peerId: 54321, content: '不能改' }),
+      })
+    ).status,
+    409,
+  );
+  assert.equal(
+    (
+      await hono.app.request('http://localhost/manage/drift-bottle/api/bottles/missing', {
+        method: 'PUT',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ senderId: 54321, scene: 'friend', peerId: 54321 }),
+      })
+    ).status,
+    404,
+  );
+
+  const deletedBottle = await hono.app.request('http://localhost/manage/drift-bottle/api/bottles/deletable', {
+    method: 'DELETE',
+    headers: { Cookie: cookie },
+  });
+  assert.equal(deletedBottle.status, 204);
+  assert.deepEqual(deletedBottles, [{ actorId: 123456789, id: 'deletable' }]);
+  assert.equal(
+    (
+      await hono.app.request('http://localhost/manage/drift-bottle/api/bottles/missing', {
+        method: 'DELETE',
+        headers: { Cookie: cookie },
+      })
+    ).status,
+    404,
+  );
 
   const authenticatedComments = await hono.app.request(
     'http://localhost/manage/drift-bottle/api/bottles/bottle-with-comments/comments',

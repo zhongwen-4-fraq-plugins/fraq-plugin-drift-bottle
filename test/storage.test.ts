@@ -102,6 +102,33 @@ test('漂流瓶会持久化，并可选择捡取后是否删除', async (t) => {
     source: { scene: 'group', peerId: 20001 },
     segments: [{ type: 'text', data: { text: '第二条' } }],
   });
+  const updatedFirstBottle = await store.updateBottle(firstBottle.id, {
+    senderId: 10005,
+    displayName: '新署名',
+    source: { scene: 'group', peerId: 20005 },
+    segments: [{ type: 'text', data: { text: '修改后的第一条' } }],
+  });
+  assert.equal(updatedFirstBottle?.senderId, 10005);
+  assert.equal(updatedFirstBottle?.displayName, '新署名');
+  assert.equal(updatedFirstBottle?.segments[0]?.type, 'text');
+  assert.equal(await store.isBottleOwner(firstBottle.id, 10001), false);
+  assert.equal(await store.isBottleOwner(firstBottle.id, 10005), true);
+  assert.ok(
+    await store.updateBottle(firstBottle.id, {
+      senderId: 10005,
+      displayName: '新署名',
+      source: { scene: 'group', peerId: 20005 },
+      segments: [{ type: 'text', data: { text: '修改后的第一条' } }],
+    }),
+  );
+  assert.equal(
+    await store.updateBottle('missing', {
+      senderId: 10005,
+      source: { scene: 'group', peerId: 20005 },
+      segments: [{ type: 'text', data: { text: '不存在' } }],
+    }),
+    undefined,
+  );
 
   assert.equal(await store.count(), 2);
   assert.deepEqual(
@@ -142,10 +169,11 @@ test('漂流瓶会持久化，并可选择捡取后是否删除', async (t) => {
     [firstBottle.id],
   );
   const bottle = await reloadedStore.pick(false, 0);
-  assert.equal(bottle?.senderId, 10001);
-  assert.equal(bottle?.displayName, '海风');
+  assert.equal(bottle?.senderId, 10005);
+  assert.equal(bottle?.displayName, '新署名');
+  assert.deepEqual(bottle?.segments, [{ type: 'text', data: { text: '修改后的第一条' } }]);
   assert.equal(await reloadedStore.count(), 1);
-  assert.equal((await reloadedStore.pick(true, 0))?.senderId, 10001);
+  assert.equal((await reloadedStore.pick(true, 0))?.senderId, 10005);
   assert.equal(await reloadedStore.count(), 0);
   assert.equal(await reloadedStore.hasBottle(firstBottle.id), true);
   assert.equal(await reloadedStore.deleteBottle(secondBottle.id), true);

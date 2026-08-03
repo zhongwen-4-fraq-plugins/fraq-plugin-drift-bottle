@@ -118,6 +118,33 @@ export class BottleStore {
     return row ? toBottle(row) : undefined;
   }
 
+  async updateBottle(id: string, input: NewDriftBottle): Promise<DriftBottle | undefined> {
+    return this.database.transaction().execute(async (transaction) => {
+      const exists = await transaction.selectFrom('bottles').select('id').where('id', '=', id).executeTakeFirst();
+      if (!exists) return undefined;
+
+      await transaction
+        .updateTable('bottles')
+        .set({
+          sender_id: input.senderId,
+          display_name: input.displayName ?? null,
+          source_scene: input.source.scene,
+          source_peer_id: input.source.peerId,
+          segments: JSON.stringify(input.segments),
+        })
+        .where('id', '=', id)
+        .execute();
+
+      await transaction
+        .updateTable('bottle_threads')
+        .set({ sender_id: input.senderId, display_name: input.displayName ?? null })
+        .where('id', '=', id)
+        .execute();
+      const row = await transaction.selectFrom('bottles').selectAll().where('id', '=', id).executeTakeFirstOrThrow();
+      return toBottle(row);
+    });
+  }
+
   async deleteBottle(id: string): Promise<boolean> {
     return this.database.transaction().execute(async (transaction) => {
       await transaction.deleteFrom('bottle_comments').where('bottle_id', '=', id).execute();

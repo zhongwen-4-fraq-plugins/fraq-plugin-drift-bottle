@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { type FormEvent, Fragment, useEffect, useRef, useState } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -54,6 +54,7 @@ interface BottleItem {
   commentCount: number;
   senderId: number;
   displayName?: string;
+  editableText?: string;
   content: ContentSummary;
   source: {
     scene: string;
@@ -105,6 +106,12 @@ interface BottleListProps {
 interface PendingReviewListProps extends BottleListProps {
   canModerate: boolean;
 }
+
+interface AllBottleListProps extends BottleListProps {
+  canManage: boolean;
+}
+
+type BottleEditorState = { mode: 'create' } | { mode: 'edit'; item: BottleItem } | { mode: 'delete'; item: BottleItem };
 
 const dateTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
   year: 'numeric',
@@ -401,12 +408,26 @@ function IconActionButton({
   );
 }
 
-export function AllBottleList({ onSessionExpired }: BottleListProps) {
+export function AllBottleList({ canManage, onSessionExpired }: AllBottleListProps) {
   const list = useListPage<BottleItem>('api/bottles', onSessionExpired);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
   const [commentsByBottle, setCommentsByBottle] = useState<Record<string, BottleCommentsState>>({});
   const [imageViewer, setImageViewer] = useState<BottleImageViewerState>();
+  const [editor, setEditor] = useState<BottleEditorState>();
+  const [notice, setNotice] = useState('');
   const forwardExpansion = useForwardExpansion();
+
+  function finishMutation(action: 'create' | 'edit' | 'delete') {
+    setEditor(undefined);
+    setNotice(action === 'create' ? '漂流瓶已新增' : action === 'edit' ? '漂流瓶已修改' : '漂流瓶已删除');
+    if (action === 'create' && list.page !== 1) {
+      list.setPage(1);
+    } else if (action === 'delete' && list.data?.items.length === 1 && list.page > 1) {
+      list.setPage(list.page - 1);
+    } else {
+      list.retry();
+    }
+  }
 
   async function loadComments(id: string) {
     setCommentsByBottle((current) => ({ ...current, [id]: { ...current[id], error: undefined, loading: true } }));
@@ -477,6 +498,47 @@ export function AllBottleList({ onSessionExpired }: BottleListProps) {
         description="浏览目前仍在海面上的全部漂流瓶。"
         emptyTitle="海面上还没有漂流瓶"
         emptyDescription="用户投递的漂流瓶会自动出现在这里。"
+        headerActions={
+          canManage ? (
+            <button
+              type="button"
+              className="bottle-create-button"
+              aria-expanded={editor?.mode === 'create'}
+              aria-controls="bottle-editor-panel"
+              onClick={() => {
+                setNotice('');
+                setEditor(editor?.mode === 'create' ? undefined : { mode: 'create' });
+              }}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              新增瓶子
+            </button>
+          ) : undefined
+        }
+        beforeList={
+          canManage ? (
+            <>
+              {notice ? <BottleOperationNotice message={notice} onDismiss={() => setNotice('')} /> : null}
+              {editor?.mode === 'delete' ? (
+                <BottleDeletePanel
+                  item={editor.item}
+                  onCancel={() => setEditor(undefined)}
+                  onDeleted={() => finishMutation('delete')}
+                  onSessionExpired={onSessionExpired}
+                />
+              ) : editor ? (
+                <BottleEditorPanel
+                  item={editor.mode === 'edit' ? editor.item : undefined}
+                  onCancel={() => setEditor(undefined)}
+                  onSaved={() => finishMutation(editor.mode)}
+                  onSessionExpired={onSessionExpired}
+                />
+              ) : null}
+            </>
+          ) : undefined
+        }
         {...list}
       >
         {(data) => (
@@ -490,6 +552,7 @@ export function AllBottleList({ onSessionExpired }: BottleListProps) {
                   <col className="bottle-column-source" />
                   <col className="bottle-column-types" />
                   <col className="bottle-column-content" />
+                  {canManage ? <col className="bottle-column-actions" /> : null}
                 </colgroup>
                 <thead>
                   <tr>
@@ -498,6 +561,11 @@ export function AllBottleList({ onSessionExpired }: BottleListProps) {
                     <th scope="col">来源</th>
                     <th scope="col">消息段类型</th>
                     <th scope="col">内容</th>
+                    {canManage ? (
+                      <th scope="col" className="bottle-actions-heading">
+                        操作
+                      </th>
+                    ) : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -537,10 +605,25 @@ export function AllBottleList({ onSessionExpired }: BottleListProps) {
                               ) : null}
                             </div>
                           </td>
+                          {canManage ? (
+                            <td className="bottle-actions-cell">
+                              <BottleRowActions
+                                item={item}
+                                onDelete={() => {
+                                  setNotice('');
+                                  setEditor({ mode: 'delete', item });
+                                }}
+                                onEdit={() => {
+                                  setNotice('');
+                                  setEditor({ mode: 'edit', item });
+                                }}
+                              />
+                            </td>
+                          ) : null}
                         </tr>
                         {item.commentCount > 0 ? (
                           <tr className="bottle-comments-row">
-                            <td colSpan={5}>
+                            <td colSpan={canManage ? 6 : 5}>
                               <BottleCommentsPanel
                                 id={`bottle-comments-desktop-${item.id}`}
                                 open={open}
@@ -613,6 +696,19 @@ export function AllBottleList({ onSessionExpired }: BottleListProps) {
                       />
                     </>
                   ) : null}
+                  {canManage ? (
+                    <BottleRowActions
+                      item={item}
+                      onDelete={() => {
+                        setNotice('');
+                        setEditor({ mode: 'delete', item });
+                      }}
+                      onEdit={() => {
+                        setNotice('');
+                        setEditor({ mode: 'edit', item });
+                      }}
+                    />
+                  ) : null}
                 </li>
               ))}
             </ol>
@@ -632,6 +728,285 @@ export function AllBottleList({ onSessionExpired }: BottleListProps) {
         />
       ) : null}
     </>
+  );
+}
+
+function BottleEditorPanel({
+  item,
+  onCancel,
+  onSaved,
+  onSessionExpired,
+}: {
+  item?: BottleItem;
+  onCancel: () => void;
+  onSaved: () => void;
+  onSessionExpired: () => void;
+}) {
+  const [senderId, setSenderId] = useState(item ? String(item.senderId) : '');
+  const [displayName, setDisplayName] = useState(item?.displayName ?? '');
+  const [scene, setScene] = useState(item?.source.scene ?? 'group');
+  const [peerId, setPeerId] = useState(item ? String(item.source.peerId) : '');
+  const [content, setContent] = useState(item?.editableText ?? '');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const senderInputRef = useRef<HTMLInputElement>(null);
+  const contentEditable = !item || item.editableText !== undefined;
+
+  useEffect(() => senderInputRef.current?.focus(), []);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitting(true);
+    setError('');
+    try {
+      const response = await fetch(webuiUrl(item ? `api/bottles/${encodeURIComponent(item.id)}` : 'api/bottles'), {
+        method: item ? 'PUT' : 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          senderId: Number(senderId),
+          displayName,
+          scene,
+          peerId: Number(peerId),
+          ...(contentEditable ? { content } : {}),
+        }),
+      });
+      if (response.status === 401) {
+        onSessionExpired();
+        return;
+      }
+      const result = (await response.json().catch(() => undefined)) as { error?: string } | undefined;
+      if (!response.ok) {
+        setError(result?.error ?? '保存失败，请稍后重试');
+        return;
+      }
+      onSaved();
+    } catch {
+      setError('网络连接异常，请稍后重试');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <section id="bottle-editor-panel" className="bottle-editor-panel" aria-labelledby="bottle-editor-title">
+      <div className="bottle-editor-heading">
+        <div>
+          <h2 id="bottle-editor-title">{item ? '修改漂流瓶' : '新增漂流瓶'}</h2>
+          {item ? <span className="record-id">#{shortId(item.id)}</span> : null}
+        </div>
+        {!contentEditable ? <span className="bottle-editor-state">非文本内容保持不变</span> : null}
+      </div>
+      <form className="bottle-editor-form" aria-busy={submitting} onSubmit={(event) => void submit(event)}>
+        <label>
+          <span>发送者 QQ</span>
+          <input
+            ref={senderInputRef}
+            value={senderId}
+            inputMode="numeric"
+            pattern="[1-9][0-9]{4,11}"
+            maxLength={12}
+            required
+            disabled={submitting}
+            onChange={(event) => setSenderId(event.target.value.replace(/\D/g, ''))}
+          />
+        </label>
+        <label>
+          <span>显示名称</span>
+          <input
+            value={displayName}
+            maxLength={50}
+            disabled={submitting}
+            onChange={(event) => setDisplayName(event.target.value)}
+          />
+        </label>
+        <label>
+          <span>会话类型</span>
+          <select value={scene} disabled={submitting} onChange={(event) => setScene(event.target.value)}>
+            <option value="group">群聊</option>
+            <option value="friend">私聊</option>
+            <option value="temp">临时会话</option>
+          </select>
+        </label>
+        <label>
+          <span>来源 ID</span>
+          <input
+            value={peerId}
+            inputMode="numeric"
+            pattern="[1-9][0-9]*"
+            required
+            disabled={submitting}
+            onChange={(event) => setPeerId(event.target.value.replace(/\D/g, ''))}
+          />
+        </label>
+        {contentEditable ? (
+          <label className="bottle-editor-content">
+            <span>内容</span>
+            <textarea
+              value={content}
+              rows={4}
+              maxLength={500}
+              required
+              disabled={submitting}
+              onChange={(event) => setContent(event.target.value)}
+            />
+            <small>{[...content].length} / 500</small>
+          </label>
+        ) : null}
+        <div className="bottle-editor-footer">
+          <div className="bottle-editor-buttons">
+            <button type="submit" className="bottle-primary-button" disabled={submitting}>
+              {submitting ? '正在保存…' : item ? '保存修改' : '新增瓶子'}
+            </button>
+            <button type="button" className="bottle-secondary-button" disabled={submitting} onClick={onCancel}>
+              取消
+            </button>
+          </div>
+          {error ? (
+            <p className="bottle-editor-error" role="alert">
+              {error}
+            </p>
+          ) : null}
+        </div>
+      </form>
+    </section>
+  );
+}
+
+function BottleDeletePanel({
+  item,
+  onCancel,
+  onDeleted,
+  onSessionExpired,
+}: {
+  item: BottleItem;
+  onCancel: () => void;
+  onDeleted: () => void;
+  onSessionExpired: () => void;
+}) {
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const confirmRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => confirmRef.current?.focus(), []);
+
+  async function remove() {
+    setSubmitting(true);
+    setError('');
+    try {
+      const response = await fetch(webuiUrl(`api/bottles/${encodeURIComponent(item.id)}`), {
+        method: 'DELETE',
+        credentials: 'same-origin',
+      });
+      if (response.status === 401) {
+        onSessionExpired();
+        return;
+      }
+      if (!response.ok) {
+        const result = (await response.json().catch(() => undefined)) as { error?: string } | undefined;
+        setError(result?.error ?? '删除失败，请稍后重试');
+        return;
+      }
+      onDeleted();
+    } catch {
+      setError('网络连接异常，请稍后重试');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <section id="bottle-editor-panel" className="bottle-delete-panel" aria-labelledby="bottle-delete-title">
+      <div className="bottle-delete-copy">
+        <h2 id="bottle-delete-title">删除漂流瓶？</h2>
+        <p>
+          <span className="record-id">#{shortId(item.id)}</span>
+          <span className="bottle-delete-preview">{item.content.preview}</span>
+        </p>
+      </div>
+      <div className="bottle-delete-actions" aria-busy={submitting}>
+        <button
+          ref={confirmRef}
+          type="button"
+          className="bottle-danger-button"
+          disabled={submitting}
+          onClick={() => void remove()}
+        >
+          {submitting ? '正在删除…' : '确认删除'}
+        </button>
+        <button type="button" className="bottle-secondary-button" disabled={submitting} onClick={onCancel}>
+          取消
+        </button>
+      </div>
+      {error ? (
+        <p className="bottle-editor-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function BottleRowActions({ item, onEdit, onDelete }: { item: BottleItem; onEdit: () => void; onDelete: () => void }) {
+  return (
+    <div className="bottle-row-actions" aria-label={`瓶子 ${shortId(item.id)} 的操作`}>
+      <BottleIconAction action="edit" label="修改漂流瓶" onClick={onEdit} />
+      <BottleIconAction action="delete" label="删除漂流瓶" onClick={onDelete} />
+    </div>
+  );
+}
+
+function BottleIconAction({
+  action,
+  label,
+  onClick,
+}: {
+  action: 'edit' | 'delete';
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <span className="bottle-icon-action">
+      <button
+        type="button"
+        className={`bottle-icon-button bottle-icon-button--${action}`}
+        aria-label={label}
+        onClick={onClick}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          {action === 'edit' ? (
+            <>
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" />
+            </>
+          ) : (
+            <>
+              <path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13" />
+              <path d="M10 11v5M14 11v5" />
+            </>
+          )}
+        </svg>
+      </button>
+      <span className="bottle-action-tooltip" role="tooltip">
+        {label}
+      </span>
+    </span>
+  );
+}
+
+function BottleOperationNotice({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  return (
+    <div className="bottle-operation-notice" role="status" aria-live="polite">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m5 12.5 4.25 4.25L19 7" />
+      </svg>
+      <span>{message}</span>
+      <button type="button" aria-label="关闭操作提示" onClick={onDismiss}>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M7 7l10 10M17 7 7 17" />
+        </svg>
+      </button>
+    </div>
   );
 }
 
@@ -824,6 +1199,8 @@ interface ListPageFrameProps<T> extends ReturnType<typeof useListPage<T>> {
   description: string;
   emptyTitle: string;
   emptyDescription: string;
+  headerActions?: React.ReactNode;
+  beforeList?: React.ReactNode;
   children: (data: ListPage<T>) => React.ReactNode;
 }
 
@@ -832,6 +1209,8 @@ export function ListPageFrame<T>({
   description,
   emptyTitle,
   emptyDescription,
+  headerActions,
+  beforeList,
   data,
   error,
   loading,
@@ -847,10 +1226,15 @@ export function ListPageFrame<T>({
           <h1>{title}</h1>
           <p>{description}</p>
         </div>
-        <span className="list-total" aria-live="polite">
-          共 {data?.total ?? '—'} 条
-        </span>
+        <div className="list-page-header-actions">
+          <span className="list-total" aria-live="polite">
+            共 {data?.total ?? '—'} 条
+          </span>
+          {headerActions}
+        </div>
       </header>
+
+      {beforeList}
 
       <section className="list-surface" aria-label={`${title}列表`}>
         {loading && !data ? <ListSkeleton /> : null}

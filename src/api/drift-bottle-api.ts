@@ -6,8 +6,10 @@ import type {
   BottleOperationRecord,
   BottleSegment,
   BottleSignature,
+  BottleUpdateInput,
   DriftBottle,
   NewDriftBottle,
+  UpdateBottleResult,
 } from '../models/index.js';
 import type {
   ApproveModerationRecordResult,
@@ -368,10 +370,25 @@ export class DriftBottleApi {
     return this.store.operationRecords(limit);
   }
 
-  async add(input: NewDriftBottle): Promise<DriftBottle> {
+  async add(input: NewDriftBottle, actorId = input.senderId): Promise<DriftBottle> {
     const bottle = await this.store.add(input);
-    await this.store.addOperationRecord({ action: 'bottle-created', actorId: input.senderId, bottleId: bottle.id });
+    await this.store.addOperationRecord({ action: 'bottle-created', actorId, bottleId: bottle.id });
     return bottle;
+  }
+
+  async updateBottle(id: string, input: BottleUpdateInput, actorId?: number): Promise<UpdateBottleResult> {
+    const current = await this.store.bottle(id);
+    if (!current) return { status: 'not-found' };
+
+    let segments = current.segments as BottleSegment[];
+    if (input.content !== undefined) {
+      if (segments.length !== 1 || segments[0]?.type !== 'text') return { status: 'content-read-only' };
+      segments = [{ type: 'text', data: { text: input.content } }];
+    }
+    const bottle = await this.store.updateBottle(id, { ...input, segments });
+    if (!bottle) return { status: 'not-found' };
+    await this.store.addOperationRecord({ action: 'bottle-updated', actorId, bottleId: id });
+    return { status: 'updated', bottle };
   }
 
   count(): Promise<number> {
