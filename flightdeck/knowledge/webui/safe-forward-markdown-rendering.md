@@ -11,4 +11,6 @@ The React renderer must keep raw HTML disabled. Links should accept only explici
 
 Nested forwards need a fixed recursion limit and a readable text fallback after the limit. When forwarded content includes tables or code, constrain horizontal scrolling to the table or code block itself. The surrounding prose must remain width-constrained and wrap at narrow mobile widths.
 
+When the list previews only the first few top-level messages, slice the persisted structured message array before Markdown serialization. Do not split the rendered Markdown on horizontal-rule text because nested forwards and user-authored Markdown can contain the same delimiter. Return the preview Markdown, full Markdown and top-level message count together; desktop and mobile views should share the same expansion key for each record and segment.
+
 If a stored forward has no `messages` detail, preserve the compact `[合并转发：标题]` fallback instead of rendering an empty Markdown region.

@@ -982,11 +982,11 @@ textarea {
   background: var(--color-surface);
 }
 
-.content-forward-markdown > :first-child {
+.content-forward-markdown-body > :first-child {
   margin-block-start: 0;
 }
 
-.content-forward-markdown > :last-child {
+.content-forward-markdown-body > :last-child {
   margin-block-end: 0;
 }
 
@@ -996,6 +996,7 @@ textarea {
 .content-forward-markdown h6 {
   overflow-wrap: anywhere;
   color: var(--color-ink);
+  font-weight: 600;
   letter-spacing: 0;
 }
 
@@ -1051,7 +1052,7 @@ textarea {
   border-radius: 0.25rem;
   padding: 0.1em 0.3em;
   background: var(--color-background);
-  font-size: 0.875em;
+  font-size: 1em;
 }
 
 .content-forward-markdown pre {
@@ -1091,6 +1092,47 @@ textarea {
 .content-markdown-image {
   color: var(--color-muted);
   font-weight: 600;
+}
+
+.content-forward-toggle {
+  display: flex;
+  width: 100%;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2xs);
+  margin-block-start: var(--space-xs);
+  border: 0;
+  border-block-start: 0.0625rem solid var(--color-border);
+  padding: var(--space-xs) var(--space-sm);
+  background: transparent;
+  color: var(--color-primary);
+  font: inherit;
+  font-size: var(--text-meta);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 160ms cubic-bezier(0.25, 1, 0.5, 1),
+    color 160ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.content-forward-toggle svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.75;
+  transition: transform 180ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.content-forward-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.content-forward-toggle:active {
+  color: var(--color-primary-hover);
 }
 
 .content-qq-face {
@@ -2801,6 +2843,11 @@ textarea {
     color: var(--color-primary-hover);
   }
 
+  .content-forward-toggle:hover {
+    background: var(--color-background);
+    color: var(--color-primary-hover);
+  }
+
   .bottle-comments-error button:hover {
     background: oklch(0.95 0.025 28);
   }
@@ -3030,6 +3077,10 @@ textarea {
     min-height: 2.75rem;
   }
 
+  .content-forward-toggle {
+    min-height: 2.75rem;
+  }
+
   .settings-field > input,
   .settings-field > select,
   .settings-password-control,
@@ -3064,6 +3115,7 @@ textarea {
   }
 
   .content-image-button,
+  .content-forward-toggle,
   .bottle-image-dialog,
   .bottle-image-dialog header button,
   .bottle-image-dialog-error button {
@@ -3124,7 +3176,9 @@ textarea {
   .bottle-comments-toggle,
   .bottle-comments-toggle svg,
   .bottle-comments-collapse,
-  .content-image-button {
+  .content-image-button,
+  .content-forward-toggle,
+  .content-forward-toggle svg {
     transition: none;
   }
 

@@ -17,6 +17,13 @@ interface ContentPart {
   faceId?: string;
   imageSegmentIndex?: number;
   forwardMarkdown?: string;
+  forwardPreviewMarkdown?: string;
+  forwardMessageCount?: number;
+}
+
+interface ForwardExpansion {
+  expandedKeys: ReadonlySet<string>;
+  toggle: (key: string) => void;
 }
 
 interface PendingReviewItem {
@@ -106,6 +113,7 @@ const dateTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
 export function PendingReviewList({ canModerate, onSessionExpired }: PendingReviewListProps) {
   const list = useListPage<PendingReviewItem>('api/reviews/pending', onSessionExpired);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => new Set());
+  const forwardExpansion = useForwardExpansion();
 
   async function submitReview(id: string, action: 'approve' | 'reject', reason?: string): Promise<string | undefined> {
     const response = await fetch(webuiUrl(`api/reviews/${encodeURIComponent(id)}/${action}`), {
@@ -159,7 +167,12 @@ export function PendingReviewList({ canModerate, onSessionExpired }: PendingRevi
                   .map((item) => (
                     <tr key={item.id}>
                       <td>
-                        <ContentSummaryView content={item.content} />
+                        <ContentSummaryView
+                          content={item.content}
+                          contentId={item.id}
+                          view="desktop"
+                          forwardExpansion={forwardExpansion}
+                        />
                         {item.bottleDraft ? <ReviewBottleContext draft={item.bottleDraft} /> : null}
                       </td>
                       <td>
@@ -194,7 +207,12 @@ export function PendingReviewList({ canModerate, onSessionExpired }: PendingRevi
                     <span className="record-id">#{shortId(item.id)}</span>
                     <ReviewStatus status={item.status} />
                   </div>
-                  <ContentSummaryView content={item.content} />
+                  <ContentSummaryView
+                    content={item.content}
+                    contentId={item.id}
+                    view="mobile"
+                    forwardExpansion={forwardExpansion}
+                  />
                   <div className="review-reason">
                     <span>{item.reason}</span>
                     {item.categories.length ? <small>{item.categories.join(' · ')}</small> : null}
@@ -383,6 +401,7 @@ export function AllBottleList({ onSessionExpired }: BottleListProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
   const [commentsByBottle, setCommentsByBottle] = useState<Record<string, BottleCommentsState>>({});
   const [imageViewer, setImageViewer] = useState<BottleImageViewerState>();
+  const forwardExpansion = useForwardExpansion();
 
   async function loadComments(id: string) {
     setCommentsByBottle((current) => ({ ...current, [id]: { ...current[id], error: undefined, loading: true } }));
@@ -498,6 +517,9 @@ export function AllBottleList({ onSessionExpired }: BottleListProps) {
                             <div className="bottle-content-cell">
                               <ContentPreview
                                 content={item.content}
+                                contentId={item.id}
+                                view="desktop"
+                                forwardExpansion={forwardExpansion}
                                 onImageClick={(segmentIndex) => void loadBottleImage(item.id, segmentIndex)}
                               />
                               {item.commentCount > 0 ? (
@@ -562,6 +584,9 @@ export function AllBottleList({ onSessionExpired }: BottleListProps) {
                       <dd>
                         <ContentPreview
                           content={item.content}
+                          contentId={item.id}
+                          view="mobile"
+                          forwardExpansion={forwardExpansion}
                           onImageClick={(segmentIndex) => void loadBottleImage(item.id, segmentIndex)}
                         />
                       </dd>
@@ -907,10 +932,20 @@ export function useListPage<T>(endpoint: string, onSessionExpired: () => void) {
   return { data, error, loading, page, setPage, retry: () => setRevision((value) => value + 1) };
 }
 
-function ContentSummaryView({ content }: { content: ContentSummary }) {
+function ContentSummaryView({
+  content,
+  contentId,
+  view,
+  forwardExpansion,
+}: {
+  content: ContentSummary;
+  contentId: string;
+  view: 'desktop' | 'mobile';
+  forwardExpansion: ForwardExpansion;
+}) {
   return (
     <div className="content-summary">
-      <ContentPreview content={content} />
+      <ContentPreview content={content} contentId={contentId} view={view} forwardExpansion={forwardExpansion} />
       <ContentTypeTags kinds={content.kinds} />
     </div>
   );
@@ -918,9 +953,15 @@ function ContentSummaryView({ content }: { content: ContentSummary }) {
 
 function ContentPreview({
   content,
+  contentId,
+  view,
+  forwardExpansion,
   onImageClick,
 }: {
   content: ContentSummary;
+  contentId: string;
+  view: 'desktop' | 'mobile';
+  forwardExpansion: ForwardExpansion;
   onImageClick?: (segmentIndex: number) => void;
 }) {
   const parts = content.parts.length ? content.parts : [{ segmentIndex: 0, text: content.preview }];
@@ -930,7 +971,14 @@ function ContentPreview({
         <Fragment key={part.segmentIndex}>
           {index > 0 ? ' ' : null}
           {part.forwardMarkdown ? (
-            <ForwardMarkdown markdown={part.forwardMarkdown} />
+            <ForwardMarkdown
+              markdown={part.forwardMarkdown}
+              previewMarkdown={part.forwardPreviewMarkdown}
+              messageCount={part.forwardMessageCount ?? 0}
+              expanded={forwardExpansion.expandedKeys.has(`${contentId}:${part.segmentIndex}`)}
+              panelId={`forward-messages-${view}-${contentId}-${part.segmentIndex}`}
+              onToggle={() => forwardExpansion.toggle(`${contentId}:${part.segmentIndex}`)}
+            />
           ) : part.imageSegmentIndex !== undefined && onImageClick ? (
             <button
               type="button"
@@ -950,35 +998,80 @@ function ContentPreview({
   );
 }
 
-function ForwardMarkdown({ markdown }: { markdown: string }) {
+function ForwardMarkdown({
+  markdown,
+  previewMarkdown,
+  messageCount,
+  expanded,
+  panelId,
+  onToggle,
+}: {
+  markdown: string;
+  previewMarkdown?: string;
+  messageCount: number;
+  expanded: boolean;
+  panelId: string;
+  onToggle: () => void;
+}) {
+  const expandable = Boolean(previewMarkdown) && messageCount > 4;
   return (
     <div className="content-forward-markdown">
-      <Markdown
-        remarkPlugins={[remarkGfm]}
-        skipHtml
-        components={{
-          a: ({ href, children }) => {
-            const safeHref = href && /^https?:\/\//i.test(href) ? href : undefined;
-            return safeHref ? (
-              <a href={safeHref} target="_blank" rel="noreferrer noopener">
-                {children}
-              </a>
-            ) : (
-              <span>{children}</span>
-            );
-          },
-          img: ({ alt }) => <span className="content-markdown-image">{alt ? `[图片：${alt}]` : '[图片]'}</span>,
-          table: ({ children }) => (
-            <div className="content-markdown-table" role="region" aria-label="转发消息表格" tabIndex={0}>
-              <table>{children}</table>
-            </div>
-          ),
-        }}
-      >
-        {markdown}
-      </Markdown>
+      <div id={panelId} className="content-forward-markdown-body">
+        <Markdown
+          remarkPlugins={[remarkGfm]}
+          skipHtml
+          components={{
+            a: ({ href, children }) => {
+              const safeHref = href && /^https?:\/\//i.test(href) ? href : undefined;
+              return safeHref ? (
+                <a href={safeHref} target="_blank" rel="noreferrer noopener">
+                  {children}
+                </a>
+              ) : (
+                <span>{children}</span>
+              );
+            },
+            img: ({ alt }) => <span className="content-markdown-image">{alt ? `[图片：${alt}]` : '[图片]'}</span>,
+            table: ({ children }) => (
+              <div className="content-markdown-table" role="region" aria-label="转发消息表格" tabIndex={0}>
+                <table>{children}</table>
+              </div>
+            ),
+          }}
+        >
+          {expandable && !expanded ? previewMarkdown : markdown}
+        </Markdown>
+      </div>
+      {expandable ? (
+        <button
+          type="button"
+          className="content-forward-toggle"
+          aria-expanded={expanded}
+          aria-controls={panelId}
+          onClick={onToggle}
+        >
+          <span>{expanded ? '收起合并转发' : `查看全部 ${messageCount} 条消息`}</span>
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="m5 7.5 5 5 5-5" />
+          </svg>
+        </button>
+      ) : null}
     </div>
   );
+}
+
+function useForwardExpansion(): ForwardExpansion {
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => new Set());
+  return {
+    expandedKeys,
+    toggle: (key) =>
+      setExpandedKeys((current) => {
+        const next = new Set(current);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        return next;
+      }),
+  };
 }
 
 function QqFace({ faceId, fallback }: { faceId: string; fallback: string }) {

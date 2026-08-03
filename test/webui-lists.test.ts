@@ -164,8 +164,35 @@ test('WebUI 将合并转发正文转换为 Markdown，并保留无明细时的�
       '| 项目 | 状态 |\n| --- | --- |\n| 测试 | ~~旧~~ **新** |',
     ].join('\n\n'),
   );
+  assert.equal(summary.parts[0]?.forwardPreviewMarkdown, summary.parts[0]?.forwardMarkdown);
+  assert.equal(summary.parts[0]?.forwardMessageCount, 1);
 
   const fallback = summarizeSegments([inseg.forward({ title: '只有摘要' })]);
   assert.equal(fallback.parts[0]?.text, '[合并转发：只有摘要]');
   assert.equal(fallback.parts[0]?.forwardMarkdown, undefined);
+});
+
+test('WebUI 合并转发预览只包含前四条消息', () => {
+  const forward = {
+    type: 'forward',
+    data: {
+      forward_id: 'long-forward',
+      title: '群聊记录',
+      preview: [],
+      summary: '共 5 条消息',
+      messages: Array.from({ length: 5 }, (_, index) => ({
+        message_seq: index + 1,
+        sender_name: `用户 ${index + 1}`,
+        avatar_url: '',
+        time: 1_700_000_000 + index,
+        segments: [{ type: 'text', data: { text: `消息 ${index + 1}` } }],
+      })),
+    },
+  } as BottleSegment;
+
+  const part = summarizeSegments([forward]).parts[0];
+  assert.equal(part?.forwardMessageCount, 5);
+  assert.match(part?.forwardPreviewMarkdown ?? '', /消息 4/);
+  assert.doesNotMatch(part?.forwardPreviewMarkdown ?? '', /消息 5/);
+  assert.match(part?.forwardMarkdown ?? '', /消息 5/);
 });

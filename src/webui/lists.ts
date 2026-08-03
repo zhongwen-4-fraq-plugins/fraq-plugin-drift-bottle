@@ -17,6 +17,8 @@ export interface WebuiContentPart {
   faceId?: string;
   imageSegmentIndex?: number;
   forwardMarkdown?: string;
+  forwardPreviewMarkdown?: string;
+  forwardMessageCount?: number;
 }
 
 export interface WebuiPendingReviewItem {
@@ -200,7 +202,7 @@ export function summarizeSegments(segments: BottleSegment[]): WebuiContentSummar
   const kinds = [...new Set(segments.map((segment) => segmentKind(segment.type)))];
   const parts = segments.flatMap((segment, segmentIndex) => {
     const text = summarizeSegment(segment).replace(/\s+/g, ' ').trim();
-    const forwardMarkdown = segment.type === 'forward' ? createForwardMarkdown(segment) : undefined;
+    const forward = segment.type === 'forward' ? createForwardMarkdown(segment) : undefined;
     return text
       ? [
           {
@@ -208,7 +210,7 @@ export function summarizeSegments(segments: BottleSegment[]): WebuiContentSummar
             text,
             faceId: segment.type === 'face' ? segment.data.face_id : undefined,
             imageSegmentIndex: segment.type === 'image' ? segmentIndex : undefined,
-            ...(forwardMarkdown ? { forwardMarkdown } : {}),
+            ...forward,
           },
         ]
       : [];
@@ -223,10 +225,16 @@ export function summarizeSegments(segments: BottleSegment[]): WebuiContentSummar
 
 const MAX_FORWARD_DEPTH = 2;
 
-function createForwardMarkdown(segment: Extract<BottleSegment, { type: 'forward' }>): string | undefined {
+function createForwardMarkdown(
+  segment: Extract<BottleSegment, { type: 'forward' }>,
+): Pick<WebuiContentPart, 'forwardMarkdown' | 'forwardPreviewMarkdown' | 'forwardMessageCount'> | undefined {
   const messages = forwardedMessages(segment);
   if (!messages?.length) return undefined;
-  return formatForwardMarkdown(segment, messages, 0);
+  return {
+    forwardMarkdown: formatForwardMarkdown(segment, messages, 0),
+    forwardPreviewMarkdown: formatForwardMarkdown(segment, messages.slice(0, 4), 0),
+    forwardMessageCount: messages.length,
+  };
 }
 
 function formatForwardMarkdown(
