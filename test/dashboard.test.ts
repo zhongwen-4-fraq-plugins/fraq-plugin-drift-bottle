@@ -31,8 +31,12 @@ test('主页概览汇总瓶子、待审核、更新日志和完整操作记录',
   await store.addModerationRecord({
     content: [inseg.text('需要人工复核')],
     process: { result: { approved: false, categories: ['profanity'], reason: '需要人工复核' } },
+    inputTokens: 120,
+    outputTokens: 30,
+    totalTokens: 150,
     success: true,
     approved: false,
+    target: 'bottle-content',
   });
   await store.addModerationRecord({
     content: [inseg.text('等待人工审核')],
@@ -46,6 +50,15 @@ test('主页概览汇总瓶子、待审核、更新日志和完整操作记录',
       segments: [inseg.text('等待人工审核')],
     },
   });
+  await store.addModerationRecord({
+    content: [inseg.text('审核服务异常')],
+    process: { error: { name: 'Error', message: '模型暂时不可用' } },
+    inputTokens: 40,
+    outputTokens: 5,
+    totalTokens: 45,
+    success: false,
+    target: 'comment-content',
+  });
 
   const instanceStartedAt = Date.now() - 5000;
   const snapshot = await createDashboardSnapshot(api, instanceStartedAt, {
@@ -54,14 +67,27 @@ test('主页概览汇总瓶子、待审核、更新日志和完整操作记录',
   });
 
   assert.equal(snapshot.instanceStartedAt, instanceStartedAt);
-  assert.deepEqual(snapshot.counts, { totalBottles: 1, pendingReview: 1 });
+  assert.deepEqual(snapshot.counts, { totalBottles: 1, pendingReview: 2 });
   assert.deepEqual(snapshot.runtime, {
     fraqVersion: '0.14.0',
     protocolEndpoint: { name: 'Lagrange.Core', version: '1.2.3' },
   });
   assert.equal(snapshot.changelog[0]?.version, '0.3.21');
   assert.ok(snapshot.operations.some((operation) => operation.title === '投递漂流瓶'));
-  assert.ok(snapshot.operations.some((operation) => operation.title === 'AI 审核未通过'));
+  assert.ok(
+    snapshot.operations.some(
+      (operation) =>
+        operation.title === 'AI 审核未通过' &&
+        operation.detail === '名称：瓶子内容，输入 Token：120，输出 Token：30，总 Token：150 · 需要人工复核',
+    ),
+  );
+  assert.ok(
+    snapshot.operations.some(
+      (operation) =>
+        operation.title === 'AI 审核执行失败' &&
+        operation.detail === '名称：评论内容，输入 Token：40，输出 Token：5，总 Token：45 · 模型暂时不可用',
+    ),
+  );
   assert.ok(
     snapshot.operations.some(
       (operation) => operation.title === '提交漂流瓶审核' && operation.detail === 'QQ 10002 · 等待人工审核',

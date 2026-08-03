@@ -36,8 +36,14 @@ export interface NewDriftBottle {
   segments: BottleSegment[];
 }
 
+export interface BottleTextSegmentUpdate {
+  segmentIndex: number;
+  text: string;
+}
+
 export type BottleUpdateInput = Pick<NewDriftBottle, 'senderId' | 'displayName' | 'source'> & {
   content?: string;
+  textSegments?: BottleTextSegmentUpdate[];
 };
 
 export type UpdateBottleResult =

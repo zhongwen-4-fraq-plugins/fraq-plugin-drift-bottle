@@ -147,7 +147,7 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
           senderId: input.senderId,
           displayName: input.displayName,
           source: input.source,
-          segments: [{ type: 'text', data: { text: input.content ?? '原内容' } }],
+          segments: [{ type: 'text', data: { text: input.content ?? input.textSegments?.[0]?.text ?? '原内容' } }],
         },
       };
     },
@@ -558,6 +558,51 @@ test('WebUI 通过 Hono 服务挂载页面、静态资源和前端路由', async
       },
     },
   ]);
+  const updatedMixedBottle = await hono.app.request('http://localhost/manage/drift-bottle/api/bottles/mixed', {
+    method: 'PUT',
+    headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      senderId: 54321,
+      scene: 'group',
+      peerId: 20001,
+      textSegments: [
+        { segmentIndex: 0, text: ' 第一段 ' },
+        { segmentIndex: 2, text: ' 第二段 ' },
+      ],
+    }),
+  });
+  assert.equal(updatedMixedBottle.status, 200);
+  assert.deepEqual(updatedBottles[1], {
+    actorId: 123456789,
+    id: 'mixed',
+    input: {
+      senderId: 54321,
+      displayName: undefined,
+      source: { scene: 'group', peerId: 20001 },
+      textSegments: [
+        { segmentIndex: 0, text: '第一段' },
+        { segmentIndex: 2, text: '第二段' },
+      ],
+    },
+  });
+  assert.equal(
+    (
+      await hono.app.request('http://localhost/manage/drift-bottle/api/bottles/mixed', {
+        method: 'PUT',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          senderId: 54321,
+          scene: 'group',
+          peerId: 20001,
+          textSegments: [
+            { segmentIndex: 0, text: '第一段' },
+            { segmentIndex: 0, text: '重复索引' },
+          ],
+        }),
+      })
+    ).status,
+    400,
+  );
   assert.equal(
     (
       await hono.app.request('http://localhost/manage/drift-bottle/api/bottles/readonly', {

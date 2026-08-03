@@ -29,7 +29,10 @@ test('WebUI 列表按页返回漂流瓶和待审核摘要', async (t) => {
       senderId: 10_000 + index,
       displayName: index === 20 ? '海风' : undefined,
       source: { scene: index === 20 ? 'friend' : 'group', peerId: 20_000 + index },
-      segments: [inseg.text(`漂流瓶 ${index}`)],
+      segments:
+        index === 19
+          ? [inseg.text(`漂流瓶 ${index}`), inseg.image({ summary: '海边照片' }), inseg.text('照片说明')]
+          : [inseg.text(`漂流瓶 ${index}`)],
     });
     if (index === 20) {
       await store.addComment({ bottleId: bottle.id, senderId: 30001, displayName: '浪花', content: '第一条评论' });
@@ -74,8 +77,14 @@ test('WebUI 列表按页返回漂流瓶和待审核摘要', async (t) => {
   assert.equal(firstBottlePage.items[0]?.displayName, '海风');
   assert.equal(firstBottlePage.items[0]?.content.preview, '漂流瓶 20');
   assert.equal(firstBottlePage.items[0]?.editableText, '漂流瓶 20');
+  assert.deepEqual(firstBottlePage.items[0]?.editableTextSegments, [{ segmentIndex: 0, text: '漂流瓶 20' }]);
   assert.equal(firstBottlePage.items[0]?.commentCount, 1);
   assert.equal(firstBottlePage.items[1]?.commentCount, 0);
+  assert.equal(firstBottlePage.items[1]?.editableText, undefined);
+  assert.deepEqual(firstBottlePage.items[1]?.editableTextSegments, [
+    { segmentIndex: 0, text: '漂流瓶 19' },
+    { segmentIndex: 2, text: '照片说明' },
+  ]);
   const lastBottlePage = await createBottleListPage(api, 99);
   assert.equal(lastBottlePage.page, 2);
   assert.equal(lastBottlePage.items.length, 1);

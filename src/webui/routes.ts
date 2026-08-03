@@ -285,7 +285,7 @@ export function registerWebuiRoutes(service: Pick<HonoService, 'app'>, options: 
       return context.json({ status: result.status }, 200, { 'Cache-Control': 'no-store' });
     }
     if (result.status === 'content-read-only') {
-      return context.json({ error: '含非文本消息段的漂流瓶不能修改正文' }, 409, { 'Cache-Control': 'no-store' });
+      return context.json({ error: '漂流瓶内容已发生变化，请刷新后重试' }, 409, { 'Cache-Control': 'no-store' });
     }
     return context.json({ error: '没有找到这个漂流瓶' }, 404, { 'Cache-Control': 'no-store' });
   });
@@ -480,14 +480,47 @@ async function readBottleInput(
     return { error: '漂流瓶内容不能为空，且不能超过 500 个字符' };
   }
 
+  const parsedTextSegments = readBottleTextSegments(body);
+  if ('error' in parsedTextSegments) return parsedTextSegments;
+  if (content !== undefined && parsedTextSegments.value !== undefined) {
+    return { error: '不能同时提交正文和文字消息段' };
+  }
+
   return {
     value: {
       senderId,
       displayName: displayName || undefined,
       source: { scene, peerId },
       ...(content === undefined ? {} : { content }),
+      ...(parsedTextSegments.value === undefined ? {} : { textSegments: parsedTextSegments.value }),
     },
   };
+}
+
+function readBottleTextSegments(body: object): { value: BottleUpdateInput['textSegments'] } | { error: string } {
+  if (!('textSegments' in body)) return { value: undefined };
+  if (!Array.isArray(body.textSegments) || body.textSegments.length === 0) {
+    return { error: '请输入有效的文字内容' };
+  }
+
+  const indexes = new Set<number>();
+  const updates: NonNullable<BottleUpdateInput['textSegments']> = [];
+  for (const item of body.textSegments) {
+    if (!item || typeof item !== 'object' || !('segmentIndex' in item) || !('text' in item)) {
+      return { error: '文字内容格式无效' };
+    }
+    const segmentIndex = item.segmentIndex;
+    const rawText = item.text;
+    if (!Number.isSafeInteger(segmentIndex) || (segmentIndex as number) < 0 || indexes.has(segmentIndex as number)) {
+      return { error: '文字消息段索引无效' };
+    }
+    if (typeof rawText !== 'string') return { error: '文字内容格式无效' };
+    const text = rawText.trim();
+    if (!text || [...text].length > 500) return { error: '每段文字不能为空，且不能超过 500 个字符' };
+    indexes.add(segmentIndex as number);
+    updates.push({ segmentIndex: segmentIndex as number, text });
+  }
+  return { value: updates };
 }
 
 function readSettings(body: unknown): { value: EditableWebuiSettings } | { error: string } {

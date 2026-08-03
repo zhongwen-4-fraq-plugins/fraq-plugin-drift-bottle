@@ -2,7 +2,7 @@
 
 ## State
 
-结构校验诊断已发布；v0.3.19 真实宿主在模型调用前下载 QQ 临时媒体时命中瞬时 `AI_DownloadError`，当前实现未按既有约束重试。
+结构校验诊断已发布；未发布改动已让主页 AI 审核操作显示审核对象与输入、输出、总 Token；媒体下载瞬时 `AI_DownloadError` 重试仍待实现。
 
 ## Next
 
@@ -38,12 +38,14 @@ Done:
 
 Current:
 - 待实现 `AI_DownloadError` 单次受限重试并回归真实 QQ 媒体。
+- AI 审核操作明细已实现，等待发布和真实宿主页面回归。
 
 Implemented:
 - 提示词明确限定 `approved`、`categories`、`reason` 三个字段、JSON 类型与允许值。
 - 仅对 `NoObjectGeneratedError` 进行一次受限重试，第二次仍失败时保持 fail-closed。
 - 失败记录保存校验 cause、最多 1000 字符的响应摘要、累计 Token、finish reason、provider warning 与尝试次数。
 - 成功重试会累计两次 Token；普通 provider 错误不会重试。
+- AI 审核通过、未通过和执行失败的操作记录统一显示审核对象名称、输入 Token、输出 Token 与总 Token，未知值显式标注。
 
 Verified:
 - `pnpm check` 成功。
@@ -52,6 +54,7 @@ Verified:
 - SQLite 最新失败记录时间与宿主 `2026/08/01 08:51:37` 堆栈一致。
 - 同一 QQ 临时媒体 URL 的范围请求返回 `206 Partial Content`。
 - 诊断结束后完整 Fraq 进程链已停止，`4649` 端口已释放。
+- AI 操作明细改动通过 `pnpm check`、48 项测试、`pnpm build` 和 Impeccable 0 项扫描。
 
 ## Open questions
 

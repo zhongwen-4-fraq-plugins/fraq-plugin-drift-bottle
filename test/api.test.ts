@@ -111,13 +111,29 @@ test('公开 API 可以修改漂流瓶并记录管理操作', async (t) => {
   const mediaBottle = await api.add({
     senderId: 10003,
     source: { scene: 'group', peerId: 20001 },
-    segments: [inseg.text('图文'), inseg.image({ summary: '图片' })],
+    segments: [inseg.text('图文'), inseg.image({ summary: '图片' }), inseg.text('结尾')],
   });
+  const updatedMediaBottle = await api.updateBottle(mediaBottle.id, {
+    senderId: 10003,
+    source: { scene: 'group', peerId: 20001 },
+    textSegments: [
+      { segmentIndex: 0, text: '新图文' },
+      { segmentIndex: 2, text: '新结尾' },
+    ],
+  });
+  assert.equal(updatedMediaBottle.status, 'updated');
+  if (updatedMediaBottle.status === 'updated') {
+    assert.deepEqual(updatedMediaBottle.bottle.segments, [
+      inseg.text('新图文'),
+      inseg.image({ summary: '图片' }),
+      inseg.text('新结尾'),
+    ]);
+  }
   assert.deepEqual(
     await api.updateBottle(mediaBottle.id, {
       senderId: 10003,
       source: { scene: 'group', peerId: 20001 },
-      content: '不能覆盖图文消息',
+      textSegments: [{ segmentIndex: 0, text: '缺少第二段' }],
     }),
     { status: 'content-read-only' },
   );
@@ -128,7 +144,7 @@ test('公开 API 可以修改漂流瓶并记录管理操作', async (t) => {
     }),
     { status: 'not-found' },
   );
-  assert.equal((await api.operationRecords()).filter(({ action }) => action === 'bottle-updated').length, 1);
+  assert.equal((await api.operationRecords()).filter(({ action }) => action === 'bottle-updated').length, 2);
 });
 
 test('投瓶审核会携带人工投放所需的完整草稿上下文', async (t) => {

@@ -1,6 +1,7 @@
 import type { DriftBottleApi } from '../api/drift-bottle-api.js';
 import type { BottleOperationRecord } from '../models/index.js';
 import type { ModerationRecord } from '../processing/moderation-records.js';
+import { moderationTargetLabel } from './lists.js';
 
 export interface DashboardRelease {
   version: string;
@@ -217,7 +218,7 @@ function formatModerationOperation(record: ModerationRecord): DashboardOperation
       id: `moderation-${record.id}`,
       createdAt: record.createdAt,
       title: 'AI 审核执行失败',
-      detail: record.process.error.message,
+      detail: joinDetail(aiModerationDetail(record), record.process.error.message),
       tone: 'danger',
     };
   }
@@ -227,7 +228,7 @@ function formatModerationOperation(record: ModerationRecord): DashboardOperation
     id: `moderation-${record.id}`,
     createdAt: record.createdAt,
     title: result.approved ? 'AI 审核通过' : 'AI 审核未通过',
-    detail: joinDetail(result.reason || undefined, tokenUsage(record.totalTokens)),
+    detail: joinDetail(aiModerationDetail(record), result.reason || undefined),
     tone: result.approved ? 'success' : 'warning',
   };
 }
@@ -263,8 +264,13 @@ function repeatPickLabel(detail: string | undefined): string | undefined {
   return undefined;
 }
 
-function tokenUsage(totalTokens: number | undefined): string | undefined {
-  return totalTokens === undefined ? undefined : `${totalTokens} Token`;
+function aiModerationDetail(record: ModerationRecord): string {
+  return [
+    `名称：${moderationTargetLabel(record.target)}`,
+    `输入 Token：${record.inputTokens ?? '未知'}`,
+    `输出 Token：${record.outputTokens ?? '未知'}`,
+    `总 Token：${record.totalTokens ?? '未知'}`,
+  ].join('，');
 }
 
 function joinDetail(...parts: (string | undefined)[]): string | undefined {

@@ -55,11 +55,17 @@ interface BottleItem {
   senderId: number;
   displayName?: string;
   editableText?: string;
+  editableTextSegments: EditableTextSegment[];
   content: ContentSummary;
   source: {
     scene: string;
     peerId: number;
   };
+}
+
+interface EditableTextSegment {
+  segmentIndex: number;
+  text: string;
 }
 
 interface BottleComment {
@@ -747,10 +753,14 @@ function BottleEditorPanel({
   const [scene, setScene] = useState(item?.source.scene ?? 'group');
   const [peerId, setPeerId] = useState(item ? String(item.source.peerId) : '');
   const [content, setContent] = useState(item?.editableText ?? '');
+  const [textSegments, setTextSegments] = useState<EditableTextSegment[]>(
+    item?.editableTextSegments ??
+      (item?.editableText === undefined ? [] : [{ segmentIndex: 0, text: item.editableText }]),
+  );
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const senderInputRef = useRef<HTMLInputElement>(null);
-  const contentEditable = !item || item.editableText !== undefined;
+  const hasNonTextContent = item?.content.kinds.some((kind) => kind !== '文字') ?? false;
 
   useEffect(() => senderInputRef.current?.focus(), []);
 
@@ -768,7 +778,7 @@ function BottleEditorPanel({
           displayName,
           scene,
           peerId: Number(peerId),
-          ...(contentEditable ? { content } : {}),
+          ...(item ? (textSegments.length ? { textSegments } : {}) : { content }),
         }),
       });
       if (response.status === 401) {
@@ -795,7 +805,7 @@ function BottleEditorPanel({
           <h2 id="bottle-editor-title">{item ? '修改漂流瓶' : '新增漂流瓶'}</h2>
           {item ? <span className="record-id">#{shortId(item.id)}</span> : null}
         </div>
-        {!contentEditable ? <span className="bottle-editor-state">非文本内容保持不变</span> : null}
+        {item && hasNonTextContent ? <span className="bottle-editor-state">保留非文字消息</span> : null}
       </div>
       <form className="bottle-editor-form" aria-busy={submitting} onSubmit={(event) => void submit(event)}>
         <label>
@@ -839,7 +849,7 @@ function BottleEditorPanel({
             onChange={(event) => setPeerId(event.target.value.replace(/\D/g, ''))}
           />
         </label>
-        {contentEditable ? (
+        {!item ? (
           <label className="bottle-editor-content">
             <span>内容</span>
             <textarea
@@ -852,7 +862,32 @@ function BottleEditorPanel({
             />
             <small>{[...content].length} / 500</small>
           </label>
-        ) : null}
+        ) : textSegments.length ? (
+          <div className="bottle-editor-content-list">
+            {textSegments.map((segment, index) => (
+              <label className="bottle-editor-content" key={segment.segmentIndex}>
+                <span>{textSegments.length === 1 ? '内容' : `文字内容 ${index + 1}`}</span>
+                <textarea
+                  value={segment.text}
+                  rows={4}
+                  maxLength={500}
+                  required
+                  disabled={submitting}
+                  onChange={(event) =>
+                    setTextSegments((current) =>
+                      current.map((entry) =>
+                        entry.segmentIndex === segment.segmentIndex ? { ...entry, text: event.target.value } : entry,
+                      ),
+                    )
+                  }
+                />
+                <small>{[...segment.text].length} / 500</small>
+              </label>
+            ))}
+          </div>
+        ) : (
+          <p className="bottle-editor-empty-content">此漂流瓶没有可修改的文字内容</p>
+        )}
         <div className="bottle-editor-footer">
           <div className="bottle-editor-buttons">
             <button type="submit" className="bottle-primary-button" disabled={submitting}>

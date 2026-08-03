@@ -50,6 +50,7 @@ export interface WebuiBottleListItem {
   senderId: number;
   displayName?: string;
   editableText?: string;
+  editableTextSegments: { segmentIndex: number; text: string }[];
   content: WebuiContentSummary;
   source: {
     scene: string;
@@ -172,7 +173,7 @@ function formatPendingReview(record: ModerationRecord): WebuiPendingReviewItem {
   };
 }
 
-function moderationTargetLabel(target: ModerationRecord['target']): string {
+export function moderationTargetLabel(target: ModerationRecord['target']): string {
   switch (target) {
     case 'bottle-content':
       return '瓶子内容';
@@ -199,6 +200,9 @@ function formatBottle(bottle: DriftBottle, commentCount: number): WebuiBottleLis
     senderId: bottle.senderId,
     displayName: bottle.displayName,
     editableText: textSegment?.data.text,
+    editableTextSegments: bottle.segments.flatMap((segment, segmentIndex) =>
+      segment.type === 'text' ? [{ segmentIndex, text: segment.data.text }] : [],
+    ),
     content: summarizeSegments(bottle.segments as BottleSegment[]),
     source: {
       scene: bottle.source.scene,

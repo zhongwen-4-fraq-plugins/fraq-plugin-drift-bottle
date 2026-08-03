@@ -381,11 +381,32 @@ export class DriftBottleApi {
     if (!current) return { status: 'not-found' };
 
     let segments = current.segments as BottleSegment[];
+    if (input.content !== undefined && input.textSegments !== undefined) return { status: 'content-read-only' };
     if (input.content !== undefined) {
       if (segments.length !== 1 || segments[0]?.type !== 'text') return { status: 'content-read-only' };
       segments = [{ type: 'text', data: { text: input.content } }];
     }
-    const bottle = await this.store.updateBottle(id, { ...input, segments });
+    if (input.textSegments !== undefined) {
+      const currentTextIndexes = segments.flatMap((segment, segmentIndex) =>
+        segment.type === 'text' ? [segmentIndex] : [],
+      );
+      const updateIndexes = input.textSegments.map(({ segmentIndex }) => segmentIndex);
+      if (
+        currentTextIndexes.length !== updateIndexes.length ||
+        currentTextIndexes.some((segmentIndex) => !updateIndexes.includes(segmentIndex))
+      ) {
+        return { status: 'content-read-only' };
+      }
+      const updates = new Map(input.textSegments.map((update) => [update.segmentIndex, update.text]));
+      segments = segments.map((segment, segmentIndex) => {
+        const text = updates.get(segmentIndex);
+        return segment.type === 'text' && text !== undefined
+          ? { ...segment, data: { ...segment.data, text } }
+          : segment;
+      });
+    }
+    const { content: _content, textSegments: _textSegments, ...metadata } = input;
+    const bottle = await this.store.updateBottle(id, { ...metadata, segments });
     if (!bottle) return { status: 'not-found' };
     await this.store.addOperationRecord({ action: 'bottle-updated', actorId, bottleId: id });
     return { status: 'updated', bottle };
