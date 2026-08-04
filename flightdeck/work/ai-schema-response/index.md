@@ -2,7 +2,7 @@
 
 ## State
 
-结构校验诊断已发布；未发布改动已让主页 AI 审核操作显示审核对象与输入、输出、总 Token；媒体下载瞬时 `AI_DownloadError` 重试仍待实现。
+结构校验诊断和 AI 审核操作的对象、输入、输出、总 Token 明细已随 v0.3.23 发布；媒体下载瞬时 `AI_DownloadError` 重试仍待实现。
 
 ## Next
 
@@ -38,7 +38,7 @@ Done:
 
 Current:
 - 待实现 `AI_DownloadError` 单次受限重试并回归真实 QQ 媒体。
-- AI 审核操作明细已实现，等待发布和真实宿主页面回归。
+- AI 审核操作明细已发布，等待真实宿主登录后的页面回归。
 
 Implemented:
 - 提示词明确限定 `approved`、`categories`、`reason` 三个字段、JSON 类型与允许值。
@@ -55,6 +55,7 @@ Verified:
 - 同一 QQ 临时媒体 URL 的范围请求返回 `206 Partial Content`。
 - 诊断结束后完整 Fraq 进程链已停止，`4649` 端口已释放。
 - AI 操作明细改动通过 `pnpm check`、48 项测试、`pnpm build` 和 Impeccable 0 项扫描。
+- AI 操作明细随 v0.3.23 完成 GitHub、npm 与宿主独立端口发布回归。
 
 ## Open questions
 
